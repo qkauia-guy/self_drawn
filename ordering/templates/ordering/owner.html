@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    {% load static %}
+    <title>一把葫管理後台 - 即時訂單</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
+    <link rel="icon" href="{% static 'images/favicon.png' %}" type="image/png">
+    <link rel="shortcut icon" href="{% static 'images/favicon.png' %}" type="image/x-icon">
+    <style>
+        body { background-color: #f0f2f5; font-family: "Microsoft JhengHei", sans-serif; padding-bottom: 50px; }
+        .navbar { background-color: #d63031 !important; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        
+        #audio-unlocker {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(214, 48, 49, 0.95); z-index: 9999;
+            display: flex; flex-direction: column; align-items: center; justify-content: center; color: white;
+        }
+
+        .store-selector-nav { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.3); color: white; border-radius: 8px; padding: 2px 10px; font-weight: bold; }
+
+        .order-card { 
+            border: none; border-radius: 12px; margin-bottom: 12px; 
+            overflow: hidden; border-left: 8px solid #ccc;
+            transition: all 0.2s ease; background: white;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+        
+        .status-pending { border-left-color: #636e72; }
+        .status-confirmed { border-left-color: #0984e3; }
+        .status-preparing { border-left-color: #fdcb6e; }
+        .status-completed { border-left-color: #00b894; }
+        .status-arrived { border-left-color: #d63031; animation: pulse-red-border 1s infinite; }
+        .status-final { border-left-color: #2ecc71; opacity: 0.6; }
+
+        @keyframes pulse-red-border {
+            0% { border-left-width: 8px; }
+            50% { border-left-width: 15px; }
+            100% { border-left-width: 8px; }
+        }
+
+        .card-header-clickable { padding: 15px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
+        .detail-content { padding: 15px; border-top: 1px solid #eee; display: block; }
+        .hide-detail { display: none; }
+        .btn-action { border-radius: 12px; padding: 15px; font-weight: bold; width: 100%; font-size: 1.2rem; margin-bottom: 8px; }
+        .item-badge { background: #fff5f5; border: 1px solid #ffcccc; color: #d63031; padding: 6px 10px; border-radius: 8px; margin: 3px; display: inline-block; font-size: 1rem; font-weight: bold; }
+        .time-box { font-size: 0.85rem; color: #7f8c8d; background: #f9f9f9; padding: 10px; border-radius: 8px; }
+        
+        .btn-final { background-color: #2d3436; color: white; border: none; }
+        .btn-final:hover { background-color: #000; color: white; }
+    </style>
+</head>
+<body>
+
+<nav class="navbar navbar-dark sticky-top">
+    <div class="container-fluid">
+        <div class="d-flex align-items-center">
+            <span class="navbar-brand fw-bold me-2">🍓 管理系統</span>
+            <select id="storeSelector" class="store-selector-nav" onchange="switchStore()">
+                <option value="dajin">大津瀑布</option>
+                <option value="neipu">內埔年街</option>
+            </select>
+        </div>
+        <button class="navbar-toggler" type="button" data-bs-toggle="offcanvas" data-bs-target="#offcanvasMenu">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+    </div>
+</nav>
+
+<div class="offcanvas offcanvas-end" tabindex="-1" id="offcanvasMenu">
+    <div class="offcanvas-header bg-danger text-white">
+        <h5 class="offcanvas-title fw-bold">功能選單</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas"></button>
+    </div>
+    <div class="offcanvas-body">
+        <div class="list-group">
+            <a href="javascript:void(0)" onclick="goToReport()" class="list-group-item list-group-item-action py-3 fw-bold text-danger">📊 營業報表統計</a>
+            <a href="/admin/" class="list-group-item list-group-item-action py-3">Django 後台管理</a>
+            <a href="javascript:void(0)" onclick="openStatusBoard()" class="list-group-item list-group-item-action py-3 text-primary">🖥️ 打開叫號看板</a>
+            <hr>
+            <a href="/admin/logout/" class="list-group-item list-group-item-action py-3 text-muted small">安全登出</a>
+        </div>
+    </div>
+</div>
+
+<div id="audio-unlocker">
+    <h2 class="mb-4">🍓 一把葫管理系統</h2>
+    <p class="mb-2">當前管理店鋪：<span id="targetStoreName" class="fw-bold">大津瀑布</span></p>
+    <p class="mb-4">請點擊下方按鈕啟動即時監控</p>
+    <button onclick="unlockAudio()" class="btn btn-light btn-lg fw-bold px-5 py-3 shadow">🚀 啟動系統</button>
+</div>
+
+<div class="container mt-3" id="orderList">
+    <div class="text-center mt-5 text-muted">
+        <div class="spinner-border text-danger mb-3" role="status"></div>
+        <p>正在同步訂單資料...</p>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    let audioReady = false;
+    let alertedArrived = new Set(); 
+    // alertedNewOrder 維持從 localStorage 載入，用於長期排重
+    let alertedNewOrder = new Set(JSON.parse(localStorage.getItem('alerted_new_orders') || '[]'));
+    let notifyTimes = JSON.parse(localStorage.getItem('notify_times') || '{}');
+    let bellAudio = new Audio('https://actions.google.com/sounds/v1/alarms/bugle_tune.ogg');
+    
+    // 增加：標記是否為「啟動後第一次載入」，避免一進去就對舊訂單大叫
+    let isFirstLoad = true;
+
+    let currentStore = localStorage.getItem('selected_store') || 'dajin';
+    document.getElementById('storeSelector').value = currentStore;
+    updateStoreUI();
+
+    function switchStore() {
+        currentStore = document.getElementById('storeSelector').value;
+        localStorage.setItem('selected_store', currentStore);
+        updateStoreUI();
+        
+        // 切換店鋪時重置狀態，讓系統重新掃描
+        isFirstLoad = true;
+        alertedArrived.clear(); 
+        
+        loadOrders();
+        speak("已切換至" + (currentStore === 'dajin' ? '大津瀑布' : '內埔年街'));
+    }
+
+    function updateStoreUI() {
+        const name = currentStore === 'dajin' ? '大津瀑布' : '內埔年街';
+        document.getElementById('targetStoreName').innerText = name;
+    }
+
+    function goToReport() {
+        window.location.href = `/report-dashboard/?store=${currentStore}`;
+    }
+
+    function openStatusBoard() {
+        window.open(`/status/${currentStore}/`, '_blank');
+    }
+
+    function unlockAudio() {
+        audioReady = true;
+        
+        // 修正：主動向瀏覽器註冊語音許可
+        const silentMsg = new SpeechSynthesisUtterance("");
+        window.speechSynthesis.speak(silentMsg);
+
+        document.getElementById('audio-unlocker').classList.add('animate__animated', 'animate__fadeOut');
+        setTimeout(() => { document.getElementById('audio-unlocker').style.display = 'none'; }, 500);
+        
+        bellAudio.play().then(() => { bellAudio.pause(); bellAudio.currentTime = 0; }).catch(e => {});
+        
+        speak("系統監控中");
+        loadOrders();
+        setInterval(loadOrders, 5000);
+    }
+
+    function getCookie(n) { 
+        let v = document.cookie.match('(^|;) ?' + n + '=([^;]*)(;|$)'); 
+        return v ? decodeURIComponent(v[2]) : null; 
+    }
+
+    function speak(text) {
+        if (audioReady && 'speechSynthesis' in window) {
+            window.speechSynthesis.cancel();
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = 'zh-TW';
+            utterance.volume = 1.0;
+            utterance.rate = 1.0;
+            window.speechSynthesis.speak(utterance);
+        }
+    }
+
+    function playBell() {
+        if (audioReady) {
+            bellAudio.currentTime = 0;
+            bellAudio.play().catch(e => console.log("Audio Play Error:", e));
+        }
+    }
+
+    function loadOrders() {
+    fetch(`/api/orders/?store=${currentStore}&t=${new Date().getTime()}`)
+    .then(res => {
+        if (res.status === 401 || res.status === 403) {
+            window.location.href = '/admin/login/?next=' + window.location.pathname;
+            return;
+        }
+        return res.json();
+    })
+    .then(orders => {
+        if (!orders || !Array.isArray(orders)) return;
+
+        // 如果是「啟動後第一次載入」，將現有訂單標記為已提醒，避免洗版
+        if (isFirstLoad) {
+            orders.forEach(order => {
+                if (order.status === 'pending') alertedNewOrder.add(order.id);
+                if (order.status === 'arrived') alertedArrived.add(order.id);
+            });
+            isFirstLoad = false;
+        }
+
+        const list = document.getElementById('orderList');
+        let newHtml = '';
+        
+        if (orders.length === 0) {
+            list.innerHTML = `<div class="text-center mt-5 text-muted"><p>目前沒有訂單</p></div>`;
+            return;
+        }
+
+        // 排序：將結案(final)與取消(cancelled)的訂單排在最後面
+        orders.sort((a, b) => {
+            const isAClosed = (a.status === 'final' || a.status === 'cancelled');
+            const isBClosed = (b.status === 'final' || b.status === 'cancelled');
+            if (isAClosed && !isBClosed) return 1;
+            if (!isAClosed && isBClosed) return -1;
+            return b.id - a.id;
+        }).forEach(order => {
+            
+            // 語音提醒：新訂單
+            if (order.status === 'pending' && !alertedNewOrder.has(order.id)) {
+                speak("新訂單，編號 " + order.id);
+                alertedNewOrder.add(order.id);
+                localStorage.setItem('alerted_new_orders', JSON.stringify(Array.from(alertedNewOrder).slice(-100)));
+            }
+
+            // 語音提醒：客人抵達
+            if (order.status === 'arrived' && !alertedArrived.has(order.id)) {
+                playBell();
+                speak("編號 " + order.id + " 客人已到櫃檯");
+                alertedArrived.add(order.id);
+            }
+
+            // --- 核心邏輯：判定是否需要自動內縮 (隱藏細節) ---
+            const isContracted = (order.status === 'final' || order.status === 'cancelled');
+            const detailClass = isContracted ? 'detail-content hide-detail' : 'detail-content';
+            const arrowRotate = isContracted ? '' : 'style="transform: rotate(180deg)"';
+
+            // 處理按鈕與狀態區塊
+            let actionBtn = '';
+            if (order.status === 'pending') {
+                actionBtn = `
+                    <button onclick="updateStatus(${order.id}, 'confirmed')" class="btn btn-primary btn-action shadow">💰 已收錢：成立訂單</button>
+                    <button onclick="confirmAction(${order.id}, 'cancelled', '確定要「取消」這筆訂單嗎？')" class="btn btn-link btn-sm text-muted w-100 mt-2">取消訂單</button>`;
+            } else if (order.status === 'confirmed') {
+                actionBtn = `<button onclick="updateStatus(${order.id}, 'preparing')" class="btn btn-warning btn-action shadow">🍓 開始製作餐點</button>`;
+            } else if (order.status === 'preparing') {
+                actionBtn = `<button onclick="updateStatus(${order.id}, 'completed', true)" class="btn btn-success btn-action shadow">🔔 製作完成：發送取餐通知</button>`;
+            } else if (order.status === 'completed') {
+                actionBtn = `
+                    <div class="alert alert-info text-center mb-2 py-2 fw-bold small">⌛ 等候客人端確認中...</div>
+                    <button onclick="confirmAction(${order.id}, 'final', '確定客人已領餐，要手動完成結案嗎？')" class="btn btn-final btn-action shadow text-white">✅ 手動完成交易(結案)</button>`;
+            } else if (order.status === 'arrived') {
+                actionBtn = `<button onclick="confirmAction(${order.id}, 'final', '客人已在現場，確認交付餐點並結案？')" class="btn btn-danger btn-action animate__animated animate__pulse animate__infinite shadow-lg">✨ 客人已抵達！點此交付結案</button>`;
+            } else if (order.status === 'cancelled') {
+                actionBtn = `<div class="text-center py-2 text-danger fw-bold">❌ 訂單已取消</div>`;
+            } else if (order.status === 'final') {
+                actionBtn = `<div class="text-center py-2 text-success fw-bold">✅ 交易已完成</div>`;
+            } else {
+                actionBtn = `<div class="text-center py-2 text-muted fw-bold">未知狀態：${order.status}</div>`;
+            }
+
+            newHtml += `
+                <div class="card order-card status-${order.status}" id="card-${order.id}">
+                    <div class="card-header-clickable" onclick="toggleDetail(${order.id})">
+                        <div class="fw-bold h5 mb-0">
+                            #${order.id} ${order.status === 'arrived' ? '🚨' : ''} 
+                        </div>
+                        <div class="d-flex align-items-center">
+                            <span class="badge ${isContracted ? 'bg-secondary' : 'bg-danger'} me-2">${order.phone_tail || '現場'}</span>
+                            <span class="text-muted small me-2">${getStatusText(order.status)}</span>
+                            <span class="text-muted" id="arrow-${order.id}" ${arrowRotate}>▼</span>
+                        </div>
+                    </div>
+                    <div id="detail-${order.id}" class="${detailClass}">
+                        <div class="mb-3">${order.items.map(i => `<span class="item-badge">${i.name} x ${i.qty}</span>`).join('')}</div>
+                        <div class="time-box mb-3">
+                            <div>🕒 下單：${new Date(order.created_at).toLocaleTimeString()}</div>
+                            ${notifyTimes[order.id] ? `<div>🔔 取餐通知：${notifyTimes[order.id]}</div>` : ''}
+                            <div class="mt-2 fw-bold text-danger fs-5">總額：$${order.total}</div>
+                        </div>
+                        <div id="btn-zone-${order.id}">${actionBtn}</div>
+                    </div>
+                </div>`;
+        });
+        list.innerHTML = newHtml;
+    }).catch(err => console.log("連線發生錯誤", err));
+}
+
+    function getStatusText(s) {
+        const map = {
+            'pending': '等待付錢', 'confirmed': '已收錢', 'preparing': '製作中',
+            'completed': '通知取餐中', 'arrived': '客人到櫃檯', 'final': '已完成', 'cancelled': '已取消'
+        };
+        return map[s] || s;
+    }
+
+    function confirmAction(id, newStatus, message) {
+        if (confirm(message)) {
+            updateStatus(id, newStatus);
+        }
+    }
+
+    function updateStatus(id, newStatus, isNotifying = false) {
+        if (!id) return;
+        if (isNotifying) {
+            const now = new Date();
+            notifyTimes[id] = now.getHours() + ":" + now.getMinutes().toString().padStart(2, '0');
+            localStorage.setItem('notify_times', JSON.stringify(notifyTimes));
+        }
+        
+        fetch(`/api/orders/${id}/`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+            body: JSON.stringify({ status: newStatus })
+        }).then(res => { 
+            if (res.ok) loadOrders(); 
+            else alert("更新失敗，請檢查網路！");
+        });
+    }
+
+    function toggleDetail(id) {
+        const detail = document.getElementById(`detail-${id}`);
+        const arrow = document.getElementById(`arrow-${id}`);
+        if (detail && arrow) {
+            const isHidden = detail.classList.toggle('hide-detail');
+            arrow.style.transform = isHidden ? 'rotate(0deg)' : 'rotate(180deg)';
+        }
+    }
+</script>
+</body>
+</html>

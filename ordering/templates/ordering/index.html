@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    {% load static %}
+
+    <title>一把葫 {{ store.name }} - 自助點餐</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
+    <link rel="icon" href="{% static 'images/favicon.png' %}" type="image/png">
+    <link rel="shortcut icon" href="{% static 'images/favicon.png' %}" type="image/x-icon">
+    <style>
+        :root { --strawberry: #ff4d4d; --bg-pink: #fffafa; }
+        body { background-color: var(--bg-pink); font-family: "Microsoft JhengHei", sans-serif; }
+        .card { border-radius: 18px; border: none; box-shadow: 0 4px 12px rgba(255, 77, 77, 0.1); }
+        .btn-strawberry { background-color: var(--strawberry); color: white; border-radius: 12px; font-weight: bold; padding: 12px; }
+        
+        .qty-btn { width: 40px; height: 40px; border-radius: 10px; border: 2px solid var(--strawberry); background: white; color: var(--strawberry); font-weight: 900; font-size: 1.2rem; }
+        .qty-btn:active { background: var(--strawberry); color: white; }
+        
+        .order-id-circle { 
+            width: 110px; height: 110px; background: var(--strawberry); color: white; 
+            border-radius: 50%; display: flex; align-items: center; justify-content: center;
+            font-size: 2.5rem; font-weight: 900; margin: 0 auto 15px; box-shadow: 0 4px 10px rgba(255, 77, 77, 0.3);
+        }
+
+        .status-box { font-size: 1.2rem; font-weight: bold; border-radius: 12px; padding: 18px; margin: 10px 0; border: 2px solid transparent; }
+        .st-completed { background: #fff3f3; color: #d63031; border: 2px solid #ff4d4d; animation: pulse 1s infinite; }
+
+        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.03); } 100% { transform: scale(1); } }
+        .sticky-footer { position: sticky; bottom: 0; background: white; padding: 15px; border-top: 1px solid #eee; margin: 0 -12px; z-index: 100; }
+
+        .custom-input { background-color: rgba(255, 255, 255, 0.5) !important; border: 1px solid rgba(255, 77, 77, 0.2) !important; color: #d63031 !important; }
+        .custom-input::placeholder { color: rgba(214, 48, 49, 0.4); font-size: 0.9rem; }
+        .custom-input:focus { background-color: rgba(255, 255, 255, 0.9) !important; border-color: #ff4d4d !important; box-shadow: 0 0 0 0.25rem rgba(255, 77, 77, 0.15) !important; outline: none; }
+        
+        .detail-row { display: flex; justify-content: space-between; border-bottom: 1px dashed #eee; padding: 5px 0; font-size: 0.95rem; }
+    </style>
+</head>
+<body>
+
+<div class="container py-4">
+    <div id="orderForm">
+        <div class="text-center mb-4">
+            <h1 class="display-5 fw-bold text-danger">🍓 一把葫</h1>
+            <p class="badge bg-danger rounded-pill px-3">{{ store.name }} 自助點餐</p>
+        </div>
+
+        <div class="card mb-4 p-3 shadow-sm">
+            <label class="form-label fw-bold">1. 請輸入手機後 4 碼</label>
+            <input type="text" id="phone_tail" class="form-control form-control-lg text-center fw-bold text-danger custom-input" maxlength="4" inputmode="numeric" placeholder="確認核對，麻煩填寫！">
+        </div>
+
+        <label class="form-label fw-bold mb-3 text-secondary text-center w-100">2. 選擇商品份數</label>
+        <div id="productList" class="mb-5 pb-5"></div>
+
+        <div class="sticky-footer shadow-lg text-center">
+            <div class="d-flex justify-content-between h4 mb-3 px-2">
+                <span>合計金額：</span><span id="display_total" class="text-danger fw-bold">$0</span>
+            </div>
+            <button class="btn btn-strawberry w-100 btn-lg shadow" onclick="handleOrderConfirm()">確認內容並送出</button>
+        </div>
+    </div>
+
+    <div id="statusPage" class="d-none animate__animated animate__fadeIn">
+        <div class="card p-4 text-center shadow">
+            <div class="order-id-circle shadow" id="display_order_id">--</div>
+            <h5 class="text-muted fw-bold">您的訂單編號</h5>
+            <p class="small text-muted mb-4">下單時間: <span id="created_time"></span></p>
+            
+            <div id="statusBox" class="status-box bg-light text-secondary">⌛ 訂單發送中...</div>
+
+            <div id="pickupInfo" class="d-none mt-3 animate__animated animate__shakeX">
+                <div class="alert alert-danger py-3 border-danger border-3 shadow-sm">
+                    <h4 class="fw-bold mb-2">📣 餐點好囉！</h4>
+                    <p class="mb-3 fs-5">請告知店家您的單號：<strong>#<span id="info_id"></span></strong></p>
+                    
+                    <button id="arrivedBtn" class="btn btn-danger w-100 py-3 fw-bold fs-5 shadow-sm mb-2" onclick="stopAlarmAndNotify()">📍 我已到櫃檯 (通知領取)</button>
+                    
+                    <button id="finalBtn" class="btn btn-success w-100 py-3 fw-bold fs-5 shadow-sm d-none" onclick="finishOrder()">✅ 我已拿到餐點 (完成)</button>
+                </div>
+            </div>
+
+            <div class="bg-light rounded p-3 text-start mt-4">
+                <p class="border-bottom pb-2 fw-bold mb-2">📋 您的訂單細項：</p>
+                <div id="order_details_list" class="mb-3"></div>
+                <p class="mb-1">手機末碼：<strong id="display_phone" class="text-dark"></strong></p>
+                <p class="mb-0">付款金額：<strong class="text-danger h4">$<span id="display_final_total"></span></strong></p>
+            </div>
+            <p class="text-muted small mt-4">※ 請勿關閉此頁面，系統將自動更新狀態</p>
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- 分店識別邏輯 ---
+    // 從網址路徑取得 slug (例如 /dajin/ 會取得 dajin)
+    const currentStoreSlug = window.location.pathname.split('/').filter(p => p)[0];
+
+    let alarmAudio = new Audio('https://actions.google.com/sounds/v1/alarms/beep_short.ogg');
+    alarmAudio.loop = true;
+
+    // 初始取得該分店專屬產品列表
+    fetch(`/api/products/?store=${currentStoreSlug}`)
+        .then(res => res.json())
+        .then(data => {
+            const list = document.getElementById('productList');
+            list.innerHTML = '';
+            data.forEach(p => {
+                list.innerHTML += `
+                <div class="card mb-3 p-1 product-item">
+                    <div class="card-body d-flex justify-content-between align-items-center">
+                        <div class="flex-grow-1">
+                            <div class="fw-bold h5 mb-0 item-name">${p.name}</div>
+                            <div class="text-danger fw-bold">$${p.price}</div>
+                        </div>
+                        <div class="d-flex align-items-center gap-2">
+                            <button class="qty-btn" onclick="changeQty('${p.id}', -1)">-</button>
+                            <input type="number" id="qty_${p.id}" class="form-control item-qty border-0 bg-transparent text-center fw-bold fs-4" 
+                                   style="width: 50px" value="0" readonly data-price="${p.price}" data-name="${p.name}">
+                            <button class="qty-btn" onclick="changeQty('${p.id}', 1)">+</button>
+                        </div>
+                    </div>
+                </div>`;
+            });
+        });
+
+    function changeQty(id, delta) {
+        const input = document.getElementById(`qty_${id}`);
+        let val = parseInt(input.value) + delta;
+        if (val < 0) val = 0;
+        input.value = val;
+        updateTotal();
+    }
+
+    function updateTotal() {
+        let t = 0;
+        document.querySelectorAll('.item-qty').forEach(i => t += i.value * i.dataset.price);
+        document.getElementById('display_total').innerText = '$' + t;
+    }
+
+    function handleOrderConfirm() {
+        const phone = document.getElementById('phone_tail').value;
+        if (phone.length !== 4) return alert("請輸入正確的手機後 4 碼！");
+
+        let items = [], total = 0, summaryMsg = "📋 您的點餐明細：\n--------------------\n";
+        let detailsHtml = "";
+
+        document.querySelectorAll('.item-qty').forEach(input => {
+            const q = parseInt(input.value);
+            if (q > 0) {
+                const name = input.dataset.name;
+                const price = parseInt(input.dataset.price);
+                items.push({ name: name, qty: q, price: price }); // 加入單價存入訂單
+                total += q * price;
+                summaryMsg += `${name} x ${q}\n`;
+                detailsHtml += `<div class="detail-row"><span>${name}</span><span>x ${q}</span></div>`;
+            }
+        });
+
+        if (total === 0) return alert("您還沒選擇商品喔！");
+        summaryMsg += `--------------------\n💰 總金額：$${total}\n\n確認要送出訂單並結帳嗎？`;
+        
+        if (confirm(summaryMsg)) {
+            document.getElementById('order_details_list').innerHTML = detailsHtml;
+            submitOrder(phone, items, total);
+        }
+    }
+
+    function submitOrder(phone, items, total) {
+        fetch('/api/orders/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+            // 送出時帶上 store_slug，讓後端自動關聯正確分店
+            body: JSON.stringify({ 
+                store_slug: currentStoreSlug, 
+                phone_tail: phone, 
+                items: items, 
+                subtotal: total, 
+                total: total 
+            })
+        })
+        .then(res => res.json())
+        .then(order => {
+            document.getElementById('orderForm').classList.add('d-none');
+            document.getElementById('statusPage').classList.remove('d-none');
+            document.getElementById('display_order_id').innerText = order.id;
+            document.getElementById('display_phone').innerText = phone;
+            document.getElementById('display_final_total').innerText = total;
+            document.getElementById('created_time').innerText = new Date().toLocaleTimeString();
+            startPolling(order.id);
+        });
+    }
+
+    function startPolling(oid) {
+        const timer = setInterval(() => {
+            // 輪詢該訂單狀態
+            fetch(`/api/orders/${oid}/?t=${new Date().getTime()}`)
+                .then(res => res.json())
+                .then(order => {
+                    const box = document.getElementById('statusBox');
+                    const pickupInfo = document.getElementById('pickupInfo');
+
+                    if (order.status === 'pending') {
+                        box.innerHTML = "⌛ 訂單確認中，請至櫃檯結帳";
+                        box.className = "status-box bg-light text-secondary";
+                    } else if (order.status === 'confirmed') {
+                        box.innerHTML = "💰 訂單已成立！等候老闆製作";
+                        box.className = "status-box bg-primary text-white shadow-sm";
+                    } else if (order.status === 'preparing') {
+                        box.innerHTML = "🍓 老闆正在努力製作中...";
+                        box.className = "status-box bg-warning text-dark shadow-sm";
+                    } else if (order.status === 'completed') {
+                        box.innerHTML = "✅ 餐點已完成！請取餐";
+                        box.className = "status-box st-completed";
+                        pickupInfo.classList.remove('d-none');
+                        document.getElementById('info_id').innerText = order.id;
+                        alarmAudio.play().catch(()=>{});
+                    } else if (order.status === 'arrived') {
+                        box.innerHTML = "🔔 已通知店家您在櫃檯";
+                        box.className = "status-box bg-info text-white shadow-sm";
+                    } else if (order.status === 'final') {
+                        box.innerHTML = "🍓 訂單已完成，祝您用餐愉快！";
+                        box.className = "status-box bg-dark text-white shadow-sm";
+                        alarmAudio.pause();
+                        pickupInfo.innerHTML = `
+                            <div class="alert alert-success mt-2 py-3">
+                                <h5 class="fw-bold mb-0">✨ 感謝您的購買！</h5>
+                                <button class="btn btn-sm btn-outline-secondary mt-2" onclick="location.reload()">再點一份</button>
+                            </div>
+                        `;
+                        clearInterval(timer);
+                    }
+                })
+                .catch(err => console.error("輪詢失敗:", err));
+        }, 4000);
+    }
+
+    function stopAlarmAndNotify() {
+        alarmAudio.pause();
+        alarmAudio.currentTime = 0;
+        const oid = document.getElementById('display_order_id').innerText;
+        fetch(`/api/orders/${oid}/`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+            body: JSON.stringify({ status: 'arrived' })
+        }).then(() => {
+            const btn = document.getElementById('arrivedBtn');
+            btn.innerText = "🔔 已通知店家";
+            btn.className = "btn btn-secondary w-100 py-3 fw-bold mb-2";
+            btn.disabled = true;
+            document.getElementById('finalBtn').classList.remove('d-none');
+        });
+    }
+
+    function finishOrder() {
+        const oid = document.getElementById('display_order_id').innerText;
+        if (!confirm("確認已領取餐點並完成訂單嗎？")) return;
+
+        fetch(`/api/orders/${oid}/`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+            body: JSON.stringify({ status: 'final' })
+        });
+    }
+
+    function getCookie(n) { 
+        let v = document.cookie.match('(^|;) ?' + n + '=([^;]*)(;|$)'); 
+        return v ? decodeURIComponent(v[2]) : null; 
+    }
+</script>
+</body>
+</html>
