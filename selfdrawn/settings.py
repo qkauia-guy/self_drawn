@@ -19,6 +19,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',
     'ordering',
+    'django_json_widget',
 ]
 
 # 4. 中間件 (加入 WhiteNoise 修復 CSS)

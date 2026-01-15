@@ -9,6 +9,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
     <link rel="icon" href="{% static 'images/favicon.png' %}" type="image/png">
     <link rel="shortcut icon" href="{% static 'images/favicon.png' %}" type="image/x-icon">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
         body { background-color: #f0f2f5; font-family: "Microsoft JhengHei", sans-serif; padding-bottom: 50px; }
         .navbar { background-color: #d63031 !important; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
@@ -50,6 +51,9 @@
         
         .btn-final { background-color: #2d3436; color: white; border: none; }
         .btn-final:hover { background-color: #000; color: white; }
+
+        /* 修改 Modal 樣式 */
+        .qty-controls button { width: 40px; height: 40px; border-radius: 50%; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -99,19 +103,41 @@
     </div>
 </div>
 
+<div class="modal fade" id="editOrderModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content" style="border-radius: 20px;">
+            <div class="modal-header border-0">
+                <h5 class="modal-title fw-bold">修改訂單內容 #<span id="editOrderIdDisplay"></span></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="editProductList" class="list-group list-group-flush"></div>
+                <div class="mt-4 p-3 bg-light rounded-3 d-flex justify-content-between align-items-center">
+                    <span class="fw-bold">修正後總額：</span>
+                    <span class="fs-3 fw-bold text-danger" id="editTotalAmount">$0</span>
+                </div>
+            </div>
+            <div class="modal-footer border-0">
+                <button type="button" class="btn btn-secondary rounded-pill" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-danger rounded-pill px-4" onclick="saveOrderChange()">確認儲存修改</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
     let audioReady = false;
     let alertedArrived = new Set(); 
-    // alertedNewOrder 維持從 localStorage 載入，用於長期排重
     let alertedNewOrder = new Set(JSON.parse(localStorage.getItem('alerted_new_orders') || '[]'));
     let notifyTimes = JSON.parse(localStorage.getItem('notify_times') || '{}');
     let bellAudio = new Audio('https://actions.google.com/sounds/v1/alarms/bugle_tune.ogg');
-    
-    // 增加：標記是否為「啟動後第一次載入」，避免一進去就對舊訂單大叫
     let isFirstLoad = true;
-
     let currentStore = localStorage.getItem('selected_store') || 'dajin';
+    
+    // 修改功能用的全域變數
+    let allProducts = [], currentEditingOrderId = null, currentEditingItems = [];
+
     document.getElementById('storeSelector').value = currentStore;
     updateStoreUI();
 
@@ -119,11 +145,8 @@
         currentStore = document.getElementById('storeSelector').value;
         localStorage.setItem('selected_store', currentStore);
         updateStoreUI();
-        
-        // 切換店鋪時重置狀態，讓系統重新掃描
         isFirstLoad = true;
         alertedArrived.clear(); 
-        
         loadOrders();
         speak("已切換至" + (currentStore === 'dajin' ? '大津瀑布' : '內埔年街'));
     }
@@ -133,26 +156,16 @@
         document.getElementById('targetStoreName').innerText = name;
     }
 
-    function goToReport() {
-        window.location.href = `/report-dashboard/?store=${currentStore}`;
-    }
-
-    function openStatusBoard() {
-        window.open(`/status/${currentStore}/`, '_blank');
-    }
+    function goToReport() { window.location.href = `/report-dashboard/?store=${currentStore}`; }
+    function openStatusBoard() { window.open(`/status/${currentStore}/`, '_blank'); }
 
     function unlockAudio() {
         audioReady = true;
-        
-        // 修正：主動向瀏覽器註冊語音許可
         const silentMsg = new SpeechSynthesisUtterance("");
         window.speechSynthesis.speak(silentMsg);
-
         document.getElementById('audio-unlocker').classList.add('animate__animated', 'animate__fadeOut');
         setTimeout(() => { document.getElementById('audio-unlocker').style.display = 'none'; }, 500);
-        
         bellAudio.play().then(() => { bellAudio.pause(); bellAudio.currentTime = 0; }).catch(e => {});
-        
         speak("系統監控中");
         loadOrders();
         setInterval(loadOrders, 5000);
@@ -168,8 +181,6 @@
             window.speechSynthesis.cancel();
             const utterance = new SpeechSynthesisUtterance(text);
             utterance.lang = 'zh-TW';
-            utterance.volume = 1.0;
-            utterance.rate = 1.0;
             window.speechSynthesis.speak(utterance);
         }
     }
@@ -177,148 +188,193 @@
     function playBell() {
         if (audioReady) {
             bellAudio.currentTime = 0;
-            bellAudio.play().catch(e => console.log("Audio Play Error:", e));
+            bellAudio.play().catch(e => console.log("Audio Error:", e));
         }
     }
 
     function loadOrders() {
-    fetch(`/api/orders/?store=${currentStore}&t=${new Date().getTime()}`)
-    .then(res => {
-        if (res.status === 401 || res.status === 403) {
-            window.location.href = '/admin/login/?next=' + window.location.pathname;
-            return;
-        }
-        return res.json();
-    })
-    .then(orders => {
-        if (!orders || !Array.isArray(orders)) return;
+        fetch(`/api/orders/?store=${currentStore}&t=${new Date().getTime()}`)
+        .then(res => (res.status === 401 || res.status === 403) ? (window.location.href = '/admin/login/?next=' + window.location.pathname) : res.json())
+        .then(orders => {
+            if (!orders || !Array.isArray(orders)) return;
 
-        // 如果是「啟動後第一次載入」，將現有訂單標記為已提醒，避免洗版
-        if (isFirstLoad) {
-            orders.forEach(order => {
-                if (order.status === 'pending') alertedNewOrder.add(order.id);
-                if (order.status === 'arrived') alertedArrived.add(order.id);
+            if (isFirstLoad) {
+                orders.forEach(order => {
+                    if (order.status === 'pending') alertedNewOrder.add(order.id);
+                    if (order.status === 'arrived') alertedArrived.add(order.id);
+                });
+                isFirstLoad = false;
+            }
+
+            const list = document.getElementById('orderList');
+            if (orders.length === 0) {
+                list.innerHTML = `<div class="text-center mt-5 text-muted"><p>目前沒有訂單</p></div>`;
+                return;
+            }
+
+            let newHtml = '';
+            orders.sort((a, b) => {
+                const isAClosed = (a.status === 'final' || a.status === 'cancelled');
+                const isBClosed = (b.status === 'final' || b.status === 'cancelled');
+                if (isAClosed && !isBClosed) return 1;
+                if (!isAClosed && isBClosed) return -1;
+                return b.id - a.id;
+            }).forEach(order => {
+                // 語音提醒邏輯
+                if (order.status === 'pending' && !alertedNewOrder.has(order.id)) {
+                    speak("新訂單，編號 " + order.id);
+                    alertedNewOrder.add(order.id);
+                    localStorage.setItem('alerted_new_orders', JSON.stringify(Array.from(alertedNewOrder).slice(-100)));
+                }
+                if (order.status === 'arrived' && !alertedArrived.has(order.id)) {
+                    playBell(); speak("編號 " + order.id + " 客人已到櫃檯");
+                    alertedArrived.add(order.id);
+                }
+
+                const isContracted = (order.status === 'final' || order.status === 'cancelled');
+                const detailClass = isContracted ? 'detail-content hide-detail' : 'detail-content';
+                const arrowRotate = isContracted ? '' : 'style="transform: rotate(180deg)"';
+
+                // 修改按鈕：僅在未結案時顯示
+                const editBtn = !isContracted ? `<button onclick="openEditModal(${order.id})" class="btn btn-outline-secondary w-100 mb-2 py-2 fw-bold" style="border-radius:12px; font-size:0.9rem;">✏️ 修改品項 / 庫存</button>` : '';
+
+                let actionBtn = '';
+                if (order.status === 'pending') {
+                    actionBtn = `<button onclick="updateStatus(${order.id}, 'confirmed')" class="btn btn-primary btn-action shadow">💰 已收錢：成立訂單</button>
+                                 <button onclick="confirmAction(${order.id}, 'cancelled', '確定要「取消」這筆訂單嗎？')" class="btn btn-link btn-sm text-muted w-100 mt-2">取消訂單</button>`;
+                } else if (order.status === 'confirmed') {
+                    actionBtn = `<button onclick="updateStatus(${order.id}, 'preparing')" class="btn btn-warning btn-action shadow">🍓 開始製作餐點</button>`;
+                } else if (order.status === 'preparing') {
+                    actionBtn = `<button onclick="updateStatus(${order.id}, 'completed', true)" class="btn btn-success btn-action shadow">🔔 製作完成：發送取餐通知</button>`;
+                } else if (order.status === 'completed') {
+                    actionBtn = `<div class="alert alert-info text-center mb-2 py-2 fw-bold small">⌛ 等候客人端確認中...</div>
+                                 <button onclick="confirmAction(${order.id}, 'final', '確定客人已領餐，要手動完成結案嗎？')" class="btn btn-final btn-action shadow text-white">✅ 手動完成交易(結案)</button>`;
+                } else if (order.status === 'arrived') {
+                    actionBtn = `<button onclick="confirmAction(${order.id}, 'final', '客人已在現場，確認交付餐點並結案？')" class="btn btn-danger btn-action animate__animated animate__pulse animate__infinite shadow-lg">✨ 客人已抵達！點此交付結案</button>`;
+                } else if (order.status === 'cancelled') {
+                    actionBtn = `<div class="text-center py-2 text-danger fw-bold">❌ 訂單已取消</div>`;
+                } else if (order.status === 'final') {
+                    actionBtn = `<div class="text-center py-2 text-success fw-bold">✅ 交易已完成</div>`;
+                }
+
+                newHtml += `
+                    <div class="card order-card status-${order.status}" id="card-${order.id}">
+                        <div class="card-header-clickable" onclick="toggleDetail(${order.id})">
+                            <div class="fw-bold h5 mb-0">#${order.id} ${order.status === 'arrived' ? '🚨' : ''}</div>
+                            <div class="d-flex align-items-center">
+                                <span class="badge ${isContracted ? 'bg-secondary' : 'bg-danger'} me-2">${order.phone_tail || '現場'}</span>
+                                <span class="text-muted small me-2">${getStatusText(order.status)}</span>
+                                <span class="text-muted" id="arrow-${order.id}" ${arrowRotate}>▼</span>
+                            </div>
+                        </div>
+                        <div id="detail-${order.id}" class="${detailClass}">
+                            <div class="mb-3">${order.items.map(i => `<span class="item-badge">${i.name} x ${i.qty || i.quantity}</span>`).join('')}</div>
+                            <div class="time-box mb-3">
+                                <div>🕒 下單：${new Date(order.created_at).toLocaleTimeString()}</div>
+                                ${notifyTimes[order.id] ? `<div>🔔 取餐通知：${notifyTimes[order.id]}</div>` : ''}
+                                <div class="mt-2 fw-bold text-danger fs-5">總額：$${order.total}</div>
+                            </div>
+                            <div id="btn-zone-${order.id}">
+                                ${editBtn}
+                                ${actionBtn}
+                            </div>
+                        </div>
+                    </div>`;
             });
-            isFirstLoad = false;
-        }
+            list.innerHTML = newHtml;
+        });
+    }
 
-        const list = document.getElementById('orderList');
-        let newHtml = '';
-        
-        if (orders.length === 0) {
-            list.innerHTML = `<div class="text-center mt-5 text-muted"><p>目前沒有訂單</p></div>`;
-            return;
-        }
+    // --- 修改訂單功能邏輯 ---
+    function openEditModal(orderId) {
+        currentEditingOrderId = orderId;
+        document.getElementById('editOrderIdDisplay').innerText = orderId;
+        Promise.all([
+            fetch(`/api/products/?store=${currentStore}&t=${Date.now()}`).then(res => res.json()),
+            fetch(`/api/orders/${orderId}/`).then(res => res.json())
+        ]).then(([prods, order]) => {
+            allProducts = prods;
+            currentEditingItems = order.items.map(i => ({...i, quantity: i.quantity || i.qty}));
+            // 把原本訂單佔用的庫存加回去，方便計算剩餘可用數量
+            currentEditingItems.forEach(item => {
+                const p = allProducts.find(prod => prod.id == item.id);
+                if (p) p.stock += item.quantity;
+            });
+            renderEditProductList();
+            new bootstrap.Modal(document.getElementById('editOrderModal')).show();
+        });
+    }
 
-        // 排序：將結案(final)與取消(cancelled)的訂單排在最後面
-        orders.sort((a, b) => {
-            const isAClosed = (a.status === 'final' || a.status === 'cancelled');
-            const isBClosed = (b.status === 'final' || b.status === 'cancelled');
-            if (isAClosed && !isBClosed) return 1;
-            if (!isAClosed && isBClosed) return -1;
-            return b.id - a.id;
-        }).forEach(order => {
-            
-            // 語音提醒：新訂單
-            if (order.status === 'pending' && !alertedNewOrder.has(order.id)) {
-                speak("新訂單，編號 " + order.id);
-                alertedNewOrder.add(order.id);
-                localStorage.setItem('alerted_new_orders', JSON.stringify(Array.from(alertedNewOrder).slice(-100)));
-            }
-
-            // 語音提醒：客人抵達
-            if (order.status === 'arrived' && !alertedArrived.has(order.id)) {
-                playBell();
-                speak("編號 " + order.id + " 客人已到櫃檯");
-                alertedArrived.add(order.id);
-            }
-
-            // --- 核心邏輯：判定是否需要自動內縮 (隱藏細節) ---
-            const isContracted = (order.status === 'final' || order.status === 'cancelled');
-            const detailClass = isContracted ? 'detail-content hide-detail' : 'detail-content';
-            const arrowRotate = isContracted ? '' : 'style="transform: rotate(180deg)"';
-
-            // 處理按鈕與狀態區塊
-            let actionBtn = '';
-            if (order.status === 'pending') {
-                actionBtn = `
-                    <button onclick="updateStatus(${order.id}, 'confirmed')" class="btn btn-primary btn-action shadow">💰 已收錢：成立訂單</button>
-                    <button onclick="confirmAction(${order.id}, 'cancelled', '確定要「取消」這筆訂單嗎？')" class="btn btn-link btn-sm text-muted w-100 mt-2">取消訂單</button>`;
-            } else if (order.status === 'confirmed') {
-                actionBtn = `<button onclick="updateStatus(${order.id}, 'preparing')" class="btn btn-warning btn-action shadow">🍓 開始製作餐點</button>`;
-            } else if (order.status === 'preparing') {
-                actionBtn = `<button onclick="updateStatus(${order.id}, 'completed', true)" class="btn btn-success btn-action shadow">🔔 製作完成：發送取餐通知</button>`;
-            } else if (order.status === 'completed') {
-                actionBtn = `
-                    <div class="alert alert-info text-center mb-2 py-2 fw-bold small">⌛ 等候客人端確認中...</div>
-                    <button onclick="confirmAction(${order.id}, 'final', '確定客人已領餐，要手動完成結案嗎？')" class="btn btn-final btn-action shadow text-white">✅ 手動完成交易(結案)</button>`;
-            } else if (order.status === 'arrived') {
-                actionBtn = `<button onclick="confirmAction(${order.id}, 'final', '客人已在現場，確認交付餐點並結案？')" class="btn btn-danger btn-action animate__animated animate__pulse animate__infinite shadow-lg">✨ 客人已抵達！點此交付結案</button>`;
-            } else if (order.status === 'cancelled') {
-                actionBtn = `<div class="text-center py-2 text-danger fw-bold">❌ 訂單已取消</div>`;
-            } else if (order.status === 'final') {
-                actionBtn = `<div class="text-center py-2 text-success fw-bold">✅ 交易已完成</div>`;
-            } else {
-                actionBtn = `<div class="text-center py-2 text-muted fw-bold">未知狀態：${order.status}</div>`;
-            }
-
-            newHtml += `
-                <div class="card order-card status-${order.status}" id="card-${order.id}">
-                    <div class="card-header-clickable" onclick="toggleDetail(${order.id})">
-                        <div class="fw-bold h5 mb-0">
-                            #${order.id} ${order.status === 'arrived' ? '🚨' : ''} 
-                        </div>
-                        <div class="d-flex align-items-center">
-                            <span class="badge ${isContracted ? 'bg-secondary' : 'bg-danger'} me-2">${order.phone_tail || '現場'}</span>
-                            <span class="text-muted small me-2">${getStatusText(order.status)}</span>
-                            <span class="text-muted" id="arrow-${order.id}" ${arrowRotate}>▼</span>
-                        </div>
+    function renderEditProductList() {
+        const container = document.getElementById('editProductList');
+        let html = ''; let total = 0;
+        allProducts.forEach(p => {
+            const item = currentEditingItems.find(i => i.id == p.id);
+            const qty = item ? item.quantity : 0;
+            total += qty * p.price;
+            html += `
+                <div class="list-group-item d-flex justify-content-between align-items-center py-3 border-bottom">
+                    <div>
+                        <div class="fw-bold">${p.name} <span class="text-muted small">($${p.price})</span></div>
+                        <div class="small text-danger">剩餘庫存: ${p.stock}</div>
                     </div>
-                    <div id="detail-${order.id}" class="${detailClass}">
-                        <div class="mb-3">${order.items.map(i => `<span class="item-badge">${i.name} x ${i.qty}</span>`).join('')}</div>
-                        <div class="time-box mb-3">
-                            <div>🕒 下單：${new Date(order.created_at).toLocaleTimeString()}</div>
-                            ${notifyTimes[order.id] ? `<div>🔔 取餐通知：${notifyTimes[order.id]}</div>` : ''}
-                            <div class="mt-2 fw-bold text-danger fs-5">總額：$${order.total}</div>
-                        </div>
-                        <div id="btn-zone-${order.id}">${actionBtn}</div>
+                    <div class="d-flex align-items-center qty-controls">
+                        <button class="btn btn-outline-secondary btn-sm" onclick="changeEditQty(${p.id}, -1)" ${qty === 0 ? 'disabled' : ''}>-</button>
+                        <span class="fw-bold mx-3 fs-5">${qty}</span>
+                        <button class="btn btn-outline-danger btn-sm" onclick="changeEditQty(${p.id}, 1)" ${p.stock <= 0 ? 'disabled' : ''}>+</button>
                     </div>
                 </div>`;
         });
-        list.innerHTML = newHtml;
-    }).catch(err => console.log("連線發生錯誤", err));
-}
+        container.innerHTML = html;
+        document.getElementById('editTotalAmount').innerText = `$${total}`;
+    }
+
+    function changeEditQty(pId, delta) {
+        const prod = allProducts.find(p => p.id == pId);
+        let item = currentEditingItems.find(i => i.id == pId);
+        if (delta > 0 && prod.stock > 0) {
+            if (!item) { item = { id: prod.id, name: prod.name, quantity: 0, price: prod.price }; currentEditingItems.push(item); }
+            item.quantity++; prod.stock--;
+        } else if (delta < 0 && item && item.quantity > 0) {
+            item.quantity--; prod.stock++;
+            if (item.quantity === 0) currentEditingItems = currentEditingItems.filter(i => i.id != pId);
+        }
+        renderEditProductList();
+    }
+
+    function saveOrderChange() {
+        const total = currentEditingItems.reduce((sum, i) => sum + (i.quantity * i.price), 0);
+        fetch(`/api/orders/${currentEditingOrderId}/`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+            body: JSON.stringify({ items: currentEditingItems, total: total })
+        }).then(res => {
+            if (res.ok) {
+                bootstrap.Modal.getInstance(document.getElementById('editOrderModal')).hide();
+                loadOrders();
+                Swal.fire({ icon: 'success', title: '修改成功', timer: 1000, showConfirmButton: false });
+            }
+        });
+    }
 
     function getStatusText(s) {
-        const map = {
-            'pending': '等待付錢', 'confirmed': '已收錢', 'preparing': '製作中',
-            'completed': '通知取餐中', 'arrived': '客人到櫃檯', 'final': '已完成', 'cancelled': '已取消'
-        };
+        const map = { 'pending': '等待付錢', 'confirmed': '已收錢', 'preparing': '製作中', 'completed': '通知取餐中', 'arrived': '客人到櫃檯', 'final': '已完成', 'cancelled': '已取消' };
         return map[s] || s;
     }
 
-    function confirmAction(id, newStatus, message) {
-        if (confirm(message)) {
-            updateStatus(id, newStatus);
-        }
-    }
+    function confirmAction(id, newStatus, message) { if (confirm(message)) updateStatus(id, newStatus); }
 
     function updateStatus(id, newStatus, isNotifying = false) {
-        if (!id) return;
         if (isNotifying) {
             const now = new Date();
             notifyTimes[id] = now.getHours() + ":" + now.getMinutes().toString().padStart(2, '0');
             localStorage.setItem('notify_times', JSON.stringify(notifyTimes));
         }
-        
         fetch(`/api/orders/${id}/`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
             body: JSON.stringify({ status: newStatus })
-        }).then(res => { 
-            if (res.ok) loadOrders(); 
-            else alert("更新失敗，請檢查網路！");
-        });
+        }).then(res => res.ok ? loadOrders() : alert("更新失敗"));
     }
 
     function toggleDetail(id) {

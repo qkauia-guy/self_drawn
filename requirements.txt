@@ -3,4 +3,5 @@ gunicorn
 whitenoise
 pytz
 djangorestframework
-whitenoise
+django-cors-headers
+django-json-widget

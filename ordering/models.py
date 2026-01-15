@@ -1,5 +1,6 @@
 from django.db import models
 from django.utils import timezone
+from django.db import transaction
 
 class Store(models.Model):
     """分店資訊"""
@@ -16,9 +17,18 @@ class Product(models.Model):
     name = models.CharField(max_length=50, verbose_name='商品名稱')
     price = models.PositiveIntegerField(verbose_name='單價(元)')
     description = models.CharField(max_length=100, blank=True, verbose_name='描述')
+    
+    # --- 庫存功能 ---
+    stock = models.IntegerField(default=99, verbose_name='剩餘庫存')
+    is_active = models.BooleanField(default=True, verbose_name='是否供應')
 
     def __str__(self):
         return f"[{self.store.name}] {self.name}"
+
+    @property
+    def is_sold_out(self):
+        """判斷是否售完或手動停售"""
+        return not self.is_active or self.stock <= 0
 
 class Order(models.Model):
     STATUS_CHOICES = [
@@ -31,12 +41,12 @@ class Order(models.Model):
         ('cancelled', '已取消'),
     ]
     
-    # 關鍵：這張單子是哪家分店的
     store = models.ForeignKey(Store, on_delete=models.CASCADE, related_name='orders', verbose_name='所屬分店')
     phone_tail = models.CharField(max_length=4, verbose_name='手機後4碼')
+    # items 格式：[{"id": 1, "name": "漢堡", "price": 100, "quantity": 2}, ...]
     items = models.JSONField(default=list, verbose_name='訂單內容')
-    subtotal = models.PositiveIntegerField(verbose_name='小計')
-    total = models.PositiveIntegerField(verbose_name='總額')
+    subtotal = models.PositiveIntegerField(default=0, verbose_name='小計')
+    total = models.PositiveIntegerField(default=0, verbose_name='總額')
     status = models.CharField(
         max_length=20, 
         choices=STATUS_CHOICES, 
@@ -51,3 +61,44 @@ class Order(models.Model):
 
     def __str__(self):
         return f"[{self.store.name}] 訂單 #{self.id} - {self.phone_tail}"
+
+    def update_total_from_json(self):
+        """
+        修正：從 JSONField 重新計算總額
+        店家在後台修改 JSON 內容後，調用此方法可重算錢
+        """
+        new_total = 0
+        for item in self.items:
+            # 確保 JSON 裡有 price 和 quantity 欄位
+            price = item.get('price', 0)
+            qty = item.get('quantity', 0)
+            new_total += (price * qty)
+        self.subtotal = new_total
+        self.total = new_total
+        # 注意：此處不直接 save()，交給外部決定
+
+    def restore_stock(self):
+        """將該訂單所有商品數量歸還給庫存 (用於取消訂單時)"""
+        with transaction.atomic():
+            for item in self.items:
+                product_id = item.get('id')
+                qty = item.get('quantity', 0)
+                if product_id:
+                    Product.objects.filter(id=product_id).update(stock=models.F('stock') + qty)
+
+    def save(self, *args, **kwargs):
+        # 1. 自動重算總額 (當店家手動修改了 items 的內容時)
+        self.update_total_from_json()
+
+        # 2. 自動處理取消訂單的庫存返還
+        if self.pk:
+            old_order = Order.objects.get(pk=self.pk)
+            # 如果狀態從其他變為 'cancelled'
+            if old_order.status != 'cancelled' and self.status == 'cancelled':
+                self.restore_stock()
+        
+        # 3. 處理完成時間
+        if self.status in ['completed', 'final'] and not self.completed_at:
+            self.completed_at = timezone.now()
+            
+        super().save(*args, **kwargs)
