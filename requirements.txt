@@ -6,3 +6,5 @@ djangorestframework
 django-cors-headers
 django-json-widget
 requests
+dj-database-url
+psycopg2-binary

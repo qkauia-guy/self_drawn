@@ -1,4 +1,6 @@
 import os
+import dj_database_url
+
 from pathlib import Path
 
 # 1. 基本路徑設定
@@ -100,3 +102,17 @@ ALLOWED_HOSTS = ['localhost', '127.0.0.1', 'self-drawn.onrender.com']
 #     'https://alba-overpatient-shu.ngrok-free.dev', 
 # ]
 CSRF_TRUSTED_ORIGINS = ['https://self-drawn.onrender.com']
+
+
+# ...
+
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
+    }
+}
+
+# 如果有讀取到 DATABASE_URL 環境變數 (代表在 Render 上)，就改用 PostgreSQL
+db_from_env = dj_database_url.config(conn_max_age=600)
+DATABASES['default'].update(db_from_env)
