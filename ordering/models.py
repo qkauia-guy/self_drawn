@@ -11,6 +11,7 @@ class Store(models.Model):
     def __str__(self):
         return self.name
 
+
 class Product(models.Model):
     """商品資訊（關聯分店）"""
     store = models.ForeignKey(Store, on_delete=models.CASCADE, related_name='products', verbose_name='所屬分店')
@@ -30,6 +31,7 @@ class Product(models.Model):
         """判斷是否售完或手動停售"""
         return not self.is_active or self.stock <= 0
 
+
 class Order(models.Model):
     STATUS_CHOICES = [
         ('pending', '訂單確認中'),
@@ -40,19 +42,36 @@ class Order(models.Model):
         ('final', '交易結案'),
         ('cancelled', '已取消'),
     ]
-    
+
+    # --- 新增付款方式選項 ---
+    PAYMENT_CHOICES = [
+        ('cash', '現金'),
+        ('linepay', 'LINE Pay'),
+    ]
+
     store = models.ForeignKey(Store, on_delete=models.CASCADE, related_name='orders', verbose_name='所屬分店')
     phone_tail = models.CharField(max_length=4, verbose_name='手機後4碼')
+    
+    # --- 新增付款方式欄位 ---
+    payment_method = models.CharField(
+        max_length=10, 
+        choices=PAYMENT_CHOICES, 
+        default='cash', 
+        verbose_name='付款方式'
+    )
+    
     # items 格式：[{"id": 1, "name": "漢堡", "price": 100, "quantity": 2}, ...]
     items = models.JSONField(default=list, verbose_name='訂單內容')
     subtotal = models.PositiveIntegerField(default=0, verbose_name='小計')
     total = models.PositiveIntegerField(default=0, verbose_name='總額')
+    
     status = models.CharField(
         max_length=20, 
         choices=STATUS_CHOICES, 
         default='pending',
         verbose_name='訂單狀態'
     )
+    
     created_at = models.DateTimeField(default=timezone.now)
     completed_at = models.DateTimeField(null=True, blank=True)
 
@@ -75,7 +94,6 @@ class Order(models.Model):
             new_total += (price * qty)
         self.subtotal = new_total
         self.total = new_total
-        # 注意：此處不直接 save()，交給外部決定
 
     def restore_stock(self):
         """將該訂單所有商品數量歸還給庫存 (用於取消訂單時)"""
@@ -84,6 +102,7 @@ class Order(models.Model):
                 product_id = item.get('id')
                 qty = item.get('quantity', 0)
                 if product_id:
+                    # 使用 F 表達式避免並發競爭條件
                     Product.objects.filter(id=product_id).update(stock=models.F('stock') + qty)
 
     def save(self, *args, **kwargs):
@@ -92,10 +111,13 @@ class Order(models.Model):
 
         # 2. 自動處理取消訂單的庫存返還
         if self.pk:
-            old_order = Order.objects.get(pk=self.pk)
-            # 如果狀態從其他變為 'cancelled'
-            if old_order.status != 'cancelled' and self.status == 'cancelled':
-                self.restore_stock()
+            try:
+                old_order = Order.objects.get(pk=self.pk)
+                # 如果狀態從其他變為 'cancelled'，且原本不是 cancelled
+                if old_order.status != 'cancelled' and self.status == 'cancelled':
+                    self.restore_stock()
+            except Order.DoesNotExist:
+                pass # 新增訂單時不需檢查舊狀態
         
         # 3. 處理完成時間
         if self.status in ['completed', 'final'] and not self.completed_at:

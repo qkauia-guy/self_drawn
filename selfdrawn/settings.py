@@ -7,7 +7,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # 2. 安全設定
 SECRET_KEY = 'django-insecure-^_t%rbjt44ez9*qf7)bcp**=!gw&_404(bs1g4^4m8-$g*e6!_'
 DEBUG = True  # 建議部署成功後改為 False
-ALLOWED_HOSTS = ['*']
+
 
 # 3. 應用程式定義
 INSTALLED_APPS = [
@@ -91,3 +91,12 @@ STATICFILES_DIRS = [
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# ALLOWED_HOSTS = ['localhost', '127.0.0.1', '.ngrok-free.dev']
+ALLOWED_HOSTS = ['localhost', '127.0.0.1', 'self-drawn.onrender.com']
+# 信任的來源 (解決 CSRF 403 錯誤)
+# 注意：一定要有 https:// 開頭
+# CSRF_TRUSTED_ORIGINS = [
+#     'https://alba-overpatient-shu.ngrok-free.dev', 
+# ]
+CSRF_TRUSTED_ORIGINS = ['https://self-drawn.onrender.com']

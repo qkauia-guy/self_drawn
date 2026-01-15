@@ -33,11 +33,17 @@
 
         .custom-input { background-color: rgba(255, 255, 255, 0.5) !important; border: 1px solid rgba(255, 77, 77, 0.2) !important; color: #d63031 !important; }
         .detail-row { display: flex; justify-content: space-between; border-bottom: 1px dashed #eee; padding: 5px 0; font-size: 0.95rem; }
+        
+        /* 付款按鈕樣式 */
+        .btn-check:checked + .btn-outline-danger, .btn-check:checked + .btn-outline-success {
+            color: #fff; box-shadow: 0 4px 6px rgba(0,0,0,0.1); transform: translateY(-1px);
+        }
     </style>
 </head>
 <body>
 
 <div class="container py-4">
+    <!-- 下單區塊 -->
     <div id="orderForm">
         <div class="text-center mb-4">
             <h1 class="display-5 fw-bold text-danger">🍓 一把葫</h1>
@@ -49,7 +55,18 @@
             <input type="text" id="phone_tail" class="form-control form-control-lg text-center fw-bold text-danger custom-input" maxlength="4" inputmode="numeric" placeholder="核對用，麻煩填寫！">
         </div>
 
-        <label class="form-label fw-bold mb-3 text-secondary text-center w-100">2. 選擇餐點及數量</label>
+        <div class="card mb-4 p-3 shadow-sm">
+            <label class="form-label fw-bold">2. 選擇付款方式</label>
+            <div class="d-flex gap-2">
+                <input type="radio" class="btn-check" name="paymentMethod" id="payCash" value="cash" checked>
+                <label class="btn btn-outline-danger flex-grow-1 fw-bold py-3" for="payCash">💵 現金 (櫃檯付)</label>
+
+                <input type="radio" class="btn-check" name="paymentMethod" id="payLine" value="linepay">
+                <label class="btn btn-outline-success flex-grow-1 fw-bold py-3" for="payLine">📱 LINE Pay</label>
+            </div>
+        </div>
+
+        <label class="form-label fw-bold mb-3 text-secondary text-center w-100">3. 選擇餐點及數量</label>
         <div id="productList" class="mb-5 pb-5"></div>
 
         <div class="sticky-footer shadow-lg text-center">
@@ -60,6 +77,7 @@
         </div>
     </div>
 
+    <!-- 狀態區塊 -->
     <div id="statusPage" class="d-none animate__animated animate__fadeIn">
         <div class="card p-4 text-center shadow">
             <div class="order-id-circle shadow" id="display_order_id">--</div>
@@ -80,8 +98,16 @@
             <div class="bg-light rounded p-3 text-start mt-4">
                 <p class="border-bottom pb-2 fw-bold mb-2">📋 您的訂單細項：</p>
                 <div id="order_details_list" class="mb-3"></div>
-                <p class="mb-1">手機末碼：<strong id="display_phone" class="text-dark"></strong></p>
-                <p class="mb-0">付款金額：<strong class="text-danger h4">$<span id="display_final_total"></span></strong></p>
+                <div class="d-flex justify-content-between mb-1">
+                    <span>手機末碼：</span><strong id="display_phone" class="text-dark"></strong>
+                </div>
+                <div class="d-flex justify-content-between mb-1">
+                    <span>付款方式：</span><strong id="display_payment" class="text-primary"></strong>
+                </div>
+                <hr class="my-2">
+                <div class="d-flex justify-content-between">
+                    <span>應付金額：</span><strong class="text-danger h4">$<span id="display_final_total"></span></strong>
+                </div>
             </div>
             <p class="text-muted small mt-4">※ 請勿關閉此頁面，系統將自動更新狀態</p>
         </div>
@@ -94,7 +120,20 @@
     alarmAudio.loop = true;
     let vibrationInterval = null, vibrationTimer = null;
 
-    // --- 1. 產品載入與庫存顯示 ---
+    // --- 初始化: 檢查是否為 LINE Pay 跳回來的客人 ---
+    window.onload = function() {
+        fetchProducts();
+        
+        // 解析網址參數，例如: ?oid=15
+        const urlParams = new URLSearchParams(window.location.search);
+        const oid = urlParams.get('oid');
+        
+        if (oid) {
+            // 如果有 oid，直接切換到狀態頁面並查詢
+            switchToStatusPage(oid);
+        }
+    };
+
     function fetchProducts() {
         fetch(`/api/products/?store=${currentStoreSlug}&t=${Date.now()}`)
             .then(res => res.json())
@@ -144,7 +183,6 @@
         document.getElementById('display_total').innerText = '$' + t;
     }
 
-    // --- 2. 統一渲染詳細清單函式 (含單價、數量、小計) ---
     function renderOrderDetailList(items) {
         let html = "";
         items.forEach(i => {
@@ -164,12 +202,13 @@
         if (container) container.innerHTML = html;
     }
 
-    // --- 3. 下單確認彈窗 (SweetAlert2) ---
     function handleOrderConfirm() {
         const phone = document.getElementById('phone_tail').value;
-        if (phone.length !== 4) {
-            return Swal.fire({ icon: 'warning', title: '格式錯誤', text: '請輸入手機後 4 碼以供核對！', confirmButtonColor: '#ff4d4d' });
-        }
+        const paymentRadio = document.querySelector('input[name="paymentMethod"]:checked');
+        const paymentMethod = paymentRadio ? paymentRadio.value : 'cash';
+        const paymentLabel = paymentRadio ? document.querySelector(`label[for="${paymentRadio.id}"]`).innerText : '現金';
+
+        if (phone.length !== 4) return Swal.fire({ icon: 'warning', title: '格式錯誤', text: '請輸入手機後 4 碼以供核對！', confirmButtonColor: '#ff4d4d' });
 
         let items = [], total = 0, tableRowsHtml = ""; 
         document.querySelectorAll('.item-qty').forEach(input => {
@@ -185,99 +224,151 @@
         if (total === 0) return Swal.fire({ icon: 'info', title: '購物車空空的', text: '您還沒選擇商品喔！', confirmButtonColor: '#ff4d4d' });
 
         Swal.fire({
-            title: '訂單明細確認',
+            title: '訂單確認',
             html: `
+                <div class="mb-2 text-start bg-light p-2 rounded border">
+                    <span class="text-muted small">付款方式：</span>
+                    <span class="badge ${paymentMethod==='linepay'?'bg-success':'bg-danger'} fs-6">${paymentLabel}</span>
+                    ${paymentMethod==='linepay' ? '<div class="text-success small mt-1">※ 點擊後將轉跳至 LINE Pay 付款</div>' : ''}
+                </div>
                 <table class="table table-sm border-top mt-2" style="font-size: 0.9rem;">
                     <thead><tr class="table-light"><th class="text-start">品名</th><th>數量</th><th class="text-end">小計</th></tr></thead>
                     <tbody>${tableRowsHtml}</tbody>
                     <tfoot><tr class="table-warning"><td colspan="2" class="text-end fw-bold">總計金額：</td><td class="text-end fw-bold text-danger">$${total}</td></tr></tfoot>
                 </table>`,
             showCancelButton: true,
-            confirmButtonColor: '#ff4d4d',
+            confirmButtonColor: paymentMethod==='linepay' ? '#2db400' : '#ff4d4d',
             cancelButtonColor: '#6c757d',
-            confirmButtonText: '確定送出',
+            confirmButtonText: paymentMethod==='linepay' ? '前往 LINE Pay 付款' : '確定下單',
             cancelButtonText: '再修改一下'
         }).then((result) => {
             if (result.isConfirmed) {
-                renderOrderDetailList(items); // 送出瞬間先顯示清單
-                submitOrder(phone, items, total);
+                // 如果是 LINE Pay，先顯示 loading
+                if (paymentMethod === 'linepay') {
+                    Swal.fire({ title: '正在連接 LINE Pay...', text: '請稍候，準備轉跳中', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); } });
+                }
+                submitOrder(phone, items, total, paymentMethod);
             }
         });
     }
 
-    // --- 4. 提交與輪詢 ---
-    function submitOrder(phone, items, total) {
+    function submitOrder(phone, items, total, paymentMethod) {
         fetch('/api/orders/', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
-            body: JSON.stringify({ store_slug: currentStoreSlug, phone_tail: phone, items: items, subtotal: total, total: total })
+            body: JSON.stringify({ 
+                store_slug: currentStoreSlug, 
+                phone_tail: phone, 
+                items: items, 
+                subtotal: total, 
+                total: total,
+                payment_method: paymentMethod 
+            })
         })
         .then(res => {
-            if (!res.ok) return res.json().then(data => { throw new Error(data.error || "下單失敗"); });
+            // [Check 1] 檢查後端是否回傳錯誤
+            if (!res.ok) {
+                return res.json().then(err => { throw new Error(err.error || '伺服器發生錯誤'); });
+            }
             return res.json();
         })
         .then(order => {
-            document.getElementById('orderForm').classList.add('d-none');
-            document.getElementById('statusPage').classList.remove('d-none');
-            document.getElementById('display_order_id').innerText = order.id;
-            document.getElementById('display_phone').innerText = phone;
-            document.getElementById('display_final_total').innerText = order.total;
-            document.getElementById('created_time').innerText = new Date().toLocaleTimeString();
-            renderOrderDetailList(order.items); // 接收後端回應後再次確認清單內容
-            startPolling(order.id);
+            // [Check 2] 如果是 LINE Pay，進行轉跳
+            if (order.payment_method === 'linepay' && order.payment_url) {
+                window.location.href = order.payment_url;
+                return; 
+            }
+            // 成功：關閉 Swal 並顯示狀態
+            Swal.close(); 
+            switchToStatusPage(order.id, order);
         })
         .catch(err => {
-            Swal.fire({ icon: 'error', title: '下單失敗', text: err.message, confirmButtonColor: '#ff4d4d' });
-            fetchProducts(); 
+            // [Check 3] 發生錯誤時
+            Swal.close();
+            console.error(err);
+            Swal.fire({ icon: 'error', title: '下單失敗', text: err.message || '請稍後再試', confirmButtonColor: '#ff4d4d' });
         });
     }
 
+    // 將切換頁面的邏輯獨立出來
+    function switchToStatusPage(oid, orderData = null) {
+        document.getElementById('orderForm').classList.add('d-none');
+        document.getElementById('statusPage').classList.remove('d-none');
+        document.getElementById('display_order_id').innerText = oid;
+        
+        startPolling(oid);
+        
+        // 如果有傳入現成資料就直接顯示，不然輪詢會自己抓
+        if (orderData) {
+            document.getElementById('display_phone').innerText = orderData.phone_tail || '';
+            document.getElementById('display_final_total').innerText = orderData.total || 0;
+            
+            // [FIXED] 這裡修復了 undefined 問題
+            const pMethodMap = {'cash': '💵 現金', 'linepay': '📱 LINE Pay'};
+            document.getElementById('display_payment').innerText = pMethodMap[orderData.payment_method] || orderData.payment_method || '未指定';
+            
+            document.getElementById('created_time').innerText = new Date().toLocaleTimeString();
+            renderOrderDetailList(orderData.items);
+        }
+    }
+
     function startPolling(oid) {
-        const timer = setInterval(() => {
+        const fetchStatus = () => {
             fetch(`/api/orders/${oid}/?t=${Date.now()}`)
                 .then(res => res.json())
                 .then(order => {
-                    const box = document.getElementById('statusBox');
-                    const pickupInfo = document.getElementById('pickupInfo');
-                    
-                    // 同步改單明細
-                    const displayTotal = document.getElementById('display_final_total').innerText;
-                    if (displayTotal != order.total) {
-                        document.getElementById('display_final_total').innerText = order.total;
-                        renderOrderDetailList(order.items);
-                    }
-
-                    // 狀態映射
-                    const statusMap = {
-                        'pending': { text: '⌛ 待付款，請至櫃檯結帳', class: 'bg-light text-secondary border' },
-                        'confirmed': { text: '💰 已付款！請等候製作', class: 'bg-primary text-white shadow-sm' },
-                        'preparing': { text: '🍓 老闆正在努力製作中...', class: 'bg-warning text-dark shadow-sm' },
-                        'arrived': { text: '🔔 已通知店家您在櫃檯', class: 'bg-info text-white shadow-sm' }
-                    };
-
-                    if (order.status === 'completed') {
-                        if (pickupInfo.classList.contains('d-none')) {
-                            box.innerHTML = "✅ 餐點已完成！請取餐";
-                            box.className = "status-box st-completed";
-                            pickupInfo.classList.remove('d-none');
-                            document.getElementById('info_id').innerText = order.id;
-                            alarmAudio.play().catch(()=>{});
-                            triggerStrongVibrate();
-                        }
-                    } else if (order.status === 'final' || order.status === 'cancelled') {
-                        box.innerHTML = order.status === 'final' ? "🍓 祝您用餐愉快！" : "❌ 訂單已被取消";
-                        box.className = "status-box bg-dark text-white shadow-sm";
-                        stopAllAlerts();
-                        clearInterval(timer);
-                    } else if (statusMap[order.status]) {
-                        box.innerHTML = statusMap[order.status].text;
-                        box.className = `status-box ${statusMap[order.status].class}`;
-                    }
+                    updateStatusUI(order);
                 });
-        }, 4000);
+        };
+        fetchStatus(); 
+        const timer = setInterval(fetchStatus, 4000); 
     }
 
-    // --- 5. 提醒與工具函式 ---
+    function updateStatusUI(order) {
+        const box = document.getElementById('statusBox');
+        const pickupInfo = document.getElementById('pickupInfo');
+        
+        document.getElementById('display_final_total').innerText = order.total;
+        document.getElementById('display_phone').innerText = order.phone_tail;
+        
+        const pMethodMap = {'cash': '💵 現金 (未付)', 'linepay': '📱 LINE Pay (已付)'};
+        
+        // [FIXED] 這裡也加上了防呆邏輯
+        let payText = pMethodMap[order.payment_method] || order.payment_method || '未指定';
+        
+        if (order.status === 'confirmed' && order.payment_method === 'linepay') {
+             payText = '📱 LINE Pay (付款成功)';
+        }
+        document.getElementById('display_payment').innerText = payText;
+
+        renderOrderDetailList(order.items);
+
+        const statusMap = {
+            'pending': { text: '⌛ 待付款，請至櫃檯結帳', class: 'bg-light text-secondary border' },
+            'confirmed': { text: '💰 已付款！請等候製作', class: 'bg-primary text-white shadow-sm' },
+            'preparing': { text: '🍓 老闆正在努力製作中...', class: 'bg-warning text-dark shadow-sm' },
+            'arrived': { text: '🔔 已通知店家您在櫃檯', class: 'bg-info text-white shadow-sm' }
+        };
+
+        if (order.status === 'completed') {
+            if (pickupInfo.classList.contains('d-none')) {
+                box.innerHTML = "✅ 餐點已完成！請取餐";
+                box.className = "status-box st-completed";
+                pickupInfo.classList.remove('d-none');
+                document.getElementById('info_id').innerText = order.id;
+                alarmAudio.play().catch(()=>{});
+                triggerStrongVibrate();
+            }
+        } else if (order.status === 'final' || order.status === 'cancelled') {
+            box.innerHTML = order.status === 'final' ? "🍓 祝您用餐愉快！" : "❌ 訂單已被取消";
+            box.className = "status-box bg-dark text-white shadow-sm";
+            stopAllAlerts();
+        } else if (statusMap[order.status]) {
+            box.innerHTML = statusMap[order.status].text;
+            box.className = `status-box ${statusMap[order.status].class}`;
+        }
+    }
+
     function triggerStrongVibrate() {
         if (!("vibrate" in navigator)) return;
         const pattern = [2000, 500]; 
@@ -336,8 +427,6 @@
         let v = document.cookie.match('(^|;) ?' + n + '=([^;]*)(;|$)'); 
         return v ? decodeURIComponent(v[2]) : null; 
     }
-
-    fetchProducts();
 </script>
 </body>
 </html>

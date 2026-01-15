@@ -5,3 +5,4 @@ pytz
 djangorestframework
 django-cors-headers
 django-json-widget
+requests

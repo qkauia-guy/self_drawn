@@ -66,10 +66,17 @@
         .btn-action { border-radius: 12px; padding: 15px; font-weight: bold; width: 100%; font-size: 1.2rem; margin-bottom: 8px; }
         .item-badge { background: #fff5f5; border: 1px solid #ffcccc; color: #d63031; padding: 6px 10px; border-radius: 8px; margin: 3px; display: inline-block; font-size: 1rem; font-weight: bold; }
         .time-box { font-size: 0.85rem; color: #7f8c8d; background: #f9f9f9; padding: 10px; border-radius: 8px; }
-        .btn-final { background-color: #2d3436; color: white; border: none; }
         
+        /* 修復按鈕變白問題 */
+        .btn-final { background-color: #2d3436; color: white; border: none; }
+        .btn-final:hover, .btn-final:active, .btn-final:focus { background-color: #000000 !important; color: white !important; }
+
         .qty-controls button { width: 40px; height: 40px; border-radius: 50%; font-weight: bold; }
         #voiceDebug { font-size: 0.85rem; min-height: 20px; color: #d63031; font-weight: bold; text-align: center; }
+        
+        /* 付款標籤 */
+        .pay-tag-cash { background-color: #ffcccc; color: #d63031; font-size: 0.8rem; padding: 4px 8px; border-radius: 6px; font-weight: bold; }
+        .pay-tag-line { background-color: #06c755; color: white; font-size: 0.8rem; padding: 4px 8px; border-radius: 6px; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -77,7 +84,7 @@
 <nav class="navbar navbar-dark sticky-top">
     <div class="container-fluid">
         <div class="d-flex align-items-center flex-grow-1">
-            <span class="navbar-brand fw-bold me-2">🍓 訂單管理</span>
+            <span class="navbar-brand fw-bold me-2">🍓 管理系統</span>
             <select id="storeSelector" class="store-selector-nav me-auto" onchange="switchStore()">
                 <option value="dajin">大津瀑布</option>
                 <option value="neipu">內埔年街</option>
@@ -86,7 +93,7 @@
 
         <!-- 語音控制按鈕 (Navbar 內) -->
         <button id="navVoiceBtn" class="btn btn-voice-nav voice-inactive shadow-sm" onclick="toggleVoiceControl()">
-            🎙️
+            🎤
         </button>
 
         <button class="navbar-toggler" type="button" data-bs-toggle="offcanvas" data-bs-target="#offcanvasMenu">
@@ -95,10 +102,10 @@
     </div>
 </nav>
 
-<!-- 語音狀態顯示區 (僅顯示音量條與文字) -->
-<div class="container">
+<!-- 語音狀態顯示區 -->
+<div class="container mt-2">
     <div id="voiceDebug"></div>
-    <div id="volumeContainer" class="progress mx-auto" style="width: 150px; height: 4px; background-color: #eee; border-radius: 5px; overflow: hidden; opacity: 0; transition: opacity 0.3s;">
+    <div id="volumeContainer" class="progress mx-auto mt-1" style="width: 150px; height: 4px; background-color: #eee; border-radius: 5px; overflow: hidden; opacity: 0; transition: opacity 0.3s;">
         <div id="volumeBar" class="progress-bar bg-danger" style="width: 0%; transition: width 0.05s;"></div>
     </div>
 </div>
@@ -110,9 +117,9 @@
     </div>
     <div class="offcanvas-body">
         <div class="list-group">
-            <a href="javascript:void(0)" onclick="goToReport()" class="list-group-item list-group-item-action py-3 fw-bold text-danger">營業報表統計</a>
-            <a href="/admin/" class="list-group-item list-group-item-action py-3">後台管理</a>
-            <a href="javascript:void(0)" onclick="openStatusBoard()" class="list-group-item list-group-item-action py-3 text-primary">叫號看板</a>
+            <a href="javascript:void(0)" onclick="goToReport()" class="list-group-item list-group-item-action py-3 fw-bold text-danger">📊 營業報表統計</a>
+            <a href="/admin/" class="list-group-item list-group-item-action py-3">Django 後台管理</a>
+            <a href="javascript:void(0)" onclick="openStatusBoard()" class="list-group-item list-group-item-action py-3 text-primary">🖥️ 打開叫號看板</a>
             <hr>
             <a href="/admin/logout/" class="list-group-item list-group-item-action py-3 text-muted small">安全登出</a>
         </div>
@@ -232,52 +239,40 @@
 
     async function startVoiceControl() {
         await ensureAudioContextReady();
-        
         micStream = await navigator.mediaDevices.getUserMedia({ 
             audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } 
         });
-        
         micSource = audioContext.createMediaStreamSource(micStream);
         analyserNode = audioContext.createAnalyser();
         analyserNode.fftSize = 512;
         micSource.connect(analyserNode);
         startVolumeMeter();
-
         initRecognition();
         recognition.start();
-
         isVoiceControlling = true;
-        
-        // 更新 UI
         const btn = document.getElementById('navVoiceBtn');
         btn.classList.remove('voice-inactive');
         btn.classList.add('voice-active');
         btn.innerHTML = '🛑';
         document.getElementById('volumeContainer').style.opacity = '1';
-
-        speak("聲控啟動", { muteRecognition: true });
+        speak("語音模式啟動", { muteRecognition: true });
     }
 
     function stopVoiceControl() {
         isVoiceControlling = false;
         isSpeaking = false;
-        
         if (restartTimer) clearTimeout(restartTimer);
         if (recognition) { try{ recognition.onend = null; recognition.abort(); }catch(e){} recognition = null; }
-        
         stopVolumeMeter();
         if (micStream) { micStream.getTracks().forEach(t => t.stop()); micStream = null; }
-
-        // 更新 UI
         const btn = document.getElementById('navVoiceBtn');
         btn.classList.remove('voice-active');
         btn.classList.add('voice-inactive');
-        btn.innerHTML = '🎙️';
+        btn.innerHTML = '🎤';
         document.getElementById('voiceDebug').innerText = "";
         document.getElementById('volumeContainer').style.opacity = '0';
         document.getElementById('volumeBar').style.width = "0%";
-
-        speak("關閉聲控", { muteRecognition: false });
+        speak("語音關閉", { muteRecognition: false });
     }
 
     function startVolumeMeter() {
@@ -305,7 +300,6 @@
         recognition.lang = 'zh-TW';
         recognition.continuous = true;
         recognition.interimResults = true;
-
         recognition.onresult = (event) => {
             let interim = "";
             for (let i = event.resultIndex; i < event.results.length; i++) {
@@ -316,15 +310,13 @@
                     interim += transcript;
                 }
             }
-            if (interim) document.getElementById('voiceDebug').innerText = `◉ ${interim}`;
+            if (interim) document.getElementById('voiceDebug').innerText = `👂: ${interim}`;
         };
-
         recognition.onerror = (e) => {
             console.log("Voice error:", e.error);
             if(e.error === 'not-allowed') stopVoiceControl();
             else scheduleRestart(500);
         };
-
         recognition.onend = () => {
             if (isVoiceControlling && !isSpeaking) scheduleRestart(200);
         };
@@ -343,10 +335,8 @@
         if (rawText === lastFinalText && (Date.now() - lastFinalAt) < 1000) return;
         lastFinalText = rawText;
         lastFinalAt = Date.now();
-
-        document.getElementById('voiceDebug').innerText = `🅥 ${rawText}`;
+        document.getElementById('voiceDebug').innerText = `✅: ${rawText}`;
         const text = rawText.replace(/\s/g, "");
-
         let orderId = null;
         const numMatch = text.match(/(\d+)/);
         if (numMatch) {
@@ -355,9 +345,7 @@
             const zhNum = text.match(/[零一二兩三四五六七八九十]+/);
             if (zhNum) orderId = parseChineseNumber(zhNum[0]);
         }
-
         if (!orderId) return;
-
         if (text.includes("完成") || text.includes("好了") || text.includes("通知")) {
             speak(`${orderId}號完成`);
             updateStatus(orderId, 'completed', true);
@@ -392,7 +380,6 @@
         window.speechSynthesis.cancel();
         const u = new SpeechSynthesisUtterance(text);
         u.lang = 'zh-TW';
-
         if (muteRecognition && isVoiceControlling && recognition) {
             isSpeaking = true;
             try { recognition.abort(); } catch(e){} 
@@ -475,12 +462,22 @@
                 const arrowRotate = isContracted ? '' : 'style="transform: rotate(180deg)"';
                 const editBtn = !isContracted ? `<button onclick="openEditModal(${order.id})" class="btn btn-outline-secondary w-100 mb-2 py-2 fw-bold" style="border-radius:12px; font-size:0.9rem;">✏️ 修改品項 / 庫存</button>` : '';
 
+                // 付款標籤邏輯
+                const isLinePay = order.payment_method === 'linepay';
+                const payTag = isLinePay 
+                    ? `<span class="pay-tag-line">📱 LINE Pay</span>` 
+                    : `<span class="pay-tag-cash">💵 現金</span>`;
+
                 let actionBtn = '';
                 if (order.status === 'pending') {
-                    actionBtn = `<button onclick="updateStatus(${order.id}, 'confirmed')" class="btn btn-primary btn-action shadow">💰 已收錢：成立訂單</button>
+                    // 如果是現金單，或 LINE Pay 卡在 pending (可能沒付成功)，都給按鈕
+                    const btnText = isLinePay ? "⚠️ 強制確認 (客人說已付)" : "💰 已收錢：成立訂單";
+                    actionBtn = `<button onclick="updateStatus(${order.id}, 'confirmed')" class="btn btn-primary btn-action shadow">${btnText}</button>
                                  <button onclick="confirmAction(${order.id}, 'cancelled', '確定要「取消」這筆訂單嗎？')" class="btn btn-link btn-sm text-muted w-100 mt-2">取消訂單</button>`;
                 } else if (order.status === 'confirmed') {
-                    actionBtn = `<button onclick="updateStatus(${order.id}, 'preparing')" class="btn btn-warning btn-action shadow">🍓 開始製作餐點</button>`;
+                    // [修復] 這裡補回了取消按鈕
+                    actionBtn = `<button onclick="updateStatus(${order.id}, 'preparing')" class="btn btn-warning btn-action shadow">🍓 開始製作餐點</button>
+                                 <button onclick="confirmAction(${order.id}, 'cancelled', '確定要「取消」這筆訂單嗎？')" class="btn btn-link btn-sm text-muted w-100 mt-2">取消訂單</button>`;
                 } else if (order.status === 'preparing') {
                     actionBtn = `<button onclick="updateStatus(${order.id}, 'completed', true)" class="btn btn-success btn-action shadow">🔔 製作完成：發送取餐通知</button>`;
                 } else if (order.status === 'completed') {
@@ -497,7 +494,11 @@
                 newHtml += `
                     <div class="card order-card status-${order.status}" id="card-${order.id}">
                         <div class="card-header-clickable" onclick="toggleDetail(${order.id})">
-                            <div class="fw-bold h5 mb-0">#${order.id} ${order.status === 'arrived' ? '🚨' : ''}</div>
+                            <div class="fw-bold h5 mb-0 d-flex align-items-center">
+                                <span class="badge bg-light text-dark me-2 border">#${order.id}</span>
+                                ${payTag}
+                                ${order.status === 'arrived' ? '<span class="ms-2">🚨</span>' : ''}
+                            </div>
                             <div class="d-flex align-items-center">
                                 <span class="badge ${isContracted ? 'bg-secondary' : 'bg-danger'} me-2">${order.phone_tail || '現場'}</span>
                                 <span class="text-muted small me-2">${getStatusText(order.status)}</span>
@@ -593,7 +594,7 @@
     }
 
     function getStatusText(s) {
-        const map = { 'pending': '等待付錢', 'confirmed': '已收錢', 'preparing': '製作中', 'completed': '通知取餐中', 'arrived': '客人到櫃檯', 'final': '已完成', 'cancelled': '已取消' };
+        const map = { 'pending': '等待付錢', 'confirmed': '已收錢/已付款', 'preparing': '製作中', 'completed': '通知取餐中', 'arrived': '客人到櫃檯', 'final': '已完成', 'cancelled': '已取消' };
         return map[s] || s;
     }
 
