@@ -2,13 +2,10 @@
 <html lang="zh-Hant">
 <head>
     <meta charset="UTF-8">
-    {% load static %}
     <title>一把葫管理後台 - 即時訂單</title>
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
-    <link rel="icon" href="{% static 'images/favicon.png' %}" type="image/png">
-    <link rel="shortcut icon" href="{% static 'images/favicon.png' %}" type="image/x-icon">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
         body { background-color: #f0f2f5; font-family: "Microsoft JhengHei", sans-serif; padding-bottom: 50px; }
@@ -22,13 +19,34 @@
 
         .store-selector-nav { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.3); color: white; border-radius: 8px; padding: 2px 10px; font-weight: bold; }
 
+        /* Navbar 圓形語音按鈕 */
+        .btn-voice-nav {
+            width: 42px; height: 42px;
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.2rem; border: none;
+            transition: all 0.3s ease;
+            margin-right: 12px;
+        }
+        .voice-inactive { background-color: rgba(255, 255, 255, 0.9); color: #d63031; }
+        .voice-active {
+            background-color: #ff4757 !important; color: white !important;
+            box-shadow: 0 0 0 0 rgba(255, 71, 87, 0.7);
+            animation: pulse-voice-nav 1.5s infinite;
+        }
+        @keyframes pulse-voice-nav {
+            0% { box-shadow: 0 0 0 0 rgba(255, 71, 87, 0.7); }
+            70% { box-shadow: 0 0 0 8px rgba(255, 71, 87, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(255, 71, 87, 0); }
+        }
+
+        /* 訂單卡片 */
         .order-card { 
             border: none; border-radius: 12px; margin-bottom: 12px; 
             overflow: hidden; border-left: 8px solid #ccc;
             transition: all 0.2s ease; background: white;
             box-shadow: 0 4px 6px rgba(0,0,0,0.05);
         }
-        
         .status-pending { border-left-color: #636e72; }
         .status-confirmed { border-left-color: #0984e3; }
         .status-preparing { border-left-color: #fdcb6e; }
@@ -48,30 +66,42 @@
         .btn-action { border-radius: 12px; padding: 15px; font-weight: bold; width: 100%; font-size: 1.2rem; margin-bottom: 8px; }
         .item-badge { background: #fff5f5; border: 1px solid #ffcccc; color: #d63031; padding: 6px 10px; border-radius: 8px; margin: 3px; display: inline-block; font-size: 1rem; font-weight: bold; }
         .time-box { font-size: 0.85rem; color: #7f8c8d; background: #f9f9f9; padding: 10px; border-radius: 8px; }
-        
         .btn-final { background-color: #2d3436; color: white; border: none; }
-        .btn-final:hover { background-color: #000; color: white; }
-
-        /* 修改 Modal 樣式 */
+        
         .qty-controls button { width: 40px; height: 40px; border-radius: 50%; font-weight: bold; }
+        #voiceDebug { font-size: 0.85rem; min-height: 20px; color: #d63031; font-weight: bold; text-align: center; }
     </style>
 </head>
 <body>
 
 <nav class="navbar navbar-dark sticky-top">
     <div class="container-fluid">
-        <div class="d-flex align-items-center">
-            <span class="navbar-brand fw-bold me-2">🍓 管理系統</span>
-            <select id="storeSelector" class="store-selector-nav" onchange="switchStore()">
+        <div class="d-flex align-items-center flex-grow-1">
+            <span class="navbar-brand fw-bold me-2">🍓 訂單管理</span>
+            <select id="storeSelector" class="store-selector-nav me-auto" onchange="switchStore()">
                 <option value="dajin">大津瀑布</option>
                 <option value="neipu">內埔年街</option>
             </select>
         </div>
+
+        <!-- 語音控制按鈕 (Navbar 內) -->
+        <button id="navVoiceBtn" class="btn btn-voice-nav voice-inactive shadow-sm" onclick="toggleVoiceControl()">
+            🎙️
+        </button>
+
         <button class="navbar-toggler" type="button" data-bs-toggle="offcanvas" data-bs-target="#offcanvasMenu">
             <span class="navbar-toggler-icon"></span>
         </button>
     </div>
 </nav>
+
+<!-- 語音狀態顯示區 (僅顯示音量條與文字) -->
+<div class="container">
+    <div id="voiceDebug"></div>
+    <div id="volumeContainer" class="progress mx-auto" style="width: 150px; height: 4px; background-color: #eee; border-radius: 5px; overflow: hidden; opacity: 0; transition: opacity 0.3s;">
+        <div id="volumeBar" class="progress-bar bg-danger" style="width: 0%; transition: width 0.05s;"></div>
+    </div>
+</div>
 
 <div class="offcanvas offcanvas-end" tabindex="-1" id="offcanvasMenu">
     <div class="offcanvas-header bg-danger text-white">
@@ -80,9 +110,9 @@
     </div>
     <div class="offcanvas-body">
         <div class="list-group">
-            <a href="javascript:void(0)" onclick="goToReport()" class="list-group-item list-group-item-action py-3 fw-bold text-danger">📊 營業報表統計</a>
-            <a href="/admin/" class="list-group-item list-group-item-action py-3">Django 後台管理</a>
-            <a href="javascript:void(0)" onclick="openStatusBoard()" class="list-group-item list-group-item-action py-3 text-primary">🖥️ 打開叫號看板</a>
+            <a href="javascript:void(0)" onclick="goToReport()" class="list-group-item list-group-item-action py-3 fw-bold text-danger">營業報表統計</a>
+            <a href="/admin/" class="list-group-item list-group-item-action py-3">後台管理</a>
+            <a href="javascript:void(0)" onclick="openStatusBoard()" class="list-group-item list-group-item-action py-3 text-primary">叫號看板</a>
             <hr>
             <a href="/admin/logout/" class="list-group-item list-group-item-action py-3 text-muted small">安全登出</a>
         </div>
@@ -92,7 +122,7 @@
 <div id="audio-unlocker">
     <h2 class="mb-4">🍓 一把葫管理系統</h2>
     <p class="mb-2">當前管理店鋪：<span id="targetStoreName" class="fw-bold">大津瀑布</span></p>
-    <p class="mb-4">請點擊下方按鈕啟動即時監控</p>
+    <p class="mb-4">請點擊下方按鈕啟動系統</p>
     <button onclick="unlockAudio()" class="btn btn-light btn-lg fw-bold px-5 py-3 shadow">🚀 啟動系統</button>
 </div>
 
@@ -103,6 +133,7 @@
     </div>
 </div>
 
+<!-- Modal -->
 <div class="modal fade" id="editOrderModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content" style="border-radius: 20px;">
@@ -127,20 +158,253 @@
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
+    // --- 基礎變數 ---
     let audioReady = false;
     let alertedArrived = new Set(); 
     let alertedNewOrder = new Set(JSON.parse(localStorage.getItem('alerted_new_orders') || '[]'));
     let notifyTimes = JSON.parse(localStorage.getItem('notify_times') || '{}');
-    let bellAudio = new Audio('https://actions.google.com/sounds/v1/alarms/bugle_tune.ogg');
+    
+    // 改用 Base64 音效，避免 404
+    let bellAudio = new Audio('data:audio/wav;base64,UklGRl9vT19XQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YU'); 
+
     let isFirstLoad = true;
     let currentStore = localStorage.getItem('selected_store') || 'dajin';
-    
-    // 修改功能用的全域變數
     let allProducts = [], currentEditingOrderId = null, currentEditingItems = [];
 
+    // --- 語音變數 ---
+    let audioContext = null;
+    let micStream = null, micSource = null, analyserNode = null, rafId = null;
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    let recognition = null;
+    let isVoiceControlling = false;
+    let isSpeaking = false;
+    let restartTimer = null;
+    let lastFinalText = "", lastFinalAt = 0;
+
+    // --- 初始化介面 ---
     document.getElementById('storeSelector').value = currentStore;
     updateStoreUI();
 
+    // --- 1. 系統啟動與 AudioContext 修復 ---
+    async function ensureAudioContextReady() {
+        try {
+            if (!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            if (audioContext.state === 'suspended') await audioContext.resume();
+        } catch (e) {
+            console.warn("重建 AudioContext:", e);
+            try { if(audioContext) await audioContext.close(); } catch(_){}
+            audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            if (audioContext.state === 'suspended') await audioContext.resume();
+        }
+    }
+
+    async function unlockAudio() {
+        audioReady = true;
+        const unlocker = document.getElementById('audio-unlocker');
+        unlocker.classList.add('animate__animated', 'animate__fadeOut');
+        setTimeout(() => { unlocker.style.display = 'none'; }, 500);
+
+        await ensureAudioContextReady();
+        
+        // 播放無聲測試
+        bellAudio.play().then(() => { bellAudio.pause(); bellAudio.currentTime = 0; }).catch(e => {});
+        speak("系統啟動", { muteRecognition: false });
+        
+        loadOrders();
+        setInterval(loadOrders, 5000);
+    }
+
+    // --- 2. 語音控制核心邏輯 ---
+    async function toggleVoiceControl() {
+        if (!SpeechRecognition) return Swal.fire("不支援", "請使用 Chrome 瀏覽器", "error");
+
+        if (!isVoiceControlling) {
+            try {
+                await startVoiceControl();
+            } catch (err) {
+                console.error(err);
+                Swal.fire("錯誤", "無法啟動麥克風，請檢查權限", "error");
+            }
+        } else {
+            stopVoiceControl();
+        }
+    }
+
+    async function startVoiceControl() {
+        await ensureAudioContextReady();
+        
+        micStream = await navigator.mediaDevices.getUserMedia({ 
+            audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } 
+        });
+        
+        micSource = audioContext.createMediaStreamSource(micStream);
+        analyserNode = audioContext.createAnalyser();
+        analyserNode.fftSize = 512;
+        micSource.connect(analyserNode);
+        startVolumeMeter();
+
+        initRecognition();
+        recognition.start();
+
+        isVoiceControlling = true;
+        
+        // 更新 UI
+        const btn = document.getElementById('navVoiceBtn');
+        btn.classList.remove('voice-inactive');
+        btn.classList.add('voice-active');
+        btn.innerHTML = '🛑';
+        document.getElementById('volumeContainer').style.opacity = '1';
+
+        speak("聲控啟動", { muteRecognition: true });
+    }
+
+    function stopVoiceControl() {
+        isVoiceControlling = false;
+        isSpeaking = false;
+        
+        if (restartTimer) clearTimeout(restartTimer);
+        if (recognition) { try{ recognition.onend = null; recognition.abort(); }catch(e){} recognition = null; }
+        
+        stopVolumeMeter();
+        if (micStream) { micStream.getTracks().forEach(t => t.stop()); micStream = null; }
+
+        // 更新 UI
+        const btn = document.getElementById('navVoiceBtn');
+        btn.classList.remove('voice-active');
+        btn.classList.add('voice-inactive');
+        btn.innerHTML = '🎙️';
+        document.getElementById('voiceDebug').innerText = "";
+        document.getElementById('volumeContainer').style.opacity = '0';
+        document.getElementById('volumeBar').style.width = "0%";
+
+        speak("關閉聲控", { muteRecognition: false });
+    }
+
+    function startVolumeMeter() {
+        const volBar = document.getElementById('volumeBar');
+        const buffer = new Uint8Array(analyserNode.frequencyBinCount);
+        const draw = () => {
+            if (!isVoiceControlling) return;
+            analyserNode.getByteFrequencyData(buffer);
+            let sum = 0;
+            for(let i=0; i<buffer.length; i++) sum += buffer[i];
+            let avg = sum / buffer.length;
+            volBar.style.width = Math.min(avg * 2.5, 100) + "%"; 
+            rafId = requestAnimationFrame(draw);
+        };
+        draw();
+    }
+
+    function stopVolumeMeter() {
+        if (rafId) cancelAnimationFrame(rafId);
+        document.getElementById('volumeBar').style.width = "0%";
+    }
+
+    function initRecognition() {
+        recognition = new SpeechRecognition();
+        recognition.lang = 'zh-TW';
+        recognition.continuous = true;
+        recognition.interimResults = true;
+
+        recognition.onresult = (event) => {
+            let interim = "";
+            for (let i = event.resultIndex; i < event.results.length; i++) {
+                const transcript = event.results[i][0].transcript.trim();
+                if (event.results[i].isFinal) {
+                    processVoiceCommand(transcript);
+                } else {
+                    interim += transcript;
+                }
+            }
+            if (interim) document.getElementById('voiceDebug').innerText = `◉ ${interim}`;
+        };
+
+        recognition.onerror = (e) => {
+            console.log("Voice error:", e.error);
+            if(e.error === 'not-allowed') stopVoiceControl();
+            else scheduleRestart(500);
+        };
+
+        recognition.onend = () => {
+            if (isVoiceControlling && !isSpeaking) scheduleRestart(200);
+        };
+    }
+
+    function scheduleRestart(ms) {
+        if(restartTimer) clearTimeout(restartTimer);
+        restartTimer = setTimeout(() => {
+            if(isVoiceControlling && recognition) {
+                try { recognition.start(); } catch(e){}
+            }
+        }, ms);
+    }
+
+    function processVoiceCommand(rawText) {
+        if (rawText === lastFinalText && (Date.now() - lastFinalAt) < 1000) return;
+        lastFinalText = rawText;
+        lastFinalAt = Date.now();
+
+        document.getElementById('voiceDebug').innerText = `🅥 ${rawText}`;
+        const text = rawText.replace(/\s/g, "");
+
+        let orderId = null;
+        const numMatch = text.match(/(\d+)/);
+        if (numMatch) {
+            orderId = parseInt(numMatch[1]);
+        } else {
+            const zhNum = text.match(/[零一二兩三四五六七八九十]+/);
+            if (zhNum) orderId = parseChineseNumber(zhNum[0]);
+        }
+
+        if (!orderId) return;
+
+        if (text.includes("完成") || text.includes("好了") || text.includes("通知")) {
+            speak(`${orderId}號完成`);
+            updateStatus(orderId, 'completed', true);
+        } else if (text.includes("結案") || text.includes("交付")) {
+            speak(`${orderId}號結案`);
+            updateStatus(orderId, 'final');
+        } else if (text.includes("收錢") || text.includes("收了") || text.includes("確認")) {
+            speak(`${orderId}號已收錢`);
+            updateStatus(orderId, 'confirmed');
+        } else if (text.includes("製作") || text.includes("做")) {
+            speak(`${orderId}號製作中`);
+            updateStatus(orderId, 'preparing');
+        }
+    }
+
+    function parseChineseNumber(s) {
+        const map = {'零':0,'一':1,'二':2,'兩':2,'三':3,'四':4,'五':5,'六':6,'七':7,'八':8,'九':9,'十':10};
+        let val = 0;
+        if (s.startsWith('十')) s = '一' + s; 
+        let parts = s.split('十');
+        if (parts.length === 1) return map[parts[0]] || 0;
+        if (parts.length === 2) {
+            let ten = map[parts[0]] || 0;
+            let unit = map[parts[1]] || 0;
+            return ten * 10 + unit;
+        }
+        return 0;
+    }
+
+    function speak(text, { muteRecognition = true } = {}) {
+        if (!audioReady) return;
+        window.speechSynthesis.cancel();
+        const u = new SpeechSynthesisUtterance(text);
+        u.lang = 'zh-TW';
+
+        if (muteRecognition && isVoiceControlling && recognition) {
+            isSpeaking = true;
+            try { recognition.abort(); } catch(e){} 
+            u.onend = () => {
+                isSpeaking = false;
+                scheduleRestart(200);
+            };
+        }
+        window.speechSynthesis.speak(u);
+    }
+
+    // --- 其餘原有邏輯 ---
     function switchStore() {
         currentStore = document.getElementById('storeSelector').value;
         localStorage.setItem('selected_store', currentStore);
@@ -148,7 +412,7 @@
         isFirstLoad = true;
         alertedArrived.clear(); 
         loadOrders();
-        speak("已切換至" + (currentStore === 'dajin' ? '大津瀑布' : '內埔年街'));
+        speak("已切換至" + (currentStore === 'dajin' ? '大津瀑布' : '內埔年街'), {muteRecognition: false});
     }
 
     function updateStoreUI() {
@@ -158,32 +422,7 @@
 
     function goToReport() { window.location.href = `/report-dashboard/?store=${currentStore}`; }
     function openStatusBoard() { window.open(`/status/${currentStore}/`, '_blank'); }
-
-    function unlockAudio() {
-        audioReady = true;
-        const silentMsg = new SpeechSynthesisUtterance("");
-        window.speechSynthesis.speak(silentMsg);
-        document.getElementById('audio-unlocker').classList.add('animate__animated', 'animate__fadeOut');
-        setTimeout(() => { document.getElementById('audio-unlocker').style.display = 'none'; }, 500);
-        bellAudio.play().then(() => { bellAudio.pause(); bellAudio.currentTime = 0; }).catch(e => {});
-        speak("系統監控中");
-        loadOrders();
-        setInterval(loadOrders, 5000);
-    }
-
-    function getCookie(n) { 
-        let v = document.cookie.match('(^|;) ?' + n + '=([^;]*)(;|$)'); 
-        return v ? decodeURIComponent(v[2]) : null; 
-    }
-
-    function speak(text) {
-        if (audioReady && 'speechSynthesis' in window) {
-            window.speechSynthesis.cancel();
-            const utterance = new SpeechSynthesisUtterance(text);
-            utterance.lang = 'zh-TW';
-            window.speechSynthesis.speak(utterance);
-        }
-    }
+    function getCookie(n) { let v = document.cookie.match('(^|;) ?' + n + '=([^;]*)(;|$)'); return v ? decodeURIComponent(v[2]) : null; }
 
     function playBell() {
         if (audioReady) {
@@ -220,22 +459,20 @@
                 if (!isAClosed && isBClosed) return -1;
                 return b.id - a.id;
             }).forEach(order => {
-                // 語音提醒邏輯
                 if (order.status === 'pending' && !alertedNewOrder.has(order.id)) {
-                    speak("新訂單，編號 " + order.id);
+                    speak("新訂單，編號 " + order.id, {muteRecognition: true});
                     alertedNewOrder.add(order.id);
                     localStorage.setItem('alerted_new_orders', JSON.stringify(Array.from(alertedNewOrder).slice(-100)));
                 }
                 if (order.status === 'arrived' && !alertedArrived.has(order.id)) {
-                    playBell(); speak("編號 " + order.id + " 客人已到櫃檯");
+                    playBell(); 
+                    speak("編號 " + order.id + " 客人已到櫃檯", {muteRecognition: true});
                     alertedArrived.add(order.id);
                 }
 
                 const isContracted = (order.status === 'final' || order.status === 'cancelled');
                 const detailClass = isContracted ? 'detail-content hide-detail' : 'detail-content';
                 const arrowRotate = isContracted ? '' : 'style="transform: rotate(180deg)"';
-
-                // 修改按鈕：僅在未結案時顯示
                 const editBtn = !isContracted ? `<button onclick="openEditModal(${order.id})" class="btn btn-outline-secondary w-100 mb-2 py-2 fw-bold" style="border-radius:12px; font-size:0.9rem;">✏️ 修改品項 / 庫存</button>` : '';
 
                 let actionBtn = '';
@@ -285,7 +522,6 @@
         });
     }
 
-    // --- 修改訂單功能邏輯 ---
     function openEditModal(orderId) {
         currentEditingOrderId = orderId;
         document.getElementById('editOrderIdDisplay').innerText = orderId;
@@ -295,7 +531,6 @@
         ]).then(([prods, order]) => {
             allProducts = prods;
             currentEditingItems = order.items.map(i => ({...i, quantity: i.quantity || i.qty}));
-            // 把原本訂單佔用的庫存加回去，方便計算剩餘可用數量
             currentEditingItems.forEach(item => {
                 const p = allProducts.find(prod => prod.id == item.id);
                 if (p) p.stock += item.quantity;
