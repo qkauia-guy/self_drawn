@@ -8,76 +8,231 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
-        body { background-color: #f0f2f5; font-family: "Microsoft JhengHei", sans-serif; padding-bottom: 50px; }
-        .navbar { background-color: #d63031 !important; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        
-        #audio-unlocker {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(214, 48, 49, 0.95); z-index: 9999;
-            display: flex; flex-direction: column; align-items: center; justify-content: center; color: white;
-        }
+  body { background-color: #f0f2f5; font-family: "Microsoft JhengHei", sans-serif; padding-bottom: 50px; }
+  .navbar { background-color: #d63031 !important; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
 
-        .store-selector-nav { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.3); color: white; border-radius: 8px; padding: 2px 10px; font-weight: bold; }
+  #audio-unlocker{
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(214, 48, 49, 0.95); z-index: 9999;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; color: white;
+  }
 
-        /* Navbar 圓形語音按鈕 */
-        .btn-voice-nav {
-            width: 42px; height: 42px;
-            border-radius: 50%;
-            display: flex; align-items: center; justify-content: center;
-            font-size: 1.2rem; border: none;
-            transition: all 0.3s ease;
-            margin-right: 12px;
-        }
-        .voice-inactive { background-color: rgba(255, 255, 255, 0.9); color: #d63031; }
-        .voice-active {
-            background-color: #ff4757 !important; color: white !important;
-            box-shadow: 0 0 0 0 rgba(255, 71, 87, 0.7);
-            animation: pulse-voice-nav 1.5s infinite;
-        }
-        @keyframes pulse-voice-nav {
-            0% { box-shadow: 0 0 0 0 rgba(255, 71, 87, 0.7); }
-            70% { box-shadow: 0 0 0 8px rgba(255, 71, 87, 0); }
-            100% { box-shadow: 0 0 0 0 rgba(255, 71, 87, 0); }
-        }
+  .store-selector-nav{
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.3);
+    color: white; border-radius: 8px; padding: 2px 10px; font-weight: bold;
+  }
 
-        /* 訂單卡片 */
-        .order-card { 
-            border: none; border-radius: 12px; margin-bottom: 12px; 
-            overflow: hidden; border-left: 8px solid #ccc;
-            transition: all 0.2s ease; background: white;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
-        }
-        .status-pending { border-left-color: #636e72; }
-        .status-confirmed { border-left-color: #0984e3; }
-        .status-preparing { border-left-color: #fdcb6e; }
-        .status-completed { border-left-color: #00b894; }
-        .status-arrived { border-left-color: #d63031; animation: pulse-red-border 1s infinite; }
-        .status-final { border-left-color: #2ecc71; opacity: 0.6; }
+  /* Navbar 圓形語音按鈕 */
+  .btn-voice-nav{
+    width: 42px; height: 42px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.2rem; border: none;
+    transition: all 0.3s ease;
+    margin-right: 12px;
+  }
+  .voice-inactive{ background-color: rgba(255, 255, 255, 0.9); color: #d63031; }
+  .voice-active{
+    background-color: #ff4757 !important; color: white !important;
+    box-shadow: 0 0 0 0 rgba(255, 71, 87, 0.7);
+    animation: pulse-voice-nav 1.5s infinite;
+  }
+  @keyframes pulse-voice-nav{
+    0% { box-shadow: 0 0 0 0 rgba(255, 71, 87, 0.7); }
+    70% { box-shadow: 0 0 0 8px rgba(255, 71, 87, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(255, 71, 87, 0); }
+  }
 
-        @keyframes pulse-red-border {
-            0% { border-left-width: 8px; }
-            50% { border-left-width: 15px; }
-            100% { border-left-width: 8px; }
-        }
+  /* 訂單卡片 */
+  .order-card{
+    border: none; border-radius: 12px; margin-bottom: 12px;
+    overflow: hidden; border-left: 8px solid #ccc;
+    transition: transform 0.12s ease, box-shadow 0.12s ease;
+    background: white;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.06);
+  }
+  .order-card:hover{ transform: translateY(-1px); box-shadow: 0 6px 14px rgba(0,0,0,0.08); }
 
-        .card-header-clickable { padding: 15px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
-        .detail-content { padding: 15px; border-top: 1px solid #eee; display: block; }
-        .hide-detail { display: none; }
-        .btn-action { border-radius: 12px; padding: 15px; font-weight: bold; width: 100%; font-size: 1.2rem; margin-bottom: 8px; }
-        .item-badge { background: #fff5f5; border: 1px solid #ffcccc; color: #d63031; padding: 6px 10px; border-radius: 8px; margin: 3px; display: inline-block; font-size: 1rem; font-weight: bold; }
-        .time-box { font-size: 0.85rem; color: #7f8c8d; background: #f9f9f9; padding: 10px; border-radius: 8px; }
-        
-        /* 修復按鈕變白問題 */
-        .btn-final { background-color: #2d3436; color: white; border: none; }
-        .btn-final:hover, .btn-final:active, .btn-final:focus { background-color: #000000 !important; color: white !important; }
+  .status-pending{ border-left-color: #636e72; }
+  .status-confirmed{ border-left-color: #0984e3; }
+  .status-preparing{ border-left-color: #fdcb6e; }
+  .status-completed{ border-left-color: #00b894; }
+  .status-arrived{ border-left-color: #d63031; animation: pulse-red-border 1s infinite; }
+  .status-final{ border-left-color: #2ecc71; opacity: 0.65; }
+  .status-cancelled{ border-left-color: #b2bec3; opacity: 0.65; }
 
-        .qty-controls button { width: 40px; height: 40px; border-radius: 50%; font-weight: bold; }
-        #voiceDebug { font-size: 0.85rem; min-height: 20px; color: #d63031; font-weight: bold; text-align: center; }
-        
-        /* 付款標籤 */
-        .pay-tag-cash { background-color: #ffcccc; color: #d63031; font-size: 0.8rem; padding: 4px 8px; border-radius: 6px; font-weight: bold; }
-        .pay-tag-line { background-color: #06c755; color: white; font-size: 0.8rem; padding: 4px 8px; border-radius: 6px; font-weight: bold; }
-    </style>
+  @keyframes pulse-red-border{
+    0% { border-left-width: 8px; }
+    50% { border-left-width: 14px; }
+    100% { border-left-width: 8px; }
+  }
+
+  /* Header：左(四欄) + 右(箭頭) */
+  .card-header-clickable{
+    padding: 14px 14px;
+    cursor: pointer;
+
+    display: grid;
+    grid-template-columns: 1fr auto; /* 左：四欄資訊 / 右：箭頭 */
+    align-items: center;
+    gap: 10px;
+
+    user-select: none;
+  }
+
+  /* ✅ 左側四欄：預設一行不換行（手機也不換行） */
+  .order-head-left{
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    flex-wrap: nowrap;
+    width: 100%;
+  }
+
+  /* ✅ 桌機：四格平均分配（每個欄位各吃 1/4） */
+  @media (min-width: 992px){
+    .order-head-left > *{
+      flex: 1 1 0;
+      display: inline-flex;
+      justify-content: center;
+      min-width: 0;
+    }
+  }
+
+  /* ✅ 手機/平板：維持緊湊一行（不平均分配） */
+  @media (max-width: 991.98px){
+    .order-head-left > *{
+      flex: 0 0 auto;
+    }
+  }
+
+  .order-pill{
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 32px;
+    padding: 0 10px;
+    border-radius: 10px;
+    font-weight: 800;
+    font-size: 0.95rem;
+    line-height: 1;
+    white-space: nowrap;
+  }
+
+  .pill-phone{
+    background: #ffecec;
+    color: #d63031;
+    border: 1px solid rgba(214,48,49,0.25);
+  }
+
+  .pill-id{
+    background: #f7f7f7;
+    color: #2d3436;
+    border: 1px solid rgba(0,0,0,0.08);
+  }
+
+  /* 付款標籤（固定寬度一致） */
+  .pay-tag-line,
+  .pay-tag-cash{
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    width: 64px;        /* LINE / CASH 同寬 */
+    height: 32px;
+    padding: 0 10px;
+
+    border-radius: 10px;
+    font-weight: 800;
+    font-size: 0.85rem;
+    line-height: 1;
+    white-space: nowrap;
+  }
+
+  .pay-tag-line{
+    background-color: #06c755;
+    color: #fff;
+    border: 1px solid rgba(0,0,0,0.08);
+  }
+
+  .pay-tag-cash{
+    background-color: #ffcccc;
+    color: #d63031;
+    border: 1px solid rgba(214,48,49,0.18);
+  }
+
+  /* 狀態標籤 */
+  .status-tag{
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 32px;
+    padding: 0 12px;
+    border-radius: 10px;
+    font-weight: 900;
+    font-size: 0.85rem;
+    white-space: nowrap;
+  }
+  .tag-pending{ background: #ecf0f1; color: #2d3436; border: 1px solid rgba(0,0,0,0.08); }
+  .tag-confirmed{ background: #dbeafe; color: #1d4ed8; border: 1px solid rgba(29,78,216,0.2); }
+  .tag-preparing{ background: #fff3cd; color: #7a5a00; border: 1px solid rgba(122,90,0,0.18); }
+  .tag-completed{ background: #d1fae5; color: #047857; border: 1px solid rgba(4,120,87,0.18); }
+  .tag-arrived{ background: #ffecec; color: #d63031; border: 1px solid rgba(214,48,49,0.25); }
+  .tag-final{ background: #e5e7eb; color: #111827; border: 1px solid rgba(17,24,39,0.12); }
+  .tag-cancelled{ background: #f1f5f9; color: #64748b; border: 1px solid rgba(100,116,139,0.18); }
+
+  .order-head-right{
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    white-space: nowrap;
+  }
+
+  .arrow{
+    width: 28px; height: 28px;
+    display: inline-flex; align-items: center; justify-content: center;
+    border-radius: 8px;
+    background: #f3f4f6;
+    color: #374151;
+    border: 1px solid rgba(0,0,0,0.06);
+  }
+
+  .detail-content{ padding: 15px; border-top: 1px solid #eee; display: block; }
+  .hide-detail{ display: none; }
+
+  .btn-action{
+    border-radius: 12px; padding: 15px; font-weight: bold;
+    width: 100%; font-size: 1.2rem; margin-bottom: 8px;
+  }
+
+  .item-badge{
+    background: #fff5f5; border: 1px solid #ffcccc; color: #d63031;
+    padding: 6px 10px; border-radius: 8px; margin: 3px;
+    display: inline-block; font-size: 1rem; font-weight: bold;
+  }
+
+  .time-box{
+    font-size: 0.85rem; color: #7f8c8d;
+    background: #f9f9f9; padding: 10px; border-radius: 8px;
+    border: 1px solid rgba(0,0,0,0.04);
+  }
+
+  /* 修復按鈕變白問題 */
+  .btn-final{ background-color: #2d3436; color: white; border: none; }
+  .btn-final:hover, .btn-final:active, .btn-final:focus{ background-color: #000000 !important; color: white !important; }
+
+  .qty-controls button{ width: 40px; height: 40px; border-radius: 50%; font-weight: bold; }
+
+  #voiceDebug{
+    font-size: 0.85rem; min-height: 20px;
+    color: #d63031; font-weight: bold; text-align: center;
+  }
+</style>
+
+
 </head>
 <body>
 
@@ -93,7 +248,7 @@
 
         <!-- 語音控制按鈕 (Navbar 內) -->
         <button id="navVoiceBtn" class="btn btn-voice-nav voice-inactive shadow-sm" onclick="toggleVoiceControl()">
-            🎤
+            ⚪
         </button>
 
         <button class="navbar-toggler" type="button" data-bs-toggle="offcanvas" data-bs-target="#offcanvasMenu">
@@ -103,7 +258,7 @@
 </nav>
 
 <!-- 語音狀態顯示區 -->
-<div class="container mt-2">
+<div class="container">
     <div id="voiceDebug"></div>
     <div id="volumeContainer" class="progress mx-auto mt-1" style="width: 150px; height: 4px; background-color: #eee; border-radius: 5px; overflow: hidden; opacity: 0; transition: opacity 0.3s;">
         <div id="volumeBar" class="progress-bar bg-danger" style="width: 0%; transition: width 0.05s;"></div>
@@ -253,7 +408,7 @@
         const btn = document.getElementById('navVoiceBtn');
         btn.classList.remove('voice-inactive');
         btn.classList.add('voice-active');
-        btn.innerHTML = '🛑';
+        btn.innerHTML = '⏸︎';
         document.getElementById('volumeContainer').style.opacity = '1';
         speak("語音模式啟動", { muteRecognition: true });
     }
@@ -268,7 +423,7 @@
         const btn = document.getElementById('navVoiceBtn');
         btn.classList.remove('voice-active');
         btn.classList.add('voice-inactive');
-        btn.innerHTML = '🎤';
+        btn.innerHTML = '⚪';
         document.getElementById('voiceDebug').innerText = "";
         document.getElementById('volumeContainer').style.opacity = '0';
         document.getElementById('volumeBar').style.width = "0%";
@@ -419,109 +574,143 @@
     }
 
     function loadOrders() {
-        fetch(`/api/orders/?store=${currentStore}&t=${new Date().getTime()}`)
-        .then(res => (res.status === 401 || res.status === 403) ? (window.location.href = '/admin/login/?next=' + window.location.pathname) : res.json())
-        .then(orders => {
-            if (!orders || !Array.isArray(orders)) return;
+  fetch(`/api/orders/?store=${currentStore}&t=${new Date().getTime()}`)
+    .then(res => (res.status === 401 || res.status === 403)
+      ? (window.location.href = '/admin/login/?next=' + window.location.pathname)
+      : res.json()
+    )
+    .then(orders => {
+      if (!orders || !Array.isArray(orders)) return;
 
-            if (isFirstLoad) {
-                orders.forEach(order => {
-                    if (order.status === 'pending') alertedNewOrder.add(order.id);
-                    if (order.status === 'arrived') alertedArrived.add(order.id);
-                });
-                isFirstLoad = false;
-            }
-
-            const list = document.getElementById('orderList');
-            if (orders.length === 0) {
-                list.innerHTML = `<div class="text-center mt-5 text-muted"><p>目前沒有訂單</p></div>`;
-                return;
-            }
-
-            let newHtml = '';
-            orders.sort((a, b) => {
-                const isAClosed = (a.status === 'final' || a.status === 'cancelled');
-                const isBClosed = (b.status === 'final' || b.status === 'cancelled');
-                if (isAClosed && !isBClosed) return 1;
-                if (!isAClosed && isBClosed) return -1;
-                return b.id - a.id;
-            }).forEach(order => {
-                if (order.status === 'pending' && !alertedNewOrder.has(order.id)) {
-                    speak("新訂單，編號 " + order.id, {muteRecognition: true});
-                    alertedNewOrder.add(order.id);
-                    localStorage.setItem('alerted_new_orders', JSON.stringify(Array.from(alertedNewOrder).slice(-100)));
-                }
-                if (order.status === 'arrived' && !alertedArrived.has(order.id)) {
-                    playBell(); 
-                    speak("編號 " + order.id + " 客人已到櫃檯", {muteRecognition: true});
-                    alertedArrived.add(order.id);
-                }
-
-                const isContracted = (order.status === 'final' || order.status === 'cancelled');
-                const detailClass = isContracted ? 'detail-content hide-detail' : 'detail-content';
-                const arrowRotate = isContracted ? '' : 'style="transform: rotate(180deg)"';
-                const editBtn = !isContracted ? `<button onclick="openEditModal(${order.id})" class="btn btn-outline-secondary w-100 mb-2 py-2 fw-bold" style="border-radius:12px; font-size:0.9rem;">✏️ 修改品項 / 庫存</button>` : '';
-
-                // 付款標籤邏輯
-                const isLinePay = order.payment_method === 'linepay';
-                const payTag = isLinePay 
-                    ? `<span class="pay-tag-line">📱 LINE Pay</span>` 
-                    : `<span class="pay-tag-cash">💵 現金</span>`;
-
-                let actionBtn = '';
-                if (order.status === 'pending') {
-                    // 如果是現金單，或 LINE Pay 卡在 pending (可能沒付成功)，都給按鈕
-                    const btnText = isLinePay ? "⚠️ 強制確認 (客人說已付)" : "💰 已收錢：成立訂單";
-                    actionBtn = `<button onclick="updateStatus(${order.id}, 'confirmed')" class="btn btn-primary btn-action shadow">${btnText}</button>
-                                 <button onclick="confirmAction(${order.id}, 'cancelled', '確定要「取消」這筆訂單嗎？')" class="btn btn-link btn-sm text-muted w-100 mt-2">取消訂單</button>`;
-                } else if (order.status === 'confirmed') {
-                    // [修復] 這裡補回了取消按鈕
-                    actionBtn = `<button onclick="updateStatus(${order.id}, 'preparing')" class="btn btn-warning btn-action shadow">🍓 開始製作餐點</button>
-                                 <button onclick="confirmAction(${order.id}, 'cancelled', '確定要「取消」這筆訂單嗎？')" class="btn btn-link btn-sm text-muted w-100 mt-2">取消訂單</button>`;
-                } else if (order.status === 'preparing') {
-                    actionBtn = `<button onclick="updateStatus(${order.id}, 'completed', true)" class="btn btn-success btn-action shadow">🔔 製作完成：發送取餐通知</button>`;
-                } else if (order.status === 'completed') {
-                    actionBtn = `<div class="alert alert-info text-center mb-2 py-2 fw-bold small">⌛ 等候客人端確認中...</div>
-                                 <button onclick="confirmAction(${order.id}, 'final', '確定客人已領餐，要手動完成結案嗎？')" class="btn btn-final btn-action shadow text-white">✅ 手動完成交易(結案)</button>`;
-                } else if (order.status === 'arrived') {
-                    actionBtn = `<button onclick="confirmAction(${order.id}, 'final', '客人已在現場，確認交付餐點並結案？')" class="btn btn-danger btn-action animate__animated animate__pulse animate__infinite shadow-lg">✨ 客人已抵達！點此交付結案</button>`;
-                } else if (order.status === 'cancelled') {
-                    actionBtn = `<div class="text-center py-2 text-danger fw-bold">❌ 訂單已取消</div>`;
-                } else if (order.status === 'final') {
-                    actionBtn = `<div class="text-center py-2 text-success fw-bold">✅ 交易已完成</div>`;
-                }
-
-                newHtml += `
-                    <div class="card order-card status-${order.status}" id="card-${order.id}">
-                        <div class="card-header-clickable" onclick="toggleDetail(${order.id})">
-                            <div class="fw-bold h5 mb-0 d-flex align-items-center">
-                                <span class="badge bg-light text-dark me-2 border">#${order.id}</span>
-                                ${payTag}
-                                ${order.status === 'arrived' ? '<span class="ms-2">🚨</span>' : ''}
-                            </div>
-                            <div class="d-flex align-items-center">
-                                <span class="badge ${isContracted ? 'bg-secondary' : 'bg-danger'} me-2">${order.phone_tail || '現場'}</span>
-                                <span class="text-muted small me-2">${getStatusText(order.status)}</span>
-                                <span class="text-muted" id="arrow-${order.id}" ${arrowRotate}>▼</span>
-                            </div>
-                        </div>
-                        <div id="detail-${order.id}" class="${detailClass}">
-                            <div class="mb-3">${order.items.map(i => `<span class="item-badge">${i.name} x ${i.qty || i.quantity}</span>`).join('')}</div>
-                            <div class="time-box mb-3">
-                                <div>🕒 下單：${new Date(order.created_at).toLocaleTimeString()}</div>
-                                ${notifyTimes[order.id] ? `<div>🔔 取餐通知：${notifyTimes[order.id]}</div>` : ''}
-                                <div class="mt-2 fw-bold text-danger fs-5">總額：$${order.total}</div>
-                            </div>
-                            <div id="btn-zone-${order.id}">
-                                ${editBtn}
-                                ${actionBtn}
-                            </div>
-                        </div>
-                    </div>`;
-            });
-            list.innerHTML = newHtml;
+      if (isFirstLoad) {
+        orders.forEach(order => {
+          if (order.status === 'pending') alertedNewOrder.add(order.id);
+          if (order.status === 'arrived') alertedArrived.add(order.id);
         });
-    }
+        isFirstLoad = false;
+      }
+
+      const list = document.getElementById('orderList');
+      if (orders.length === 0) {
+        list.innerHTML = `<div class="text-center mt-5 text-muted"><p>目前沒有訂單</p></div>`;
+        return;
+      }
+
+      let newHtml = '';
+
+      orders.sort((a, b) => {
+        const isAClosed = (a.status === 'final' || a.status === 'cancelled');
+        const isBClosed = (b.status === 'final' || b.status === 'cancelled');
+        if (isAClosed && !isBClosed) return 1;
+        if (!isAClosed && isBClosed) return -1;
+        return b.id - a.id;
+      }).forEach(order => {
+
+        // 新訂單提醒
+        if (order.status === 'pending' && !alertedNewOrder.has(order.id)) {
+          speak("新訂單，編號 " + order.id, { muteRecognition: true });
+          alertedNewOrder.add(order.id);
+          localStorage.setItem('alerted_new_orders', JSON.stringify(Array.from(alertedNewOrder).slice(-100)));
+        }
+
+        // arrived 提醒
+        if (order.status === 'arrived' && !alertedArrived.has(order.id)) {
+          playBell();
+          speak("編號 " + order.id + " 客人已到櫃檯", { muteRecognition: true });
+          alertedArrived.add(order.id);
+        }
+
+        const isContracted = (order.status === 'final' || order.status === 'cancelled');
+        const detailClass = isContracted ? 'detail-content hide-detail' : 'detail-content';
+        const arrowRotate = isContracted ? '' : 'style="transform: rotate(180deg)"';
+        const editBtn = !isContracted
+          ? `<button onclick="openEditModal(${order.id})" class="btn btn-outline-secondary w-100 mb-2 py-2 fw-bold" style="border-radius:12px; font-size:0.9rem;">✏️ 修改品項 / 庫存</button>`
+          : '';
+
+        // 付款標籤
+        const isLinePay = order.payment_method === 'linepay';
+        const payTag = isLinePay
+          ? `<span class="pay-tag-line">LINE</span>`
+          : `<span class="pay-tag-cash">CASH</span>`;
+
+        // 狀態按鈕區
+        let actionBtn = '';
+        if (order.status === 'pending') {
+          const btnText = isLinePay ? "⚠️ 強制確認 (客人說已付)" : "💰 已收錢：成立訂單";
+          actionBtn = `<button onclick="updateStatus(${order.id}, 'confirmed')" class="btn btn-primary btn-action shadow">${btnText}</button>
+                       <button onclick="confirmAction(${order.id}, 'cancelled', '確定要「取消」這筆訂單嗎？')" class="btn btn-link btn-sm text-muted w-100 mt-2">取消訂單</button>`;
+        } else if (order.status === 'confirmed') {
+          actionBtn = `<button onclick="updateStatus(${order.id}, 'preparing')" class="btn btn-warning btn-action shadow">🍓 開始製作餐點</button>
+                       <button onclick="confirmAction(${order.id}, 'cancelled', '確定要「取消」這筆訂單嗎？')" class="btn btn-link btn-sm text-muted w-100 mt-2">取消訂單</button>`;
+        } else if (order.status === 'preparing') {
+          actionBtn = `<button onclick="updateStatus(${order.id}, 'completed', true)" class="btn btn-success btn-action shadow">🔔 製作完成：發送取餐通知</button>`;
+        } else if (order.status === 'completed') {
+          actionBtn = `<div class="alert alert-info text-center mb-2 py-2 fw-bold small">⌛ 等候客人端確認中...</div>
+                       <button onclick="confirmAction(${order.id}, 'final', '確定客人已領餐，要手動完成結案嗎？')" class="btn btn-final btn-action shadow text-white">✅ 手動完成交易(結案)</button>`;
+        } else if (order.status === 'arrived') {
+          actionBtn = `<button onclick="confirmAction(${order.id}, 'final', '客人已在現場，確認交付餐點並結案？')" class="btn btn-danger btn-action animate__animated animate__pulse animate__infinite shadow-lg">✨ 客人已抵達！點此交付結案</button>`;
+        } else if (order.status === 'cancelled') {
+          actionBtn = `<div class="text-center py-2 text-danger fw-bold">❌ 訂單已取消</div>`;
+        } else if (order.status === 'final') {
+          actionBtn = `<div class="text-center py-2 text-success fw-bold">✅ 交易已完成</div>`;
+        }
+
+        // 狀態標籤（依你要的順位最後顯示）
+        const statusText = getStatusText(order.status);
+        const statusClassMap = {
+          pending: 'tag-pending',
+          confirmed: 'tag-confirmed',
+          preparing: 'tag-preparing',
+          completed: 'tag-completed',
+          arrived: 'tag-arrived',
+          final: 'tag-final',
+          cancelled: 'tag-cancelled'
+        };
+        const statusTagClass = statusClassMap[order.status] || 'tag-pending';
+
+        // ✅ 卡片 HTML（順位：手機末四碼 → 訂單編號 → 付款方式 → 狀態）
+        newHtml += `
+          <div class="card order-card status-${order.status}" id="card-${order.id}">
+            <div class="card-header-clickable" onclick="toggleDetail(${order.id})">
+
+              <div class="order-head-left">
+                <span class="order-pill pill-phone">${order.phone_tail || '現場'}</span>
+                <span class="order-pill pill-id">#${order.id}</span>
+                ${payTag}
+                <span class="status-tag ${statusTagClass}">
+                  ${statusText}${order.status === 'arrived' ? ' 🚨' : ''}
+                </span>
+              </div>
+
+              <div class="order-head-right">
+                <span class="arrow" id="arrow-${order.id}" ${arrowRotate}>▼</span>
+              </div>
+
+            </div>
+
+            <div id="detail-${order.id}" class="${detailClass}">
+              <div class="mb-3">
+                ${order.items.map(i => `<span class="item-badge">${i.name} x ${i.qty || i.quantity}</span>`).join('')}
+              </div>
+
+              <div class="time-box mb-3">
+                <div>🕒 下單：${new Date(order.created_at).toLocaleTimeString()}</div>
+                ${notifyTimes[order.id] ? `<div>🔔 取餐通知：${notifyTimes[order.id]}</div>` : ''}
+                <div class="mt-2 fw-bold text-danger fs-5">總額：$${order.total}</div>
+              </div>
+
+              <div id="btn-zone-${order.id}">
+                ${editBtn}
+                ${actionBtn}
+              </div>
+            </div>
+          </div>`;
+      });
+
+      list.innerHTML = newHtml;
+    });
+}
+
 
     function openEditModal(orderId) {
         currentEditingOrderId = orderId;
@@ -594,7 +783,7 @@
     }
 
     function getStatusText(s) {
-        const map = { 'pending': '等待付錢', 'confirmed': '已收錢/已付款', 'preparing': '製作中', 'completed': '通知取餐中', 'arrived': '客人到櫃檯', 'final': '已完成', 'cancelled': '已取消' };
+        const map = { 'pending': '等待付錢', 'confirmed': '已付款', 'preparing': '製作中', 'completed': '通知取餐中', 'arrived': '客人到櫃檯', 'final': '已完成', 'cancelled': '已取消' };
         return map[s] || s;
     }
 

@@ -45,24 +45,24 @@
 <div class="container py-4">
     <!-- 下單區塊 -->
     <div id="orderForm">
-        <div class="text-center mb-4">
+        <div class="text-center">
             <h1 class="display-5 fw-bold text-danger">🍓 一把葫</h1>
             <p class="badge bg-danger rounded-pill px-3">{{ store.name }}分店 自助點餐</p>
         </div>
 
-        <div class="card mb-4 p-3 shadow-sm">
-            <label class="form-label fw-bold">1. 請輸入手機後 4 碼</label>
-            <input type="text" id="phone_tail" class="form-control form-control-lg text-center fw-bold text-danger custom-input" maxlength="4" inputmode="numeric" placeholder="核對用，麻煩填寫！">
+        <div class="card mb-2 p-3 shadow-sm">
+            <label class="form-label fw-bold">1. 輸入客戶代號(必填)</label>
+            <input type="text" id="phone_tail" class="form-control form-control-lg text-center fw-bold text-danger custom-input" maxlength="4" inputmode="numeric" placeholder="請輸入手機後 4 碼">
         </div>
 
-        <div class="card mb-4 p-3 shadow-sm">
+        <div class="card mb-2 p-3 shadow-sm">
             <label class="form-label fw-bold">2. 選擇付款方式</label>
             <div class="d-flex gap-2">
                 <input type="radio" class="btn-check" name="paymentMethod" id="payCash" value="cash" checked>
-                <label class="btn btn-outline-danger flex-grow-1 fw-bold py-3" for="payCash">💵 現金 (櫃檯付)</label>
+                <label class="btn btn-outline-danger flex-grow-1 fw-bold py-3" for="payCash">窗口付現</label>
 
                 <input type="radio" class="btn-check" name="paymentMethod" id="payLine" value="linepay">
-                <label class="btn btn-outline-success flex-grow-1 fw-bold py-3" for="payLine">📱 LINE Pay</label>
+                <label class="btn btn-outline-success flex-grow-1 fw-bold py-3" for="payLine"> LINE Pay</label>
             </div>
         </div>
 
@@ -73,7 +73,7 @@
             <div class="d-flex justify-content-between h4 mb-3 px-2">
                 <span>合計金額：</span><span id="display_total" class="text-danger fw-bold">$0</span>
             </div>
-            <button class="btn btn-strawberry w-100 btn-lg shadow" onclick="handleOrderConfirm()">確認內容並送出</button>
+            <button class="btn btn-strawberry w-100 btn-lg shadow" onclick="handleOrderConfirm()">確認餐點並送出</button>
         </div>
     </div>
 
@@ -144,7 +144,7 @@
                     const isSoldOut = p.stock <= 0 || !p.is_active;
                     const statusLabel = isSoldOut ? 
                         `<span class="badge bg-secondary">今日售完</span>` : 
-                        `<small class="text-muted">庫存剩餘: ${p.stock}</small>`;
+                        `<small class="text-muted">庫存數量: ${p.stock}</small>`;
 
                     list.innerHTML += `
                     <div class="card mb-3 p-1 product-item ${isSoldOut ? 'opacity-75 bg-light' : ''}">
@@ -240,7 +240,7 @@
             confirmButtonColor: paymentMethod==='linepay' ? '#2db400' : '#ff4d4d',
             cancelButtonColor: '#6c757d',
             confirmButtonText: paymentMethod==='linepay' ? '前往 LINE Pay 付款' : '確定下單',
-            cancelButtonText: '再修改一下'
+            cancelButtonText: '思考一下'
         }).then((result) => {
             if (result.isConfirmed) {
                 // 如果是 LINE Pay，先顯示 loading
@@ -304,7 +304,7 @@
             document.getElementById('display_final_total').innerText = orderData.total || 0;
             
             // [FIXED] 這裡修復了 undefined 問題
-            const pMethodMap = {'cash': '💵 現金', 'linepay': '📱 LINE Pay'};
+            const pMethodMap = {'cash': '現金', 'linepay': 'LINE Pay'};
             document.getElementById('display_payment').innerText = pMethodMap[orderData.payment_method] || orderData.payment_method || '未指定';
             
             document.getElementById('created_time').innerText = new Date().toLocaleTimeString();
@@ -331,20 +331,20 @@
         document.getElementById('display_final_total').innerText = order.total;
         document.getElementById('display_phone').innerText = order.phone_tail;
         
-        const pMethodMap = {'cash': '💵 現金 (未付)', 'linepay': '📱 LINE Pay (已付)'};
+        const pMethodMap = {'cash': '現金 (未付)', 'linepay': 'LINE Pay (已付)'};
         
         // [FIXED] 這裡也加上了防呆邏輯
         let payText = pMethodMap[order.payment_method] || order.payment_method || '未指定';
         
         if (order.status === 'confirmed' && order.payment_method === 'linepay') {
-             payText = '📱 LINE Pay (付款成功)';
+             payText = 'LINE Pay (付款成功)';
         }
         document.getElementById('display_payment').innerText = payText;
 
         renderOrderDetailList(order.items);
 
         const statusMap = {
-            'pending': { text: '⌛ 待付款，請至櫃檯結帳', class: 'bg-light text-secondary border' },
+            'pending': { text: '⌛ 待付款，請至窗口結帳', class: 'bg-light text-secondary border' },
             'confirmed': { text: '💰 已付款！請等候製作', class: 'bg-primary text-white shadow-sm' },
             'preparing': { text: '🍓 老闆正在努力製作中...', class: 'bg-warning text-dark shadow-sm' },
             'arrived': { text: '🔔 已通知店家您在櫃檯', class: 'bg-info text-white shadow-sm' }
