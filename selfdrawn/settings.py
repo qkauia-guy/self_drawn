@@ -96,7 +96,7 @@ STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-# ALLOWED_HOSTS = ['localhost', '127.0.0.1', '.ngrok-free.dev']
+# ALLOWED_HOSTS = ["localhost", "127.0.0.1", ".ngrok-free.dev"]
 ALLOWED_HOSTS = ["localhost", "127.0.0.1", "self-drawn.onrender.com"]
 # ALLOWED_HOSTS = ["*"]
 # 信任的來源 (解決 CSRF 403 錯誤)
@@ -104,7 +104,10 @@ ALLOWED_HOSTS = ["localhost", "127.0.0.1", "self-drawn.onrender.com"]
 # CSRF_TRUSTED_ORIGINS = [
 #     'https://alba-overpatient-shu.ngrok-free.dev',
 # ]
-CSRF_TRUSTED_ORIGINS = ["https://self-drawn.onrender.com"]
+CSRF_TRUSTED_ORIGINS = [
+    "https://self-drawn.onrender.com",
+    # "https://alba-overpatient-shu.ngrok-free.dev",
+]
 
 
 # ...

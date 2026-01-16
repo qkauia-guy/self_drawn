@@ -253,42 +253,44 @@
     }
 
     function submitOrder(phone, items, total, paymentMethod) {
-        fetch('/api/orders/', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
-            body: JSON.stringify({ 
-                store_slug: currentStoreSlug, 
-                phone_tail: phone, 
-                items: items, 
-                subtotal: total, 
-                total: total,
-                payment_method: paymentMethod 
-            })
+    fetch('/api/orders/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+        body: JSON.stringify({
+        store_slug: currentStoreSlug,
+        phone_tail: phone,
+        items: items,
+        subtotal: total,
+        total: total,
+        payment_method: paymentMethod
         })
-        .then(res => {
-            // [Check 1] 檢查後端是否回傳錯誤
-            if (!res.ok) {
-                return res.json().then(err => { throw new Error(err.error || '伺服器發生錯誤'); });
-            }
-            return res.json();
-        })
-        .then(order => {
-            // [Check 2] 如果是 LINE Pay，進行轉跳
-            if (order.payment_method === 'linepay' && order.payment_url) {
-                window.location.href = order.payment_url;
-                return; 
-            }
-            // 成功：關閉 Swal 並顯示狀態
-            Swal.close(); 
-            switchToStatusPage(order.id, order);
-        })
-        .catch(err => {
-            // [Check 3] 發生錯誤時
-            Swal.close();
-            console.error(err);
-            Swal.fire({ icon: 'error', title: '下單失敗', text: err.message || '請稍後再試', confirmButtonColor: '#ff4d4d' });
-        });
+    })
+    .then(res => {
+        if (!res.ok) {
+        return res.json().then(err => { throw new Error(err.error || '伺服器發生錯誤'); });
+        }
+        return res.json();
+    })
+    .then(order => {
+        // 不管現金/LINE Pay，先把 loading/confirm Swal 關掉
+        Swal.close();
+
+        // LINE Pay：轉跳付款頁
+        if (order.payment_method === 'linepay' && order.payment_url) {
+        window.location.href = order.payment_url;
+        return;
+        }
+
+        // 現金：直接進等待狀態頁
+        switchToStatusPage(order.id, order);
+    })
+    .catch(err => {
+        Swal.close();
+        console.error(err);
+        Swal.fire({ icon: 'error', title: '下單失敗', text: err.message || '請稍後再試', confirmButtonColor: '#ff4d4d' });
+    });
     }
+
 
     // 將切換頁面的邏輯獨立出來
     function switchToStatusPage(oid, orderData = null) {
@@ -327,24 +329,39 @@
     function updateStatusUI(order) {
         const box = document.getElementById('statusBox');
         const pickupInfo = document.getElementById('pickupInfo');
-        
+
         document.getElementById('display_final_total').innerText = order.total;
         document.getElementById('display_phone').innerText = order.phone_tail;
-        
+
         const pMethodMap = {'cash': '現金 (未付)', 'linepay': 'LINE Pay (已付)'};
-        
-        // [FIXED] 這裡也加上了防呆邏輯
         let payText = pMethodMap[order.payment_method] || order.payment_method || '未指定';
-        
         if (order.status === 'confirmed' && order.payment_method === 'linepay') {
-             payText = 'LINE Pay (付款成功)';
+            payText = 'LINE Pay (付款成功)';
         }
         document.getElementById('display_payment').innerText = payText;
 
         renderOrderDetailList(order.items);
 
+        // ✅ 只要被退回 pending（通常代表「退回付款前/改支付方式」）
+        // 就讓客人回到新的訂購畫面（不帶 oid）
+        if (order.status === 'pending') {
+        stopAllAlerts();
+
+        if (order.payment_method === 'cash') {
+            box.innerHTML = "💰 請至櫃檯付現，店家確認收款後將開始製作";
+            box.className = "status-box bg-secondary text-white shadow-sm";
+            pickupInfo.classList.add('d-none');
+            return;
+        }
+
+        // LINE Pay pending（尚未完成付款）
+        box.innerHTML = "⏳ LINE Pay 尚未完成付款，請回到 LINE Pay 完成付款";
+        box.className = "status-box bg-warning text-dark shadow-sm";
+        pickupInfo.classList.add('d-none');
+        return;
+        }
+
         const statusMap = {
-            'pending': { text: '⌛ 待付款，請至窗口結帳', class: 'bg-light text-secondary border' },
             'confirmed': { text: '💰 已付款！請等候製作', class: 'bg-primary text-white shadow-sm' },
             'preparing': { text: '🍓 老闆正在努力製作中...', class: 'bg-warning text-dark shadow-sm' },
             'arrived': { text: '🔔 已通知店家您在櫃檯', class: 'bg-info text-white shadow-sm' }
@@ -368,6 +385,7 @@
             box.className = `status-box ${statusMap[order.status].class}`;
         }
     }
+
 
     function triggerStrongVibrate() {
         if (!("vibrate" in navigator)) return;

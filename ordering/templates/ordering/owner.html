@@ -1,333 +1,312 @@
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
-    <meta charset="UTF-8">
-    <title>一把葫管理後台 - 即時訂單</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <style>
-  body { background-color: #f0f2f5; font-family: "Microsoft JhengHei", sans-serif; padding-bottom: 50px; }
-  .navbar { background-color: #d63031 !important; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+  <meta charset="UTF-8">
+  <title>一把葫管理後台 - 即時訂單</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
-  #audio-unlocker{
-    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-    background: rgba(214, 48, 49, 0.95); z-index: 9999;
-    display: flex; flex-direction: column; align-items: center; justify-content: center; color: white;
-  }
+  <style>
+    body { background-color: #f0f2f5; font-family: "Microsoft JhengHei", sans-serif; padding-bottom: 50px; }
+    .navbar { background-color: #d63031 !important; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
 
-  .store-selector-nav{
-    background: rgba(255,255,255,0.1);
-    border: 1px solid rgba(255,255,255,0.3);
-    color: white; border-radius: 8px; padding: 2px 10px; font-weight: bold;
-  }
+    #audio-unlocker{
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(214, 48, 49, 0.95); z-index: 9999;
+      display: flex; flex-direction: column; align-items: center; justify-content: center; color: white;
+    }
 
-  /* Navbar 圓形語音按鈕 */
-  .btn-voice-nav{
-    width: 42px; height: 42px;
-    border-radius: 50%;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 1.2rem; border: none;
-    transition: all 0.3s ease;
-    margin-right: 12px;
-  }
-  .voice-inactive{ background-color: rgba(255, 255, 255, 0.9); color: #d63031; }
-  .voice-active{
-    background-color: #ff4757 !important; color: white !important;
-    box-shadow: 0 0 0 0 rgba(255, 71, 87, 0.7);
-    animation: pulse-voice-nav 1.5s infinite;
-  }
-  @keyframes pulse-voice-nav{
-    0% { box-shadow: 0 0 0 0 rgba(255, 71, 87, 0.7); }
-    70% { box-shadow: 0 0 0 8px rgba(255, 71, 87, 0); }
-    100% { box-shadow: 0 0 0 0 rgba(255, 71, 87, 0); }
-  }
+    .store-selector-nav{
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.3);
+      color: white; border-radius: 8px; padding: 2px 10px; font-weight: bold;
+    }
 
-  /* 訂單卡片 */
-  .order-card{
-    border: none; border-radius: 12px; margin-bottom: 12px;
-    overflow: hidden; border-left: 8px solid #ccc;
-    transition: transform 0.12s ease, box-shadow 0.12s ease;
-    background: white;
-    box-shadow: 0 4px 10px rgba(0,0,0,0.06);
-  }
-  .order-card:hover{ transform: translateY(-1px); box-shadow: 0 6px 14px rgba(0,0,0,0.08); }
+    .btn-voice-nav{
+      width: 42px; height: 42px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.2rem; border: none;
+      transition: all 0.3s ease;
+      margin-right: 12px;
+    }
+    .voice-inactive{ background-color: rgba(255, 255, 255, 0.9); color: #d63031; }
+    .voice-active{
+      background-color: #ff4757 !important; color: white !important;
+      box-shadow: 0 0 0 0 rgba(255, 71, 87, 0.7);
+      animation: pulse-voice-nav 1.5s infinite;
+    }
+    @keyframes pulse-voice-nav{
+      0% { box-shadow: 0 0 0 0 rgba(255, 71, 87, 0.7); }
+      70% { box-shadow: 0 0 0 8px rgba(255, 71, 87, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(255, 71, 87, 0); }
+    }
 
-  .status-pending{ border-left-color: #636e72; }
-  .status-confirmed{ border-left-color: #0984e3; }
-  .status-preparing{ border-left-color: #fdcb6e; }
-  .status-completed{ border-left-color: #00b894; }
-  .status-arrived{ border-left-color: #d63031; animation: pulse-red-border 1s infinite; }
-  .status-final{ border-left-color: #2ecc71; opacity: 0.65; }
-  .status-cancelled{ border-left-color: #b2bec3; opacity: 0.65; }
+    .order-card{
+      border: none; border-radius: 12px; margin-bottom: 12px;
+      overflow: hidden; border-left: 8px solid #ccc;
+      transition: transform 0.12s ease, box-shadow 0.12s ease;
+      background: white;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.06);
+    }
+    .order-card:hover{ transform: translateY(-1px); box-shadow: 0 6px 14px rgba(0,0,0,0.08); }
 
-  @keyframes pulse-red-border{
-    0% { border-left-width: 8px; }
-    50% { border-left-width: 14px; }
-    100% { border-left-width: 8px; }
-  }
+    .status-pending{ border-left-color: #636e72; }
+    .status-confirmed{ border-left-color: #0984e3; }
+    .status-preparing{ border-left-color: #fdcb6e; }
+    .status-completed{ border-left-color: #00b894; }
+    .status-arrived{ border-left-color: #d63031; animation: pulse-red-border 1s infinite; }
+    .status-final{ border-left-color: #2ecc71; opacity: 0.65; }
+    .status-cancelled{ border-left-color: #b2bec3; opacity: 0.65; }
 
-  /* Header：左(四欄) + 右(箭頭) */
-  .card-header-clickable{
-    padding: 14px 14px;
-    cursor: pointer;
+    @keyframes pulse-red-border{
+      0% { border-left-width: 8px; }
+      50% { border-left-width: 14px; }
+      100% { border-left-width: 8px; }
+    }
 
-    display: grid;
-    grid-template-columns: 1fr auto; /* 左：四欄資訊 / 右：箭頭 */
-    align-items: center;
-    gap: 10px;
+    .card-header-clickable{
+      padding: 14px 14px;
+      cursor: pointer;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: center;
+      gap: 10px;
+      user-select: none;
+    }
 
-    user-select: none;
-  }
-
-  /* ✅ 左側四欄：預設一行不換行（手機也不換行） */
-  .order-head-left{
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    min-width: 0;
-    flex-wrap: nowrap;
-    width: 100%;
-  }
-
-  /* ✅ 桌機：四格平均分配（每個欄位各吃 1/4） */
-  @media (min-width: 992px){
-    .order-head-left > *{
-      flex: 1 1 0;
-      display: inline-flex;
-      justify-content: center;
+    .order-head-left{
+      display: flex;
+      align-items: center;
+      gap: 8px;
       min-width: 0;
+      flex-wrap: nowrap;
+      width: 100%;
     }
-  }
 
-  /* ✅ 手機/平板：維持緊湊一行（不平均分配） */
-  @media (max-width: 991.98px){
-    .order-head-left > *{
-      flex: 0 0 auto;
+    @media (min-width: 992px){
+      .order-head-left > *{
+        flex: 1 1 0;
+        display: inline-flex;
+        justify-content: center;
+        min-width: 0;
+      }
     }
-  }
+    @media (max-width: 991.98px){
+      .order-head-left > *{
+        flex: 0 0 auto;
+      }
+    }
 
-  .order-pill{
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    height: 32px;
-    padding: 0 10px;
-    border-radius: 10px;
-    font-weight: 800;
-    font-size: 0.95rem;
-    line-height: 1;
-    white-space: nowrap;
-  }
+    .order-pill{
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      height: 32px;
+      padding: 0 10px;
+      border-radius: 10px;
+      font-weight: 800;
+      font-size: 0.95rem;
+      line-height: 1;
+      white-space: nowrap;
+    }
 
-  .pill-phone{
-    background: #ffecec;
-    color: #d63031;
-    border: 1px solid rgba(214,48,49,0.25);
-  }
+    .pill-phone{
+      background: #ffecec;
+      color: #d63031;
+      border: 1px solid rgba(214,48,49,0.25);
+    }
+    .pill-id{
+      background: #f7f7f7;
+      color: #2d3436;
+      border: 1px solid rgba(0,0,0,0.08);
+    }
 
-  .pill-id{
-    background: #f7f7f7;
-    color: #2d3436;
-    border: 1px solid rgba(0,0,0,0.08);
-  }
+    .pay-tag-line,
+    .pay-tag-cash{
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 64px;
+      height: 32px;
+      padding: 0 10px;
+      border-radius: 10px;
+      font-weight: 800;
+      font-size: 0.85rem;
+      line-height: 1;
+      white-space: nowrap;
+    }
+    .pay-tag-line{
+      background-color: #06c755;
+      color: #fff;
+      border: 1px solid rgba(0,0,0,0.08);
+    }
+    .pay-tag-cash{
+      background-color: #ffcccc;
+      color: #d63031;
+      border: 1px solid rgba(214,48,49,0.18);
+    }
 
-  /* 付款標籤（固定寬度一致） */
-  .pay-tag-line,
-  .pay-tag-cash{
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
+    .status-tag{
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      height: 32px;
+      padding: 0 12px;
+      border-radius: 10px;
+      font-weight: 900;
+      font-size: 0.85rem;
+      white-space: nowrap;
+    }
+    .tag-pending{ background: #ecf0f1; color: #2d3436; border: 1px solid rgba(0,0,0,0.08); }
+    .tag-confirmed{ background: #dbeafe; color: #1d4ed8; border: 1px solid rgba(29,78,216,0.2); }
+    .tag-preparing{ background: #fff3cd; color: #7a5a00; border: 1px solid rgba(122,90,0,0.18); }
+    .tag-completed{ background: #d1fae5; color: #047857; border: 1px solid rgba(4,120,87,0.18); }
+    .tag-arrived{ background: #ffecec; color: #d63031; border: 1px solid rgba(214,48,49,0.25); }
+    .tag-final{ background: #e5e7eb; color: #111827; border: 1px solid rgba(17,24,39,0.12); }
+    .tag-cancelled{ background: #f1f5f9; color: #64748b; border: 1px solid rgba(100,116,139,0.18); }
 
-    width: 64px;        /* LINE / CASH 同寬 */
-    height: 32px;
-    padding: 0 10px;
+    .order-head-right{
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 8px;
+      white-space: nowrap;
+    }
 
-    border-radius: 10px;
-    font-weight: 800;
-    font-size: 0.85rem;
-    line-height: 1;
-    white-space: nowrap;
-  }
+    .arrow{
+      width: 28px; height: 28px;
+      display: inline-flex; align-items: center; justify-content: center;
+      border-radius: 8px;
+      background: #f3f4f6;
+      color: #374151;
+      border: 1px solid rgba(0,0,0,0.06);
+    }
 
-  .pay-tag-line{
-    background-color: #06c755;
-    color: #fff;
-    border: 1px solid rgba(0,0,0,0.08);
-  }
+    .detail-content{ padding: 15px; border-top: 1px solid #eee; display: block; }
+    .hide-detail{ display: none; }
 
-  .pay-tag-cash{
-    background-color: #ffcccc;
-    color: #d63031;
-    border: 1px solid rgba(214,48,49,0.18);
-  }
+    .btn-action{
+      border-radius: 12px; padding: 15px; font-weight: bold;
+      width: 100%; font-size: 1.2rem; margin-bottom: 8px;
+    }
 
-  /* 狀態標籤 */
-  .status-tag{
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    height: 32px;
-    padding: 0 12px;
-    border-radius: 10px;
-    font-weight: 900;
-    font-size: 0.85rem;
-    white-space: nowrap;
-  }
-  .tag-pending{ background: #ecf0f1; color: #2d3436; border: 1px solid rgba(0,0,0,0.08); }
-  .tag-confirmed{ background: #dbeafe; color: #1d4ed8; border: 1px solid rgba(29,78,216,0.2); }
-  .tag-preparing{ background: #fff3cd; color: #7a5a00; border: 1px solid rgba(122,90,0,0.18); }
-  .tag-completed{ background: #d1fae5; color: #047857; border: 1px solid rgba(4,120,87,0.18); }
-  .tag-arrived{ background: #ffecec; color: #d63031; border: 1px solid rgba(214,48,49,0.25); }
-  .tag-final{ background: #e5e7eb; color: #111827; border: 1px solid rgba(17,24,39,0.12); }
-  .tag-cancelled{ background: #f1f5f9; color: #64748b; border: 1px solid rgba(100,116,139,0.18); }
+    .item-badge{
+      background: #fff5f5; border: 1px solid #ffcccc; color: #d63031;
+      padding: 6px 10px; border-radius: 8px; margin: 3px;
+      display: inline-block; font-size: 1rem; font-weight: bold;
+    }
 
-  .order-head-right{
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 8px;
-    white-space: nowrap;
-  }
+    .time-box{
+      font-size: 0.85rem; color: #7f8c8d;
+      background: #f9f9f9; padding: 10px; border-radius: 8px;
+      border: 1px solid rgba(0,0,0,0.04);
+    }
 
-  .arrow{
-    width: 28px; height: 28px;
-    display: inline-flex; align-items: center; justify-content: center;
-    border-radius: 8px;
-    background: #f3f4f6;
-    color: #374151;
-    border: 1px solid rgba(0,0,0,0.06);
-  }
+    .btn-final{ background-color: #2d3436; color: white; border: none; }
+    .btn-final:hover, .btn-final:active, .btn-final:focus{ background-color: #000000 !important; color: white !important; }
 
-  .detail-content{ padding: 15px; border-top: 1px solid #eee; display: block; }
-  .hide-detail{ display: none; }
+    .qty-controls button{ width: 40px; height: 40px; border-radius: 50%; font-weight: bold; }
 
-  .btn-action{
-    border-radius: 12px; padding: 15px; font-weight: bold;
-    width: 100%; font-size: 1.2rem; margin-bottom: 8px;
-  }
-
-  .item-badge{
-    background: #fff5f5; border: 1px solid #ffcccc; color: #d63031;
-    padding: 6px 10px; border-radius: 8px; margin: 3px;
-    display: inline-block; font-size: 1rem; font-weight: bold;
-  }
-
-  .time-box{
-    font-size: 0.85rem; color: #7f8c8d;
-    background: #f9f9f9; padding: 10px; border-radius: 8px;
-    border: 1px solid rgba(0,0,0,0.04);
-  }
-
-  /* 修復按鈕變白問題 */
-  .btn-final{ background-color: #2d3436; color: white; border: none; }
-  .btn-final:hover, .btn-final:active, .btn-final:focus{ background-color: #000000 !important; color: white !important; }
-
-  .qty-controls button{ width: 40px; height: 40px; border-radius: 50%; font-weight: bold; }
-
-  #voiceDebug{
-    font-size: 0.85rem; min-height: 20px;
-    color: #d63031; font-weight: bold; text-align: center;
-  }
-</style>
-
-
+    #voiceDebug{
+      font-size: 0.85rem; min-height: 20px;
+      color: #d63031; font-weight: bold; text-align: center;
+    }
+  </style>
 </head>
+
 <body>
-
-<nav class="navbar navbar-dark sticky-top">
+  <nav class="navbar navbar-dark sticky-top">
     <div class="container-fluid">
-        <div class="d-flex align-items-center flex-grow-1">
-            <span class="navbar-brand fw-bold me-2">🍓 管理系統</span>
-            <select id="storeSelector" class="store-selector-nav me-auto" onchange="switchStore()">
-                <option value="dajin">大津瀑布</option>
-                <option value="neipu">內埔年街</option>
-            </select>
-        </div>
+      <div class="d-flex align-items-center flex-grow-1">
+        <span class="navbar-brand fw-bold me-2">🍓 管理系統</span>
+        <select id="storeSelector" class="store-selector-nav me-auto" onchange="switchStore()">
+          <option value="dajin">大津瀑布</option>
+          <option value="neipu">內埔年街</option>
+        </select>
+      </div>
 
-        <!-- 語音控制按鈕 (Navbar 內) -->
-        <button id="navVoiceBtn" class="btn btn-voice-nav voice-inactive shadow-sm" onclick="toggleVoiceControl()">
-            ⚪
-        </button>
+      <button id="navVoiceBtn" class="btn btn-voice-nav voice-inactive shadow-sm" onclick="toggleVoiceControl()">
+        ⚪
+      </button>
 
-        <button class="navbar-toggler" type="button" data-bs-toggle="offcanvas" data-bs-target="#offcanvasMenu">
-            <span class="navbar-toggler-icon"></span>
-        </button>
+      <button class="navbar-toggler" type="button" data-bs-toggle="offcanvas" data-bs-target="#offcanvasMenu">
+        <span class="navbar-toggler-icon"></span>
+      </button>
     </div>
-</nav>
+  </nav>
 
-<!-- 語音狀態顯示區 -->
-<div class="container">
+  <div class="container">
     <div id="voiceDebug"></div>
     <div id="volumeContainer" class="progress mx-auto mt-1" style="width: 150px; height: 4px; background-color: #eee; border-radius: 5px; overflow: hidden; opacity: 0; transition: opacity 0.3s;">
-        <div id="volumeBar" class="progress-bar bg-danger" style="width: 0%; transition: width 0.05s;"></div>
+      <div id="volumeBar" class="progress-bar bg-danger" style="width: 0%; transition: width 0.05s;"></div>
     </div>
-</div>
+  </div>
 
-<div class="offcanvas offcanvas-end" tabindex="-1" id="offcanvasMenu">
+  <div class="offcanvas offcanvas-end" tabindex="-1" id="offcanvasMenu">
     <div class="offcanvas-header bg-danger text-white">
-        <h5 class="offcanvas-title fw-bold">功能選單</h5>
-        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas"></button>
+      <h5 class="offcanvas-title fw-bold">功能選單</h5>
+      <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas"></button>
     </div>
     <div class="offcanvas-body">
-        <div class="list-group">
-            <a href="javascript:void(0)" onclick="goToReport()" class="list-group-item list-group-item-action py-3 fw-bold text-danger">📊 營業報表統計</a>
-            <a href="/admin/" class="list-group-item list-group-item-action py-3">Django 後台管理</a>
-            <a href="javascript:void(0)" onclick="openStatusBoard()" class="list-group-item list-group-item-action py-3 text-primary">🖥️ 打開叫號看板</a>
-            <hr>
-            <a href="/admin/logout/" class="list-group-item list-group-item-action py-3 text-muted small">安全登出</a>
-        </div>
+      <div class="list-group">
+        <a href="javascript:void(0)" onclick="goToReport()" class="list-group-item list-group-item-action py-3 fw-bold text-danger">📊 營業報表統計</a>
+        <a href="/admin/" class="list-group-item list-group-item-action py-3">Django 後台管理</a>
+        <a href="javascript:void(0)" onclick="openStatusBoard()" class="list-group-item list-group-item-action py-3 text-primary">🖥️ 打開叫號看板</a>
+        <hr>
+        <a href="/admin/logout/" class="list-group-item list-group-item-action py-3 text-muted small">安全登出</a>
+      </div>
     </div>
-</div>
+  </div>
 
-<div id="audio-unlocker">
+  <div id="audio-unlocker">
     <h2 class="mb-4">🍓 一把葫管理系統</h2>
     <p class="mb-2">當前管理店鋪：<span id="targetStoreName" class="fw-bold">大津瀑布</span></p>
     <p class="mb-4">請點擊下方按鈕啟動系統</p>
     <button onclick="unlockAudio()" class="btn btn-light btn-lg fw-bold px-5 py-3 shadow">🚀 啟動系統</button>
-</div>
+  </div>
 
-<div class="container mt-3" id="orderList">
+  <div class="container mt-3" id="orderList">
     <div class="text-center mt-5 text-muted">
-        <div class="spinner-border text-danger mb-3" role="status"></div>
-        <p>正在同步訂單資料...</p>
+      <div class="spinner-border text-danger mb-3" role="status"></div>
+      <p>正在同步訂單資料...</p>
     </div>
-</div>
+  </div>
 
-<!-- Modal -->
-<div class="modal fade" id="editOrderModal" tabindex="-1" aria-hidden="true">
+  <div class="modal fade" id="editOrderModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content" style="border-radius: 20px;">
-            <div class="modal-header border-0">
-                <h5 class="modal-title fw-bold">修改訂單內容 #<span id="editOrderIdDisplay"></span></h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <div id="editProductList" class="list-group list-group-flush"></div>
-                <div class="mt-4 p-3 bg-light rounded-3 d-flex justify-content-between align-items-center">
-                    <span class="fw-bold">修正後總額：</span>
-                    <span class="fs-3 fw-bold text-danger" id="editTotalAmount">$0</span>
-                </div>
-            </div>
-            <div class="modal-footer border-0">
-                <button type="button" class="btn btn-secondary rounded-pill" data-bs-dismiss="modal">取消</button>
-                <button type="button" class="btn btn-danger rounded-pill px-4" onclick="saveOrderChange()">確認儲存修改</button>
-            </div>
+      <div class="modal-content" style="border-radius: 20px;">
+        <div class="modal-header border-0">
+          <h5 class="modal-title fw-bold">修改訂單內容 #<span id="editOrderIdDisplay"></span></h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
         </div>
+        <div class="modal-body">
+          <div id="editProductList" class="list-group list-group-flush"></div>
+          <div class="mt-4 p-3 bg-light rounded-3 d-flex justify-content-between align-items-center">
+            <span class="fw-bold">修正後總額：</span>
+            <span class="fs-3 fw-bold text-danger" id="editTotalAmount">$0</span>
+          </div>
+        </div>
+        <div class="modal-footer border-0">
+          <button type="button" class="btn btn-secondary rounded-pill" data-bs-dismiss="modal">取消</button>
+          <button type="button" class="btn btn-danger rounded-pill px-4" onclick="saveOrderChange()">確認儲存修改</button>
+        </div>
+      </div>
     </div>
-</div>
+  </div>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-<script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+  <script>
     // --- 基礎變數 ---
     let audioReady = false;
-    let alertedArrived = new Set(); 
+    let alertedArrived = new Set();
     let alertedNewOrder = new Set(JSON.parse(localStorage.getItem('alerted_new_orders') || '[]'));
     let notifyTimes = JSON.parse(localStorage.getItem('notify_times') || '{}');
-    
-    // 改用 Base64 音效，避免 404
-    let bellAudio = new Audio('data:audio/wav;base64,UklGRl9vT19XQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YU'); 
+
+    let bellAudio = new Audio('data:audio/wav;base64,UklGRl9vT19XQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YU');
 
     let isFirstLoad = true;
     let currentStore = localStorage.getItem('selected_store') || 'dajin';
@@ -347,219 +326,221 @@
     document.getElementById('storeSelector').value = currentStore;
     updateStoreUI();
 
-    // --- 1. 系統啟動與 AudioContext 修復 ---
     async function ensureAudioContextReady() {
-        try {
-            if (!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)();
-            if (audioContext.state === 'suspended') await audioContext.resume();
-        } catch (e) {
-            console.warn("重建 AudioContext:", e);
-            try { if(audioContext) await audioContext.close(); } catch(_){}
-            audioContext = new (window.AudioContext || window.webkitAudioContext)();
-            if (audioContext.state === 'suspended') await audioContext.resume();
-        }
+      try {
+        if (!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        if (audioContext.state === 'suspended') await audioContext.resume();
+      } catch (e) {
+        console.warn("重建 AudioContext:", e);
+        try { if(audioContext) await audioContext.close(); } catch(_){}
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        if (audioContext.state === 'suspended') await audioContext.resume();
+      }
     }
 
     async function unlockAudio() {
-        audioReady = true;
-        const unlocker = document.getElementById('audio-unlocker');
-        unlocker.classList.add('animate__animated', 'animate__fadeOut');
-        setTimeout(() => { unlocker.style.display = 'none'; }, 500);
+      audioReady = true;
+      const unlocker = document.getElementById('audio-unlocker');
+      unlocker.classList.add('animate__animated', 'animate__fadeOut');
+      setTimeout(() => { unlocker.style.display = 'none'; }, 500);
 
-        await ensureAudioContextReady();
-        
-        // 播放無聲測試
-        bellAudio.play().then(() => { bellAudio.pause(); bellAudio.currentTime = 0; }).catch(e => {});
-        speak("系統啟動", { muteRecognition: false });
-        
-        loadOrders();
-        setInterval(loadOrders, 5000);
+      await ensureAudioContextReady();
+
+      bellAudio.play().then(() => { bellAudio.pause(); bellAudio.currentTime = 0; }).catch(e => {});
+      speak("系統啟動", { muteRecognition: false });
+
+      loadOrders();
+      setInterval(loadOrders, 5000);
     }
 
-    // --- 2. 語音控制核心邏輯 ---
     async function toggleVoiceControl() {
-        if (!SpeechRecognition) return Swal.fire("不支援", "請使用 Chrome 瀏覽器", "error");
-
-        if (!isVoiceControlling) {
-            try {
-                await startVoiceControl();
-            } catch (err) {
-                console.error(err);
-                Swal.fire("錯誤", "無法啟動麥克風，請檢查權限", "error");
-            }
-        } else {
-            stopVoiceControl();
+      if (!SpeechRecognition) return Swal.fire("不支援", "請使用 Chrome 瀏覽器", "error");
+      if (!isVoiceControlling) {
+        try {
+          await startVoiceControl();
+        } catch (err) {
+          console.error(err);
+          Swal.fire("錯誤", "無法啟動麥克風，請檢查權限", "error");
         }
+      } else {
+        stopVoiceControl();
+      }
     }
 
     async function startVoiceControl() {
-        await ensureAudioContextReady();
-        micStream = await navigator.mediaDevices.getUserMedia({ 
-            audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } 
-        });
-        micSource = audioContext.createMediaStreamSource(micStream);
-        analyserNode = audioContext.createAnalyser();
-        analyserNode.fftSize = 512;
-        micSource.connect(analyserNode);
-        startVolumeMeter();
-        initRecognition();
-        recognition.start();
-        isVoiceControlling = true;
-        const btn = document.getElementById('navVoiceBtn');
-        btn.classList.remove('voice-inactive');
-        btn.classList.add('voice-active');
-        btn.innerHTML = '⏸︎';
-        document.getElementById('volumeContainer').style.opacity = '1';
-        speak("語音模式啟動", { muteRecognition: true });
+      await ensureAudioContextReady();
+      micStream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+      });
+      micSource = audioContext.createMediaStreamSource(micStream);
+      analyserNode = audioContext.createAnalyser();
+      analyserNode.fftSize = 512;
+      micSource.connect(analyserNode);
+      startVolumeMeter();
+      initRecognition();
+      recognition.start();
+      isVoiceControlling = true;
+
+      const btn = document.getElementById('navVoiceBtn');
+      btn.classList.remove('voice-inactive');
+      btn.classList.add('voice-active');
+      btn.innerHTML = '⏸︎';
+      document.getElementById('volumeContainer').style.opacity = '1';
+      speak("語音模式啟動", { muteRecognition: true });
     }
 
     function stopVoiceControl() {
-        isVoiceControlling = false;
-        isSpeaking = false;
-        if (restartTimer) clearTimeout(restartTimer);
-        if (recognition) { try{ recognition.onend = null; recognition.abort(); }catch(e){} recognition = null; }
-        stopVolumeMeter();
-        if (micStream) { micStream.getTracks().forEach(t => t.stop()); micStream = null; }
-        const btn = document.getElementById('navVoiceBtn');
-        btn.classList.remove('voice-active');
-        btn.classList.add('voice-inactive');
-        btn.innerHTML = '⚪';
-        document.getElementById('voiceDebug').innerText = "";
-        document.getElementById('volumeContainer').style.opacity = '0';
-        document.getElementById('volumeBar').style.width = "0%";
-        speak("語音關閉", { muteRecognition: false });
+      isVoiceControlling = false;
+      isSpeaking = false;
+      if (restartTimer) clearTimeout(restartTimer);
+      if (recognition) { try{ recognition.onend = null; recognition.abort(); }catch(e){} recognition = null; }
+      stopVolumeMeter();
+      if (micStream) { micStream.getTracks().forEach(t => t.stop()); micStream = null; }
+
+      const btn = document.getElementById('navVoiceBtn');
+      btn.classList.remove('voice-active');
+      btn.classList.add('voice-inactive');
+      btn.innerHTML = '⚪';
+      document.getElementById('voiceDebug').innerText = "";
+      document.getElementById('volumeContainer').style.opacity = '0';
+      document.getElementById('volumeBar').style.width = "0%";
+      speak("語音關閉", { muteRecognition: false });
     }
 
     function startVolumeMeter() {
-        const volBar = document.getElementById('volumeBar');
-        const buffer = new Uint8Array(analyserNode.frequencyBinCount);
-        const draw = () => {
-            if (!isVoiceControlling) return;
-            analyserNode.getByteFrequencyData(buffer);
-            let sum = 0;
-            for(let i=0; i<buffer.length; i++) sum += buffer[i];
-            let avg = sum / buffer.length;
-            volBar.style.width = Math.min(avg * 2.5, 100) + "%"; 
-            rafId = requestAnimationFrame(draw);
-        };
-        draw();
+      const volBar = document.getElementById('volumeBar');
+      const buffer = new Uint8Array(analyserNode.frequencyBinCount);
+      const draw = () => {
+        if (!isVoiceControlling) return;
+        analyserNode.getByteFrequencyData(buffer);
+        let sum = 0;
+        for(let i=0; i<buffer.length; i++) sum += buffer[i];
+        let avg = sum / buffer.length;
+        volBar.style.width = Math.min(avg * 2.5, 100) + "%";
+        rafId = requestAnimationFrame(draw);
+      };
+      draw();
     }
 
     function stopVolumeMeter() {
-        if (rafId) cancelAnimationFrame(rafId);
-        document.getElementById('volumeBar').style.width = "0%";
+      if (rafId) cancelAnimationFrame(rafId);
+      document.getElementById('volumeBar').style.width = "0%";
     }
 
     function initRecognition() {
-        recognition = new SpeechRecognition();
-        recognition.lang = 'zh-TW';
-        recognition.continuous = true;
-        recognition.interimResults = true;
-        recognition.onresult = (event) => {
-            let interim = "";
-            for (let i = event.resultIndex; i < event.results.length; i++) {
-                const transcript = event.results[i][0].transcript.trim();
-                if (event.results[i].isFinal) {
-                    processVoiceCommand(transcript);
-                } else {
-                    interim += transcript;
-                }
-            }
-            if (interim) document.getElementById('voiceDebug').innerText = `👂: ${interim}`;
-        };
-        recognition.onerror = (e) => {
-            console.log("Voice error:", e.error);
-            if(e.error === 'not-allowed') stopVoiceControl();
-            else scheduleRestart(500);
-        };
-        recognition.onend = () => {
-            if (isVoiceControlling && !isSpeaking) scheduleRestart(200);
-        };
+      recognition = new SpeechRecognition();
+      recognition.lang = 'zh-TW';
+      recognition.continuous = true;
+      recognition.interimResults = true;
+
+      recognition.onresult = (event) => {
+        let interim = "";
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const transcript = event.results[i][0].transcript.trim();
+          if (event.results[i].isFinal) {
+            processVoiceCommand(transcript);
+          } else {
+            interim += transcript;
+          }
+        }
+        if (interim) document.getElementById('voiceDebug').innerText = `👂: ${interim}`;
+      };
+
+      recognition.onerror = (e) => {
+        console.log("Voice error:", e.error);
+        if(e.error === 'not-allowed') stopVoiceControl();
+        else scheduleRestart(500);
+      };
+
+      recognition.onend = () => {
+        if (isVoiceControlling && !isSpeaking) scheduleRestart(200);
+      };
     }
 
     function scheduleRestart(ms) {
-        if(restartTimer) clearTimeout(restartTimer);
-        restartTimer = setTimeout(() => {
-            if(isVoiceControlling && recognition) {
-                try { recognition.start(); } catch(e){}
-            }
-        }, ms);
+      if(restartTimer) clearTimeout(restartTimer);
+      restartTimer = setTimeout(() => {
+        if(isVoiceControlling && recognition) {
+          try { recognition.start(); } catch(e){}
+        }
+      }, ms);
     }
 
     function processVoiceCommand(rawText) {
-        if (rawText === lastFinalText && (Date.now() - lastFinalAt) < 1000) return;
-        lastFinalText = rawText;
-        lastFinalAt = Date.now();
-        document.getElementById('voiceDebug').innerText = `✅: ${rawText}`;
-        const text = rawText.replace(/\s/g, "");
-        let orderId = null;
-        const numMatch = text.match(/(\d+)/);
-        if (numMatch) {
-            orderId = parseInt(numMatch[1]);
-        } else {
-            const zhNum = text.match(/[零一二兩三四五六七八九十]+/);
-            if (zhNum) orderId = parseChineseNumber(zhNum[0]);
-        }
-        if (!orderId) return;
-        if (text.includes("完成") || text.includes("好了") || text.includes("通知")) {
-            speak(`${orderId}號完成`);
-            updateStatus(orderId, 'completed', true);
-        } else if (text.includes("結案") || text.includes("交付")) {
-            speak(`${orderId}號結案`);
-            updateStatus(orderId, 'final');
-        } else if (text.includes("收錢") || text.includes("收了") || text.includes("確認")) {
-            speak(`${orderId}號已收錢`);
-            updateStatus(orderId, 'confirmed');
-        } else if (text.includes("製作") || text.includes("做")) {
-            speak(`${orderId}號製作中`);
-            updateStatus(orderId, 'preparing');
-        }
+      if (rawText === lastFinalText && (Date.now() - lastFinalAt) < 1000) return;
+      lastFinalText = rawText;
+      lastFinalAt = Date.now();
+
+      document.getElementById('voiceDebug').innerText = `✅: ${rawText}`;
+      const text = rawText.replace(/\s/g, "");
+
+      let orderId = null;
+      const numMatch = text.match(/(\d+)/);
+      if (numMatch) {
+        orderId = parseInt(numMatch[1]);
+      } else {
+        const zhNum = text.match(/[零一二兩三四五六七八九十]+/);
+        if (zhNum) orderId = parseChineseNumber(zhNum[0]);
+      }
+      if (!orderId) return;
+
+      if (text.includes("完成") || text.includes("好了") || text.includes("通知")) {
+        speak(`${orderId}號完成`);
+        updateStatus(orderId, 'completed', true);
+      } else if (text.includes("結案") || text.includes("交付")) {
+        speak(`${orderId}號結案`);
+        updateStatus(orderId, 'final');
+      } else if (text.includes("收錢") || text.includes("收了") || text.includes("確認")) {
+        speak(`${orderId}號已收錢`);
+        updateStatus(orderId, 'confirmed');
+      } else if (text.includes("製作") || text.includes("做")) {
+        speak(`${orderId}號製作中`);
+        updateStatus(orderId, 'preparing');
+      }
     }
 
     function parseChineseNumber(s) {
-        const map = {'零':0,'一':1,'二':2,'兩':2,'三':3,'四':4,'五':5,'六':6,'七':7,'八':8,'九':9,'十':10};
-        let val = 0;
-        if (s.startsWith('十')) s = '一' + s; 
-        let parts = s.split('十');
-        if (parts.length === 1) return map[parts[0]] || 0;
-        if (parts.length === 2) {
-            let ten = map[parts[0]] || 0;
-            let unit = map[parts[1]] || 0;
-            return ten * 10 + unit;
-        }
-        return 0;
+      const map = {'零':0,'一':1,'二':2,'兩':2,'三':3,'四':4,'五':5,'六':6,'七':7,'八':8,'九':9,'十':10};
+      if (s.startsWith('十')) s = '一' + s;
+      let parts = s.split('十');
+      if (parts.length === 1) return map[parts[0]] || 0;
+      if (parts.length === 2) {
+        let ten = map[parts[0]] || 0;
+        let unit = map[parts[1]] || 0;
+        return ten * 10 + unit;
+      }
+      return 0;
     }
 
     function speak(text, { muteRecognition = true } = {}) {
-        if (!audioReady) return;
-        window.speechSynthesis.cancel();
-        const u = new SpeechSynthesisUtterance(text);
-        u.lang = 'zh-TW';
-        if (muteRecognition && isVoiceControlling && recognition) {
-            isSpeaking = true;
-            try { recognition.abort(); } catch(e){} 
-            u.onend = () => {
-                isSpeaking = false;
-                scheduleRestart(200);
-            };
-        }
-        window.speechSynthesis.speak(u);
+      if (!audioReady) return;
+      window.speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = 'zh-TW';
+      if (muteRecognition && isVoiceControlling && recognition) {
+        isSpeaking = true;
+        try { recognition.abort(); } catch(e){}
+        u.onend = () => {
+          isSpeaking = false;
+          scheduleRestart(200);
+        };
+      }
+      window.speechSynthesis.speak(u);
     }
 
-    // --- 其餘原有邏輯 ---
     function switchStore() {
-        currentStore = document.getElementById('storeSelector').value;
-        localStorage.setItem('selected_store', currentStore);
-        updateStoreUI();
-        isFirstLoad = true;
-        alertedArrived.clear(); 
-        loadOrders();
-        speak("已切換至" + (currentStore === 'dajin' ? '大津瀑布' : '內埔年街'), {muteRecognition: false});
+      currentStore = document.getElementById('storeSelector').value;
+      localStorage.setItem('selected_store', currentStore);
+      updateStoreUI();
+      isFirstLoad = true;
+      alertedArrived.clear();
+      loadOrders();
+      speak("已切換至" + (currentStore === 'dajin' ? '大津瀑布' : '內埔年街'), {muteRecognition: false});
     }
 
     function updateStoreUI() {
-        const name = currentStore === 'dajin' ? '大津瀑布' : '內埔年街';
-        document.getElementById('targetStoreName').innerText = name;
+      const name = currentStore === 'dajin' ? '大津瀑布' : '內埔年街';
+      document.getElementById('targetStoreName').innerText = name;
     }
 
     function goToReport() { window.location.href = `/report-dashboard/?store=${currentStore}`; }
@@ -567,249 +548,310 @@
     function getCookie(n) { let v = document.cookie.match('(^|;) ?' + n + '=([^;]*)(;|$)'); return v ? decodeURIComponent(v[2]) : null; }
 
     function playBell() {
-        if (audioReady) {
-            bellAudio.currentTime = 0;
-            bellAudio.play().catch(e => console.log("Audio Error:", e));
-        }
+      if (audioReady) {
+        bellAudio.currentTime = 0;
+        bellAudio.play().catch(e => console.log("Audio Error:", e));
+      }
     }
 
     function loadOrders() {
-  fetch(`/api/orders/?store=${currentStore}&t=${new Date().getTime()}`)
-    .then(res => (res.status === 401 || res.status === 403)
-      ? (window.location.href = '/admin/login/?next=' + window.location.pathname)
-      : res.json()
-    )
-    .then(orders => {
-      if (!orders || !Array.isArray(orders)) return;
+    fetch(`/api/orders/?store=${currentStore}&t=${new Date().getTime()}`)
+        .then(res => (res.status === 401 || res.status === 403)
+        ? (window.location.href = '/admin/login/?next=' + window.location.pathname)
+        : res.json()
+        )
+        .then(orders => {
+        if (!orders || !Array.isArray(orders)) return;
 
-      if (isFirstLoad) {
-        orders.forEach(order => {
-          if (order.status === 'pending') alertedNewOrder.add(order.id);
-          if (order.status === 'arrived') alertedArrived.add(order.id);
+        if (isFirstLoad) {
+            orders.forEach(order => {
+            if (order.status === 'pending') alertedNewOrder.add(order.id);
+            if (order.status === 'arrived') alertedArrived.add(order.id);
+            });
+            isFirstLoad = false;
+        }
+
+        const list = document.getElementById('orderList');
+        if (orders.length === 0) {
+            list.innerHTML = `<div class="text-center mt-5 text-muted"><p>目前沒有訂單</p></div>`;
+            return;
+        }
+
+        let newHtml = '';
+
+        orders.sort((a, b) => {
+            const isAClosed = (a.status === 'final' || a.status === 'cancelled');
+            const isBClosed = (b.status === 'final' || b.status === 'cancelled');
+            if (isAClosed && !isBClosed) return 1;
+            if (!isAClosed && isBClosed) return -1;
+            return b.id - a.id;
+        }).forEach(order => {
+
+            if (order.status === 'pending' && !alertedNewOrder.has(order.id)) {
+            speak("新訂單，編號 " + order.id, { muteRecognition: true });
+            alertedNewOrder.add(order.id);
+            localStorage.setItem('alerted_new_orders', JSON.stringify(Array.from(alertedNewOrder).slice(-100)));
+            }
+
+            if (order.status === 'arrived' && !alertedArrived.has(order.id)) {
+            playBell();
+            speak("編號 " + order.id + " 客人已到櫃檯", { muteRecognition: true });
+            alertedArrived.add(order.id);
+            }
+
+            const isContracted = (order.status === 'final' || order.status === 'cancelled');
+            const detailClass = isContracted ? 'detail-content hide-detail' : 'detail-content';
+            const arrowRotate = isContracted ? '' : 'style="transform: rotate(180deg)"';
+            const editBtn = !isContracted
+            ? `<button onclick="openEditModal(${order.id})" class="btn btn-outline-secondary w-100 mb-2 py-2 fw-bold" style="border-radius:12px; font-size:0.9rem;">✏️ 修改品項 / 庫存</button>`
+            : '';
+
+            const isLinePay = order.payment_method === 'linepay';
+            const payTag = isLinePay
+            ? `<span class="pay-tag-line">LINE</span>`
+            : `<span class="pay-tag-cash">CASH</span>`;
+
+            let actionBtn = '';
+
+            if (order.status === 'pending') {
+            if (isLinePay) {
+                actionBtn = `
+                <div class="alert alert-warning text-center fw-bold mb-2 py-2">
+                    ⏳ 等待顧客付款中（LINE Pay）
+                    <div class="small fw-normal mt-1">付款成功後會自動更新，不需手動確認。</div>
+                </div>
+                <button onclick="cancelOrder(${order.id})" class="btn btn-link btn-sm text-muted w-100 mt-2">
+                    取消訂單（客人要改付款方式請取消後重下）
+                </button>
+                `;
+            } else {
+                actionBtn = `
+                <button onclick="updateStatus(${order.id}, 'confirmed')" class="btn btn-primary btn-action shadow">
+                    💰 已收錢：成立訂單
+                </button>
+                <button onclick="cancelOrder(${order.id})" class="btn btn-link btn-sm text-muted w-100 mt-2">
+                    取消訂單
+                </button>
+                `;
+            }
+
+            } else if (order.status === 'confirmed') {
+            actionBtn = `
+                <button onclick="updateStatus(${order.id}, 'preparing')" class="btn btn-warning btn-action shadow">🍓 開始製作餐點</button>
+                <button onclick="cancelOrder(${order.id})" class="btn btn-link btn-sm text-muted w-100 mt-2">取消訂單</button>
+            `;
+
+            } else if (order.status === 'preparing') {
+            actionBtn = `
+                <button onclick="updateStatus(${order.id}, 'completed', true)" class="btn btn-success btn-action shadow">🔔 製作完成：發送取餐通知</button>
+            `;
+
+            } else if (order.status === 'completed') {
+            actionBtn = `
+                <div class="alert alert-info text-center mb-2 py-2 fw-bold small">⌛ 等候客人端確認中...</div>
+                <button onclick="confirmAction(${order.id}, 'final', '確定客人已領餐，要手動完成結案嗎？')" class="btn btn-final btn-action shadow text-white">✅ 手動完成交易(結案)</button>
+            `;
+
+            } else if (order.status === 'arrived') {
+            actionBtn = `
+                <button onclick="confirmAction(${order.id}, 'final', '客人已在現場，確認交付餐點並結案？')" class="btn btn-danger btn-action animate__animated animate__pulse animate__infinite shadow-lg">✨ 客人已抵達！點此交付結案</button>
+            `;
+
+            } else if (order.status === 'cancelled') {
+            actionBtn = `<div class="text-center py-2 text-danger fw-bold">❌ 訂單已取消</div>`;
+
+            } else if (order.status === 'final') {
+            actionBtn = `<div class="text-center py-2 text-success fw-bold">✅ 交易已完成</div>`;
+            }
+
+            const statusText = getStatusText(order.status);
+            const statusClassMap = {
+            pending: 'tag-pending',
+            confirmed: 'tag-confirmed',
+            preparing: 'tag-preparing',
+            completed: 'tag-completed',
+            arrived: 'tag-arrived',
+            final: 'tag-final',
+            cancelled: 'tag-cancelled'
+            };
+            const statusTagClass = statusClassMap[order.status] || 'tag-pending';
+
+            newHtml += `
+            <div class="card order-card status-${order.status}" id="card-${order.id}">
+                <div class="card-header-clickable" onclick="toggleDetail(${order.id})">
+                <div class="order-head-left">
+                    <span class="order-pill pill-phone">${order.phone_tail || '現場'}</span>
+                    <span class="order-pill pill-id">#${order.id}</span>
+                    ${payTag}
+                    <span class="status-tag ${statusTagClass}">
+                    ${statusText}${order.status === 'arrived' ? ' 🚨' : ''}
+                    </span>
+                </div>
+                <div class="order-head-right">
+                    <span class="arrow" id="arrow-${order.id}" ${arrowRotate}>▼</span>
+                </div>
+                </div>
+
+                <div id="detail-${order.id}" class="${detailClass}">
+                <div class="mb-3">
+                    ${(order.items || []).map(i => `<span class="item-badge">${i.name} x ${(i.qty || i.quantity)}</span>`).join('')}
+                </div>
+
+                <div class="time-box mb-3">
+                    <div>🕒 下單：${new Date(order.created_at).toLocaleTimeString()}</div>
+                    ${notifyTimes[order.id] ? `<div>🔔 取餐通知：${notifyTimes[order.id]}</div>` : ''}
+                    <div class="mt-2 fw-bold text-danger fs-5">總額：$${order.total}</div>
+                </div>
+
+                <div id="btn-zone-${order.id}">
+                    ${editBtn}
+                    ${actionBtn}
+                </div>
+                </div>
+            </div>
+            `;
         });
-        isFirstLoad = false;
-      }
 
-      const list = document.getElementById('orderList');
-      if (orders.length === 0) {
-        list.innerHTML = `<div class="text-center mt-5 text-muted"><p>目前沒有訂單</p></div>`;
-        return;
-      }
-
-      let newHtml = '';
-
-      orders.sort((a, b) => {
-        const isAClosed = (a.status === 'final' || a.status === 'cancelled');
-        const isBClosed = (b.status === 'final' || b.status === 'cancelled');
-        if (isAClosed && !isBClosed) return 1;
-        if (!isAClosed && isBClosed) return -1;
-        return b.id - a.id;
-      }).forEach(order => {
-
-        // 新訂單提醒
-        if (order.status === 'pending' && !alertedNewOrder.has(order.id)) {
-          speak("新訂單，編號 " + order.id, { muteRecognition: true });
-          alertedNewOrder.add(order.id);
-          localStorage.setItem('alerted_new_orders', JSON.stringify(Array.from(alertedNewOrder).slice(-100)));
-        }
-
-        // arrived 提醒
-        if (order.status === 'arrived' && !alertedArrived.has(order.id)) {
-          playBell();
-          speak("編號 " + order.id + " 客人已到櫃檯", { muteRecognition: true });
-          alertedArrived.add(order.id);
-        }
-
-        const isContracted = (order.status === 'final' || order.status === 'cancelled');
-        const detailClass = isContracted ? 'detail-content hide-detail' : 'detail-content';
-        const arrowRotate = isContracted ? '' : 'style="transform: rotate(180deg)"';
-        const editBtn = !isContracted
-          ? `<button onclick="openEditModal(${order.id})" class="btn btn-outline-secondary w-100 mb-2 py-2 fw-bold" style="border-radius:12px; font-size:0.9rem;">✏️ 修改品項 / 庫存</button>`
-          : '';
-
-        // 付款標籤
-        const isLinePay = order.payment_method === 'linepay';
-        const payTag = isLinePay
-          ? `<span class="pay-tag-line">LINE</span>`
-          : `<span class="pay-tag-cash">CASH</span>`;
-
-        // 狀態按鈕區
-        let actionBtn = '';
-        if (order.status === 'pending') {
-          const btnText = isLinePay ? "⚠️ 強制確認 (客人說已付)" : "💰 已收錢：成立訂單";
-          actionBtn = `<button onclick="updateStatus(${order.id}, 'confirmed')" class="btn btn-primary btn-action shadow">${btnText}</button>
-                       <button onclick="confirmAction(${order.id}, 'cancelled', '確定要「取消」這筆訂單嗎？')" class="btn btn-link btn-sm text-muted w-100 mt-2">取消訂單</button>`;
-        } else if (order.status === 'confirmed') {
-          actionBtn = `<button onclick="updateStatus(${order.id}, 'preparing')" class="btn btn-warning btn-action shadow">🍓 開始製作餐點</button>
-                       <button onclick="confirmAction(${order.id}, 'cancelled', '確定要「取消」這筆訂單嗎？')" class="btn btn-link btn-sm text-muted w-100 mt-2">取消訂單</button>`;
-        } else if (order.status === 'preparing') {
-          actionBtn = `<button onclick="updateStatus(${order.id}, 'completed', true)" class="btn btn-success btn-action shadow">🔔 製作完成：發送取餐通知</button>`;
-        } else if (order.status === 'completed') {
-          actionBtn = `<div class="alert alert-info text-center mb-2 py-2 fw-bold small">⌛ 等候客人端確認中...</div>
-                       <button onclick="confirmAction(${order.id}, 'final', '確定客人已領餐，要手動完成結案嗎？')" class="btn btn-final btn-action shadow text-white">✅ 手動完成交易(結案)</button>`;
-        } else if (order.status === 'arrived') {
-          actionBtn = `<button onclick="confirmAction(${order.id}, 'final', '客人已在現場，確認交付餐點並結案？')" class="btn btn-danger btn-action animate__animated animate__pulse animate__infinite shadow-lg">✨ 客人已抵達！點此交付結案</button>`;
-        } else if (order.status === 'cancelled') {
-          actionBtn = `<div class="text-center py-2 text-danger fw-bold">❌ 訂單已取消</div>`;
-        } else if (order.status === 'final') {
-          actionBtn = `<div class="text-center py-2 text-success fw-bold">✅ 交易已完成</div>`;
-        }
-
-        // 狀態標籤（依你要的順位最後顯示）
-        const statusText = getStatusText(order.status);
-        const statusClassMap = {
-          pending: 'tag-pending',
-          confirmed: 'tag-confirmed',
-          preparing: 'tag-preparing',
-          completed: 'tag-completed',
-          arrived: 'tag-arrived',
-          final: 'tag-final',
-          cancelled: 'tag-cancelled'
-        };
-        const statusTagClass = statusClassMap[order.status] || 'tag-pending';
-
-        // ✅ 卡片 HTML（順位：手機末四碼 → 訂單編號 → 付款方式 → 狀態）
-        newHtml += `
-          <div class="card order-card status-${order.status}" id="card-${order.id}">
-            <div class="card-header-clickable" onclick="toggleDetail(${order.id})">
-
-              <div class="order-head-left">
-                <span class="order-pill pill-phone">${order.phone_tail || '現場'}</span>
-                <span class="order-pill pill-id">#${order.id}</span>
-                ${payTag}
-                <span class="status-tag ${statusTagClass}">
-                  ${statusText}${order.status === 'arrived' ? ' 🚨' : ''}
-                </span>
-              </div>
-
-              <div class="order-head-right">
-                <span class="arrow" id="arrow-${order.id}" ${arrowRotate}>▼</span>
-              </div>
-
-            </div>
-
-            <div id="detail-${order.id}" class="${detailClass}">
-              <div class="mb-3">
-                ${order.items.map(i => `<span class="item-badge">${i.name} x ${i.qty || i.quantity}</span>`).join('')}
-              </div>
-
-              <div class="time-box mb-3">
-                <div>🕒 下單：${new Date(order.created_at).toLocaleTimeString()}</div>
-                ${notifyTimes[order.id] ? `<div>🔔 取餐通知：${notifyTimes[order.id]}</div>` : ''}
-                <div class="mt-2 fw-bold text-danger fs-5">總額：$${order.total}</div>
-              </div>
-
-              <div id="btn-zone-${order.id}">
-                ${editBtn}
-                ${actionBtn}
-              </div>
-            </div>
-          </div>`;
-      });
-
-      list.innerHTML = newHtml;
-    });
-}
+        list.innerHTML = newHtml;
+        });
+    }
 
 
     function openEditModal(orderId) {
-        currentEditingOrderId = orderId;
-        document.getElementById('editOrderIdDisplay').innerText = orderId;
-        Promise.all([
-            fetch(`/api/products/?store=${currentStore}&t=${Date.now()}`).then(res => res.json()),
-            fetch(`/api/orders/${orderId}/`).then(res => res.json())
-        ]).then(([prods, order]) => {
-            allProducts = prods;
-            currentEditingItems = order.items.map(i => ({...i, quantity: i.quantity || i.qty}));
-            currentEditingItems.forEach(item => {
-                const p = allProducts.find(prod => prod.id == item.id);
-                if (p) p.stock += item.quantity;
-            });
-            renderEditProductList();
-            new bootstrap.Modal(document.getElementById('editOrderModal')).show();
+      currentEditingOrderId = orderId;
+      document.getElementById('editOrderIdDisplay').innerText = orderId;
+
+      Promise.all([
+        fetch(`/api/products/?store=${currentStore}&t=${Date.now()}`).then(res => res.json()),
+        fetch(`/api/orders/${orderId}/`).then(res => res.json())
+      ]).then(([prods, order]) => {
+        allProducts = prods;
+        currentEditingItems = (order.items || []).map(i => ({...i, quantity: (i.quantity || i.qty)}));
+
+        currentEditingItems.forEach(item => {
+          const p = allProducts.find(prod => prod.id == item.id);
+          if (p) p.stock += item.quantity;
         });
+
+        renderEditProductList();
+        new bootstrap.Modal(document.getElementById('editOrderModal')).show();
+      });
     }
 
     function renderEditProductList() {
-        const container = document.getElementById('editProductList');
-        let html = ''; let total = 0;
-        allProducts.forEach(p => {
-            const item = currentEditingItems.find(i => i.id == p.id);
-            const qty = item ? item.quantity : 0;
-            total += qty * p.price;
-            html += `
-                <div class="list-group-item d-flex justify-content-between align-items-center py-3 border-bottom">
-                    <div>
-                        <div class="fw-bold">${p.name} <span class="text-muted small">($${p.price})</span></div>
-                        <div class="small text-danger">剩餘庫存: ${p.stock}</div>
-                    </div>
-                    <div class="d-flex align-items-center qty-controls">
-                        <button class="btn btn-outline-secondary btn-sm" onclick="changeEditQty(${p.id}, -1)" ${qty === 0 ? 'disabled' : ''}>-</button>
-                        <span class="fw-bold mx-3 fs-5">${qty}</span>
-                        <button class="btn btn-outline-danger btn-sm" onclick="changeEditQty(${p.id}, 1)" ${p.stock <= 0 ? 'disabled' : ''}>+</button>
-                    </div>
-                </div>`;
-        });
-        container.innerHTML = html;
-        document.getElementById('editTotalAmount').innerText = `$${total}`;
+      const container = document.getElementById('editProductList');
+      let html = '';
+      let total = 0;
+
+      allProducts.forEach(p => {
+        const item = currentEditingItems.find(i => i.id == p.id);
+        const qty = item ? item.quantity : 0;
+        total += qty * p.price;
+
+        html += `
+          <div class="list-group-item d-flex justify-content-between align-items-center py-3 border-bottom">
+            <div>
+              <div class="fw-bold">${p.name} <span class="text-muted small">($${p.price})</span></div>
+              <div class="small text-danger">剩餘庫存: ${p.stock}</div>
+            </div>
+            <div class="d-flex align-items-center qty-controls">
+              <button class="btn btn-outline-secondary btn-sm" onclick="changeEditQty(${p.id}, -1)" ${qty === 0 ? 'disabled' : ''}>-</button>
+              <span class="fw-bold mx-3 fs-5">${qty}</span>
+              <button class="btn btn-outline-danger btn-sm" onclick="changeEditQty(${p.id}, 1)" ${p.stock <= 0 ? 'disabled' : ''}>+</button>
+            </div>
+          </div>
+        `;
+      });
+
+      container.innerHTML = html;
+      document.getElementById('editTotalAmount').innerText = `$${total}`;
     }
 
     function changeEditQty(pId, delta) {
-        const prod = allProducts.find(p => p.id == pId);
-        let item = currentEditingItems.find(i => i.id == pId);
-        if (delta > 0 && prod.stock > 0) {
-            if (!item) { item = { id: prod.id, name: prod.name, quantity: 0, price: prod.price }; currentEditingItems.push(item); }
-            item.quantity++; prod.stock--;
-        } else if (delta < 0 && item && item.quantity > 0) {
-            item.quantity--; prod.stock++;
-            if (item.quantity === 0) currentEditingItems = currentEditingItems.filter(i => i.id != pId);
+      const prod = allProducts.find(p => p.id == pId);
+      let item = currentEditingItems.find(i => i.id == pId);
+
+      if (delta > 0 && prod.stock > 0) {
+        if (!item) {
+          item = { id: prod.id, name: prod.name, quantity: 0, price: prod.price };
+          currentEditingItems.push(item);
         }
-        renderEditProductList();
+        item.quantity++;
+        prod.stock--;
+      } else if (delta < 0 && item && item.quantity > 0) {
+        item.quantity--;
+        prod.stock++;
+        if (item.quantity === 0) currentEditingItems = currentEditingItems.filter(i => i.id != pId);
+      }
+
+      renderEditProductList();
     }
 
     function saveOrderChange() {
-        const total = currentEditingItems.reduce((sum, i) => sum + (i.quantity * i.price), 0);
-        fetch(`/api/orders/${currentEditingOrderId}/`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
-            body: JSON.stringify({ items: currentEditingItems, total: total })
-        }).then(res => {
-            if (res.ok) {
-                bootstrap.Modal.getInstance(document.getElementById('editOrderModal')).hide();
-                loadOrders();
-                Swal.fire({ icon: 'success', title: '修改成功', timer: 1000, showConfirmButton: false });
-            }
-        });
+      const total = currentEditingItems.reduce((sum, i) => sum + (i.quantity * i.price), 0);
+      fetch(`/api/orders/${currentEditingOrderId}/`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+        body: JSON.stringify({ items: currentEditingItems, total: total })
+      }).then(res => {
+        if (res.ok) {
+          bootstrap.Modal.getInstance(document.getElementById('editOrderModal')).hide();
+          loadOrders();
+          Swal.fire({ icon: 'success', title: '修改成功', timer: 1000, showConfirmButton: false });
+        }
+      });
     }
 
     function getStatusText(s) {
-        const map = { 'pending': '等待付錢', 'confirmed': '已付款', 'preparing': '製作中', 'completed': '通知取餐中', 'arrived': '客人到櫃檯', 'final': '已完成', 'cancelled': '已取消' };
-        return map[s] || s;
+      const map = { 'pending': '等待付錢', 'confirmed': '已付款', 'preparing': '製作中', 'completed': '通知取餐中', 'arrived': '客人到櫃檯', 'final': '已完成', 'cancelled': '已取消' };
+      return map[s] || s;
     }
 
-    function confirmAction(id, newStatus, message) { if (confirm(message)) updateStatus(id, newStatus); }
+    function confirmAction(id, newStatus, message) {
+      if (confirm(message)) updateStatus(id, newStatus);
+    }
 
     function updateStatus(id, newStatus, isNotifying = false) {
-        if (isNotifying) {
-            const now = new Date();
-            notifyTimes[id] = now.getHours() + ":" + now.getMinutes().toString().padStart(2, '0');
-            localStorage.setItem('notify_times', JSON.stringify(notifyTimes));
-        }
-        fetch(`/api/orders/${id}/`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
-            body: JSON.stringify({ status: newStatus })
-        }).then(res => res.ok ? loadOrders() : alert("更新失敗"));
+      if (isNotifying) {
+        const now = new Date();
+        notifyTimes[id] = now.getHours() + ":" + now.getMinutes().toString().padStart(2, '0');
+        localStorage.setItem('notify_times', JSON.stringify(notifyTimes));
+      }
+
+      fetch(`/api/orders/${id}/`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+        body: JSON.stringify({ status: newStatus })
+      }).then(res => res.ok ? loadOrders() : alert("更新失敗"));
     }
 
     function toggleDetail(id) {
-        const detail = document.getElementById(`detail-${id}`);
-        const arrow = document.getElementById(`arrow-${id}`);
-        if (detail && arrow) {
-            const isHidden = detail.classList.toggle('hide-detail');
-            arrow.style.transform = isHidden ? 'rotate(0deg)' : 'rotate(180deg)';
-        }
+      const detail = document.getElementById(`detail-${id}`);
+      const arrow = document.getElementById(`arrow-${id}`);
+      if (detail && arrow) {
+        const isHidden = detail.classList.toggle('hide-detail');
+        arrow.style.transform = isHidden ? 'rotate(0deg)' : 'rotate(180deg)';
+      }
     }
-</script>
+
+    // ✅ 取消＋退款（打 POST /api/orders/{id}/cancel/）
+    function cancelOrder(id) {
+      if (!confirm("確定要「取消」這筆訂單嗎？\n(若為 LINE Pay 且已付款，會嘗試自動退款)")) return;
+
+      fetch(`/api/orders/${id}/cancel/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+      })
+      .then(async res => {
+        const data = await res.json().catch(() => ({}));
+        if (res.ok) {
+          Swal.fire({ icon: 'success', title: '已取消（已嘗試退款）', timer: 1200, showConfirmButton: false });
+          loadOrders();
+        } else {
+          Swal.fire({ icon: 'error', title: '取消/退款失敗', text: JSON.stringify(data), width: 600 });
+        }
+      });
+    }
+  </script>
 </body>
 </html>
