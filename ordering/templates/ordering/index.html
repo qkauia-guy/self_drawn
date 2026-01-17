@@ -369,58 +369,49 @@
                     const filteredProducts = data.filter(p => p.category === catKey);
                     if (filteredProducts.length === 0) return;
 
-                    const isFirst = catKey === 'drink'; // 飲品預設展開
+                    const isFirst = catKey === 'drink';
                     const collapseId = `collapse_${catKey}`;
                     const headerId = `heading_${catKey}`;
 
                     accordionHTML += `
                     <div class="accordion-item bg-transparent border-0 mb-3">
                         <h2 class="accordion-header" id="${headerId}">
-                            <button class="accordion-button cat-${catKey} ${isFirst ? '' : 'collapsed'} bg-transparent fw-bold text-danger fs-5 p-2 shadow-none"
-                                    data-cat="${catKey}"
-                                    type="button"
-                                    data-bs-toggle="collapse"
-                                    data-bs-target="#${collapseId}"
-                                    aria-expanded="${isFirst ? 'true' : 'false'}"
+                            <button class="accordion-button ${isFirst ? '' : 'collapsed'} bg-transparent fw-bold text-danger fs-5 p-2 shadow-none" 
+                                    type="button" 
+                                    data-bs-toggle="collapse" 
+                                    data-bs-target="#${collapseId}" 
+                                    aria-expanded="${isFirst ? 'true' : 'false'}" 
                                     aria-controls="${collapseId}">
                                 <span class="border-start border-4 border-danger ps-2">${catLabel}</span>
                             </button>
                         </h2>
-
-                        <div id="${collapseId}" class="accordion-collapse collapse ${isFirst ? 'show' : ''}"
-                            aria-labelledby="${headerId}"
+                        <div id="${collapseId}" class="accordion-collapse collapse ${isFirst ? 'show' : ''}" 
+                            aria-labelledby="${headerId}" 
                             data-bs-parent="#${accordionId}">
-                            <div class="accordion-body p-0 pt-2 ms-3">
+                            <div class="accordion-body p-0 pt-2 ms-3"> 
                                 ${filteredProducts.map(p => {
                                     const isSoldOut = p.stock <= 0 || !p.is_active;
-
-                                    const statusLabel = isSoldOut
-                                        ? `<span class="badge bg-secondary">今日售完</span>`
-                                        : `<small class="text-muted">剩餘庫存: ${p.stock}</small>`;
+                                    const statusLabel = isSoldOut ? 
+                                        `<span class="badge bg-secondary">今日售完</span>` : 
+                                        `<small class="text-muted">剩餘庫存: ${p.stock}</small>`;
+                                    
+                                    // 準備短描述 HTML，如果有內容才顯示
+                                    const descHTML = p.description ? `<div class="small text-muted mb-1" style="font-size: 0.8rem;">${p.description}</div>` : '';
 
                                     return `
                                     <div class="card mb-3 p-1 product-item ${isSoldOut ? 'opacity-75 bg-light' : ''}">
                                         <div class="card-body d-flex justify-content-between align-items-center p-3">
                                             <div class="flex-grow-1">
                                                 <div class="fw-bold h6 mb-1">${p.name}</div>
-                                                <div class="text-danger fw-bold small">$${p.price}</div>
+                                                ${descHTML} <div class="text-danger fw-bold small">$${p.price}</div>
                                                 ${statusLabel}
                                             </div>
-
                                             <div class="d-flex align-items-center gap-2">
                                                 <button class="qty-btn" onclick="changeQty('${p.id}', -1)" ${isSoldOut ? 'disabled' : ''}>-</button>
-
-                                                <input type="number"
-                                                    id="qty_${p.id}"
-                                                    class="form-control item-qty border-0 bg-transparent text-center fw-bold fs-5"
-                                                    style="width: 45px"
-                                                    value="0"
-                                                    readonly
-                                                    data-id="${p.id}"
-                                                    data-price="${p.price}"
-                                                    data-name="${p.name}"
-                                                    data-flavors="${p.flavor_options || ''}">
-
+                                                <input type="number" id="qty_${p.id}" class="form-control item-qty border-0 bg-transparent text-center fw-bold fs-5" 
+                                                    style="width: 45px" value="0" readonly 
+                                                    data-id="${p.id}" data-price="${p.price}" 
+                                                    data-name="${p.name}" data-flavors="${p.flavor_options || ''}">
                                                 <button class="qty-btn" onclick="changeQty('${p.id}', 1)" ${isSoldOut ? 'disabled' : ''}>+</button>
                                             </div>
                                         </div>
@@ -434,18 +425,17 @@
                 accordionHTML += `</div>`;
                 list.innerHTML = accordionHTML;
 
-                // 初始化動態產生的 Collapse（需要 bootstrap.bundle.min.js）[web:23]
+                // 初始化 Accordion
                 setTimeout(() => {
                     const accElems = list.querySelectorAll('.accordion-collapse');
                     accElems.forEach(el => {
-                        bootstrap.Collapse.getOrCreateInstance(el, { toggle: false });
+                        if (!bootstrap.Collapse.getInstance(el)) {
+                            new bootstrap.Collapse(el, { toggle: false });
+                        }
                     });
-
-                    // ✅ 初始化時先跑一次：讓「已選系列」狀態正確（例如：返回頁面或有預設值）
-                    refreshCategoryPickedState();
                 }, 50);
 
-                updateTotal(); // 這裡面也會 refreshCategoryPickedState()
+                updateTotal();
             })
             .catch(err => console.error("載入商品失敗:", err));
     }
