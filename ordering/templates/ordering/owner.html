@@ -339,6 +339,17 @@
     }
 
     async function unlockAudio() {
+      // 先檢查瀏覽器是否支援語音功能
+      if (!('speechSynthesis' in window)) {
+        Swal.fire({
+          icon: 'warning',
+          title: '瀏覽器不支援',
+          text: '您的瀏覽器不支援語音功能，請使用 Chrome 或 Edge 瀏覽器',
+          confirmButtonColor: '#d63031'
+        });
+        return;
+      }
+      
       audioReady = true;
       const unlocker = document.getElementById('audio-unlocker');
       unlocker.classList.add('animate__animated', 'animate__fadeOut');
@@ -346,8 +357,19 @@
 
       await ensureAudioContextReady();
 
-      bellAudio.play().then(() => { bellAudio.pause(); bellAudio.currentTime = 0; }).catch(e => {});
-      speak("系統啟動", { muteRecognition: false });
+      // 測試音訊播放
+      try {
+        await bellAudio.play();
+        bellAudio.pause();
+        bellAudio.currentTime = 0;
+      } catch (e) {
+        console.warn('音訊測試失敗:', e);
+      }
+      
+      // 延遲一下再播放語音，確保音訊上下文已準備好
+      setTimeout(() => {
+        speak("系統啟動", { muteRecognition: false });
+      }, 300);
 
       loadOrders();
       setInterval(loadOrders, 5000);
@@ -485,16 +507,16 @@
       if (!orderId) return;
 
       if (text.includes("完成") || text.includes("好了") || text.includes("通知")) {
-        speak(`${orderId}號完成`);
+        if (audioReady) speak(`${orderId}號完成`);
         updateStatus(orderId, 'completed', true);
       } else if (text.includes("結案") || text.includes("交付")) {
-        speak(`${orderId}號結案`);
+        if (audioReady) speak(`${orderId}號結案`);
         updateStatus(orderId, 'final');
       } else if (text.includes("收錢") || text.includes("收了") || text.includes("確認")) {
-        speak(`${orderId}號已收錢`);
+        if (audioReady) speak(`${orderId}號已收錢`);
         updateStatus(orderId, 'confirmed');
       } else if (text.includes("製作") || text.includes("做")) {
-        speak(`${orderId}號製作中`);
+        if (audioReady) speak(`${orderId}號製作中`);
         updateStatus(orderId, 'preparing');
       }
     }
@@ -513,19 +535,47 @@
     }
 
     function speak(text, { muteRecognition = true } = {}) {
-      if (!audioReady) return;
-      window.speechSynthesis.cancel();
-      const u = new SpeechSynthesisUtterance(text);
-      u.lang = 'zh-TW';
-      if (muteRecognition && isVoiceControlling && recognition) {
-        isSpeaking = true;
-        try { recognition.abort(); } catch(e){}
-        u.onend = () => {
-          isSpeaking = false;
-          scheduleRestart(200);
-        };
+      if (!audioReady) {
+        console.log('語音未就緒，跳過:', text);
+        return;
       }
-      window.speechSynthesis.speak(u);
+      
+      // 檢查瀏覽器是否支援語音合成
+      if (!('speechSynthesis' in window)) {
+        console.warn('瀏覽器不支援語音合成');
+        return;
+      }
+      
+      try {
+        window.speechSynthesis.cancel();
+        const u = new SpeechSynthesisUtterance(text);
+        u.lang = 'zh-TW';
+        u.rate = 1.0;
+        u.pitch = 1.0;
+        u.volume = 1.0;
+        
+        // 錯誤處理
+        u.onerror = (e) => {
+          console.error('語音合成錯誤:', e.error, text);
+        };
+        
+        if (muteRecognition && isVoiceControlling && recognition) {
+          isSpeaking = true;
+          try { 
+            recognition.abort(); 
+          } catch(e) {
+            console.warn('停止語音識別失敗:', e);
+          }
+          u.onend = () => {
+            isSpeaking = false;
+            scheduleRestart(200);
+          };
+        }
+        
+        window.speechSynthesis.speak(u);
+      } catch (e) {
+        console.error('語音合成異常:', e, text);
+      }
     }
 
     function switchStore() {
@@ -548,19 +598,39 @@
     function getCookie(n) { let v = document.cookie.match('(^|;) ?' + n + '=([^;]*)(;|$)'); return v ? decodeURIComponent(v[2]) : null; }
 
     function playBell() {
-      if (audioReady) {
+      if (!audioReady) {
+        console.log('音訊未就緒，無法播放提示音');
+        return;
+      }
+      
+      try {
         bellAudio.currentTime = 0;
-        bellAudio.play().catch(e => console.log("Audio Error:", e));
+        bellAudio.play().catch(e => {
+          console.error("播放提示音失敗:", e);
+          // 如果播放失敗，至少嘗試語音提示
+          if (!isSpeaking) {
+            speak("叮咚", { muteRecognition: true });
+          }
+        });
+      } catch (e) {
+        console.error("播放提示音異常:", e);
       }
     }
 
     function loadOrders() {
     fetch(`/api/orders/?store=${currentStore}&t=${new Date().getTime()}`)
-        .then(res => (res.status === 401 || res.status === 403)
-        ? (window.location.href = '/admin/login/?next=' + window.location.pathname)
-        : res.json()
-        )
+        .then(res => {
+          if (res.status === 401 || res.status === 403) {
+            window.location.href = '/admin/login/?next=' + window.location.pathname;
+            return null;
+          }
+          if (!res.ok) {
+            throw new Error(`HTTP ${res.status}`);
+          }
+          return res.json();
+        })
         .then(orders => {
+          if (!orders) return; // 已重定向到登入頁面
         if (!orders || !Array.isArray(orders)) return;
 
         if (isFirstLoad) {
@@ -713,6 +783,14 @@
         });
 
         list.innerHTML = newHtml;
+        })
+        .catch(err => {
+          console.error('載入訂單失敗:', err);
+          const list = document.getElementById('orderList');
+          list.innerHTML = `<div class="text-center mt-5 text-danger">
+            <p>載入訂單失敗: ${err.message}</p>
+            <button onclick="loadOrders()" class="btn btn-danger mt-3">重新載入</button>
+          </div>`;
         });
     }
 
@@ -822,7 +900,27 @@
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
         body: JSON.stringify({ status: newStatus })
-      }).then(res => res.ok ? loadOrders() : alert("更新失敗"));
+      })
+      .then(res => {
+        if (!res.ok) {
+          return res.json().then(err => {
+            throw new Error(err.error || err.detail || `HTTP ${res.status}`);
+          });
+        }
+        return res.json();
+      })
+      .then(() => {
+        loadOrders();
+      })
+      .catch(err => {
+        console.error('更新訂單狀態失敗:', err);
+        Swal.fire({
+          icon: 'error',
+          title: '更新失敗',
+          text: err.message || '請稍後再試',
+          confirmButtonColor: '#d63031'
+        });
+      });
     }
 
     function toggleDetail(id) {

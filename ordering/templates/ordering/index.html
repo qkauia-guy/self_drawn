@@ -127,10 +127,60 @@
         // 解析網址參數，例如: ?oid=15
         const urlParams = new URLSearchParams(window.location.search);
         const oid = urlParams.get('oid');
+        const error = urlParams.get('error');
+        
+        if (error) {
+            // 處理錯誤情況
+            let errorMsg = '發生錯誤';
+            if (error === 'missing_transaction') errorMsg = 'LINE Pay 交易資訊缺失';
+            else if (error === 'payment_failed') errorMsg = 'LINE Pay 付款失敗';
+            else if (error === 'cancelled') errorMsg = '已取消付款';
+            else if (error === 'server_error') errorMsg = '伺服器錯誤';
+            
+            Swal.fire({
+                icon: 'error',
+                title: '付款問題',
+                text: errorMsg,
+                confirmButtonColor: '#ff4d4d'
+            }).then(() => {
+                // 清除錯誤參數，重新載入頁面
+                window.location.href = window.location.pathname;
+            });
+            return;
+        }
         
         if (oid) {
-            // 如果有 oid，直接切換到狀態頁面並查詢
-            switchToStatusPage(oid);
+            // 如果有 oid，先查詢訂單資料，再切換到狀態頁面
+            fetch(`/api/orders/${oid}/?t=${Date.now()}`)
+                .then(res => {
+                    if (!res.ok) {
+                        if (res.status === 403) {
+                            Swal.fire({
+                                icon: 'warning',
+                                title: '無法查詢訂單',
+                                text: '請確認訂單編號是否正確',
+                                confirmButtonColor: '#ff4d4d'
+                            });
+                            return null;
+                        }
+                        throw new Error(`HTTP ${res.status}`);
+                    }
+                    return res.json();
+                })
+                .then(order => {
+                    if (order) {
+                        switchToStatusPage(oid, order);
+                    }
+                })
+                .catch(err => {
+                    console.error('查詢訂單失敗:', err);
+                    Swal.fire({
+                        icon: 'error',
+                        title: '查詢失敗',
+                        text: '無法載入訂單資訊，請稍後再試',
+                        confirmButtonColor: '#ff4d4d'
+                    });
+                });
         }
     };
 
@@ -317,13 +367,31 @@
     function startPolling(oid) {
         const fetchStatus = () => {
             fetch(`/api/orders/${oid}/?t=${Date.now()}`)
-                .then(res => res.json())
+                .then(res => {
+                    if (!res.ok) {
+                        // 如果是 403 或 404，可能是權限問題或訂單不存在
+                        if (res.status === 403 || res.status === 404) {
+                            console.error('無法查詢訂單，可能已過期或無權限');
+                            return;
+                        }
+                        throw new Error(`HTTP ${res.status}`);
+                    }
+                    return res.json();
+                })
                 .then(order => {
-                    updateStatusUI(order);
+                    if (order) {
+                        updateStatusUI(order);
+                    }
+                })
+                .catch(err => {
+                    console.error('查詢訂單狀態失敗:', err);
+                    // 不中斷輪詢，繼續嘗試
                 });
         };
         fetchStatus(); 
-        const timer = setInterval(fetchStatus, 4000); 
+        const timer = setInterval(fetchStatus, 4000);
+        // 儲存 timer ID 以便需要時清除
+        window.pollingTimer = timer;
     }
 
     function updateStatusUI(order) {
@@ -410,14 +478,13 @@
     function stopAlarmAndNotify() {
         stopAllAlerts();
         const oid = document.getElementById('display_order_id').innerText;
-        fetch(`/api/orders/${oid}/`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
-            body: JSON.stringify({ status: 'arrived' })
-        }).then(() => {
-            document.getElementById('arrivedBtn').className = "btn btn-secondary w-100 py-3 disabled mb-2";
-            document.getElementById('finalBtn').classList.remove('d-none');
-        });
+        // 注意：客戶端不應該直接修改訂單狀態，這應該由管理端處理
+        // 這裡只是停止提醒，狀態更新由管理端觸發
+        document.getElementById('arrivedBtn').className = "btn btn-secondary w-100 py-3 disabled mb-2";
+        document.getElementById('finalBtn').classList.remove('d-none');
+        
+        // 可選：通知管理端（如果需要）
+        // 目前先移除 PATCH 請求，因為客戶端沒有權限
     }
 
     function finishOrder() {
@@ -431,12 +498,17 @@
             cancelButtonText: '取消'
         }).then((result) => {
             if (result.isConfirmed) {
-                const oid = document.getElementById('display_order_id').innerText;
-                fetch(`/api/orders/${oid}/`, {
-                    method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
-                    body: JSON.stringify({ status: 'final' })
-                }).then(() => location.reload());
+                // 注意：客戶端不應該直接修改訂單狀態
+                // 這個操作應該由管理端在 owner.html 中處理
+                // 這裡只是顯示確認訊息，實際狀態更新由管理端觸發
+                Swal.fire({
+                    icon: 'success',
+                    title: '感謝您的確認',
+                    text: '訂單狀態將由店家更新',
+                    timer: 2000,
+                    showConfirmButton: false
+                });
+                // 不重新載入頁面，繼續顯示當前狀態
             }
         });
     }
