@@ -138,41 +138,35 @@
     // --- 初始化: 檢查是否為 LINE Pay 跳回來的客人 ---
     window.onload = function() {
         fetchProducts();
-        
-        // 解鎖音訊播放（需要用戶交互）
-        // 在頁面載入時嘗試解鎖，如果失敗則在用戶第一次點擊時解鎖
+
+        // 定義解鎖音效函式 (這部分保持原本邏輯，但拉出來共用)
         const unlockAudio = () => {
             if (!audioUnlocked) {
                 try {
-                    // 嘗試播放並立即暫停，以解鎖音訊
+                    // 播放一瞬間靜音，騙過瀏覽器已獲取權限
                     alarmAudio.play().then(() => {
                         alarmAudio.pause();
                         alarmAudio.currentTime = 0;
                         audioUnlocked = true;
                         console.log('音訊已解鎖');
                     }).catch(e => {
-                        console.log('音訊解鎖失敗，將在用戶交互時重試:', e);
+                        console.log('音訊解鎖尚未就緒:', e);
                     });
-                } catch (e) {
-                    console.log('音訊解鎖異常:', e);
-                }
+                } catch (e) { console.log(e); }
             }
         };
-        
-        // 嘗試解鎖音訊
-        unlockAudio();
-        
-        // 在用戶第一次點擊時也嘗試解鎖
+
+        // 全域點擊解鎖 (保留備用)
         document.addEventListener('click', unlockAudio, { once: true });
         document.addEventListener('touchstart', unlockAudio, { once: true });
-        
-        // 解析網址參數，例如: ?oid=15
+
+        // 解析網址參數
         const urlParams = new URLSearchParams(window.location.search);
         const oid = urlParams.get('oid');
         const error = urlParams.get('error');
-        
+
+        // 錯誤處理 (保留原本邏輯)
         if (error) {
-            // 處理錯誤情況
             let errorMsg = '發生錯誤';
             if (error === 'missing_transaction') errorMsg = 'LINE Pay 交易資訊缺失';
             else if (error === 'payment_failed') errorMsg = 'LINE Pay 付款失敗';
@@ -185,46 +179,65 @@
                 text: errorMsg,
                 confirmButtonColor: '#ff4d4d'
             }).then(() => {
-                // 清除錯誤參數，重新載入頁面
                 window.location.href = window.location.pathname;
             });
             return;
         }
-        
+
+        // --- 關鍵修改開始 ---
         if (oid) {
-            // 如果有 oid，先查詢訂單資料，再切換到狀態頁面
-            fetch(`/api/orders/${oid}/?t=${Date.now()}`)
-                .then(res => {
-                    if (!res.ok) {
-                        if (res.status === 403) {
-                            Swal.fire({
-                                icon: 'warning',
-                                title: '無法查詢訂單',
-                                text: '請確認訂單編號是否正確',
-                                confirmButtonColor: '#ff4d4d'
-                            });
-                            return null;
-                        }
-                        throw new Error(`HTTP ${res.status}`);
-                    }
-                    return res.json();
-                })
-                .then(order => {
-                    if (order) {
-                        switchToStatusPage(oid, order);
-                    }
-                })
-                .catch(err => {
-                    console.error('查詢訂單失敗:', err);
-                    Swal.fire({
-                        icon: 'error',
-                        title: '查詢失敗',
-                        text: '無法載入訂單資訊，請稍後再試',
-                        confirmButtonColor: '#ff4d4d'
-                    });
-                });
+            // 不直接查詢，先彈出視窗強迫使用者互動
+            Swal.fire({
+                title: '🎉 付款成功！',
+                html: '請點擊下方按鈕<br>以<b>開啟叫號通知音效</b>',
+                icon: 'success',
+                confirmButtonText: '開始等候叫號 (開啟通知)',
+                confirmButtonColor: '#ff4d4d',
+                allowOutsideClick: false, // 禁止點擊背景關閉
+                allowEscapeKey: false,
+                didOpen: () => {
+                    // 在彈窗出現時嘗試預載
+                    alarmAudio.load();
+                }
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    // 1. 在這裡執行解鎖，這是使用者真實的點擊行為，瀏覽器會允許
+                    unlockAudio();
+                    
+                    // 2. 為了保險，如果是 iOS，可以加一個極短的震動測試
+                    if ("vibrate" in navigator) navigator.vibrate(100);
+
+                    // 3. 繼續原本的查詢流程
+                    fetchOrderAndSwitch(oid);
+                }
+            });
         }
+        // --- 關鍵修改結束 ---
     };
+
+    // 將原本 fetch 訂單的邏輯抽成函式，方便上面呼叫
+    function fetchOrderAndSwitch(oid) {
+        fetch(`/api/orders/${oid}/?t=${Date.now()}`)
+            .then(res => {
+                if (!res.ok) {
+                    if (res.status === 403) {
+                        Swal.fire({ icon: 'warning', title: '無法查詢', text: '訂單編號錯誤' });
+                        return null;
+                    }
+                    throw new Error(`HTTP ${res.status}`);
+                }
+                return res.json();
+            })
+            .then(order => {
+                if (order) {
+                    switchToStatusPage(oid, order);
+                }
+            })
+            .catch(err => {
+                console.error('查詢訂單失敗:', err);
+                Swal.fire({ icon: 'error', title: '查詢失敗', text: '無法載入訂單' });
+            });
+    }
 
     function fetchProducts() {
         fetch(`/api/products/?store=${currentStoreSlug}&t=${Date.now()}`)
