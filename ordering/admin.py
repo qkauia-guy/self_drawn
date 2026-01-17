@@ -15,16 +15,22 @@ class StoreAdmin(admin.ModelAdmin):
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
     list_display = (
+        "category",
         "name",
         "store",
         "price",
         "stock",
         "is_active",
+        "flavor_options",
         "display_inventory_status",
     )
-    list_editable = ("price", "stock", "is_active")
-    list_filter = ("store", "is_active")
+    # 解決 admin.E124 錯誤：將進入編輯頁的連結設為商品名稱
+    list_display_links = ("name",)
+
+    list_editable = ("category", "price", "stock", "is_active", "flavor_options")
+    list_filter = ("store", "category", "is_active")
     search_fields = ("name",)
+    ordering = ("category", "id")
 
     def display_inventory_status(self, obj):
         if obj.stock <= 0:
@@ -44,6 +50,7 @@ class ProductAdmin(admin.ModelAdmin):
 
 @admin.register(Order)
 class OrderAdmin(admin.ModelAdmin):
+    # (您原本的 OrderAdmin 程式碼非常完整，保持不變即可)
     list_display = (
         "display_id",
         "store",
@@ -111,13 +118,13 @@ class OrderAdmin(admin.ModelAdmin):
 
     def display_status_badge(self, obj):
         colors = {
-            "pending": "#ff4d4d",
-            "confirmed": "#007bff",
-            "preparing": "#f39c12",
-            "completed": "#2ecc71",
-            "arrived": "#d63031",
-            "final": "#636e72",
-            "cancelled": "#2d3436",
+            "pending": "#ff4d4d",  # 紅 (確認中)
+            "confirmed": "#007bff",  # 藍 (已成立)
+            "preparing": "#f39c12",  # 橘 (製作中)
+            "completed": "#2ecc71",  # 綠 (完成-發送通知)
+            "arrived": "#d63031",  # 深紅 (客人在櫃檯)
+            "final": "#636e72",  # 灰 (結案)
+            "cancelled": "#2d3436",  # 黑 (取消)
         }
         status_dict = dict(obj.STATUS_CHOICES)
         status_text = status_dict.get(obj.status, obj.status)
@@ -130,7 +137,6 @@ class OrderAdmin(admin.ModelAdmin):
     display_status_badge.short_description = "狀態預覽"
 
     def display_refund_badge(self, obj):
-        # 這裡純文字，避免 format_html 無參數問題
         if obj.payment_method != "linepay":
             return "—"
         if obj.linepay_refunded:
@@ -144,15 +150,11 @@ class OrderAdmin(admin.ModelAdmin):
     # ---------- copy widget ----------
     def _copy_input(self, *, value, input_id, placeholder="—"):
         if not value:
-            # ✅ 用 format_html 且帶參數，符合 Django 6.0
             return format_html(
                 '<span style="color: var(--body-quiet-color);">{}</span>',
                 placeholder,
             )
 
-        # ✅ 跟著 Django admin theme（light/dark）的 CSS variables
-        # ✅ 不硬撐寬度：容器用 inline-flex、input 不用 width:100%
-        # ✅ 按鈕小顆：font-size/padding/line-height
         return format_html(
             """
             <div style="display:inline-flex; gap:6px; align-items:center;">
@@ -163,7 +165,7 @@ class OrderAdmin(admin.ModelAdmin):
                      style="
                        width: auto;
                        max-width: 520px;
-                       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
+                       font-family: ui-monospace, monospace;
                        font-size: 12px;
                        padding: 1px 6px;
                        line-height: 1.2;
@@ -205,7 +207,6 @@ class OrderAdmin(admin.ModelAdmin):
             value,
         )
 
-    # ---------- linepay copy fields ----------
     def display_linepay_transaction_copy(self, obj):
         if obj.payment_method != "linepay":
             return "—"
