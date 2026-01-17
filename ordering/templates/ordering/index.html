@@ -118,11 +118,53 @@
     const currentStoreSlug = window.location.pathname.split('/').filter(p => p)[0];
     let alarmAudio = new Audio('https://actions.google.com/sounds/v1/alarms/beep_short.ogg');
     alarmAudio.loop = true;
+    // 預載入音訊，確保可以播放
+    alarmAudio.preload = 'auto';
+    // 處理音訊載入錯誤
+    alarmAudio.addEventListener('error', (e) => {
+        console.error('音訊載入失敗:', e);
+        // 如果外部音訊載入失敗，使用內建音訊
+        try {
+            alarmAudio = new Audio('data:audio/wav;base64,UklGRl9vT19XQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YU');
+            alarmAudio.loop = true;
+            alarmAudio.preload = 'auto';
+        } catch (err) {
+            console.error('無法建立備用音訊:', err);
+        }
+    });
     let vibrationInterval = null, vibrationTimer = null;
+    let audioUnlocked = false;
 
     // --- 初始化: 檢查是否為 LINE Pay 跳回來的客人 ---
     window.onload = function() {
         fetchProducts();
+        
+        // 解鎖音訊播放（需要用戶交互）
+        // 在頁面載入時嘗試解鎖，如果失敗則在用戶第一次點擊時解鎖
+        const unlockAudio = () => {
+            if (!audioUnlocked) {
+                try {
+                    // 嘗試播放並立即暫停，以解鎖音訊
+                    alarmAudio.play().then(() => {
+                        alarmAudio.pause();
+                        alarmAudio.currentTime = 0;
+                        audioUnlocked = true;
+                        console.log('音訊已解鎖');
+                    }).catch(e => {
+                        console.log('音訊解鎖失敗，將在用戶交互時重試:', e);
+                    });
+                } catch (e) {
+                    console.log('音訊解鎖異常:', e);
+                }
+            }
+        };
+        
+        // 嘗試解鎖音訊
+        unlockAudio();
+        
+        // 在用戶第一次點擊時也嘗試解鎖
+        document.addEventListener('click', unlockAudio, { once: true });
+        document.addEventListener('touchstart', unlockAudio, { once: true });
         
         // 解析網址參數，例如: ?oid=15
         const urlParams = new URLSearchParams(window.location.search);
@@ -441,8 +483,9 @@
                 box.className = "status-box st-completed";
                 pickupInfo.classList.remove('d-none');
                 document.getElementById('info_id').innerText = order.id;
-                alarmAudio.play().catch(()=>{});
-                triggerStrongVibrate();
+                
+                // 播放音訊和震動
+                playAlarmAndVibrate();
             }
         } else if (order.status === 'final' || order.status === 'cancelled') {
             box.innerHTML = order.status === 'final' ? "🍓 祝您用餐愉快！" : "❌ 訂單已被取消";
@@ -455,12 +498,58 @@
     }
 
 
+    function playAlarmAndVibrate() {
+        // 播放音訊
+        try {
+            alarmAudio.currentTime = 0;
+            const playPromise = alarmAudio.play();
+            if (playPromise !== undefined) {
+                playPromise
+                    .then(() => {
+                        console.log('提示音播放成功');
+                        audioUnlocked = true;
+                    })
+                    .catch(error => {
+                        console.error('提示音播放失敗:', error);
+                        // 如果播放失敗，嘗試使用 Web Audio API 或語音合成
+                        if ('speechSynthesis' in window) {
+                            const utterance = new SpeechSynthesisUtterance('叮咚');
+                            utterance.lang = 'zh-TW';
+                            utterance.volume = 1.0;
+                            window.speechSynthesis.speak(utterance);
+                        }
+                    });
+            }
+        } catch (e) {
+            console.error('播放音訊異常:', e);
+            // 使用語音合成作為備援
+            if ('speechSynthesis' in window) {
+                const utterance = new SpeechSynthesisUtterance('叮咚');
+                utterance.lang = 'zh-TW';
+                utterance.volume = 1.0;
+                window.speechSynthesis.speak(utterance);
+            }
+        }
+        
+        // 觸發震動
+        triggerStrongVibrate();
+    }
+    
     function triggerStrongVibrate() {
-        if (!("vibrate" in navigator)) return;
-        const pattern = [2000, 500]; 
-        navigator.vibrate(pattern);
-        vibrationInterval = setInterval(() => { navigator.vibrate(pattern); }, 2500);
-        vibrationTimer = setTimeout(() => { stopVibrationOnly(); }, 15000); 
+        if (!("vibrate" in navigator)) {
+            console.log('裝置不支援震動功能');
+            return;
+        }
+        try {
+            const pattern = [2000, 500]; 
+            navigator.vibrate(pattern);
+            vibrationInterval = setInterval(() => { 
+                navigator.vibrate(pattern); 
+            }, 2500);
+            vibrationTimer = setTimeout(() => { stopVibrationOnly(); }, 15000);
+        } catch (e) {
+            console.error('震動功能異常:', e);
+        }
     }
 
     function stopVibrationOnly() {

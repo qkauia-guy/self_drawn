@@ -302,7 +302,7 @@
   <script>
     // --- 基礎變數 ---
     let audioReady = false;
-    let alertedArrived = new Set();
+    let alertedArrived = new Set(JSON.parse(localStorage.getItem('alerted_arrived') || '[]'));
     let alertedNewOrder = new Set(JSON.parse(localStorage.getItem('alerted_new_orders') || '[]'));
     let alertedLinePayPaid = new Set(JSON.parse(localStorage.getItem('alerted_linepay_paid') || '[]'));
     let notifyTimes = JSON.parse(localStorage.getItem('notify_times') || '{}');
@@ -642,6 +642,8 @@
     function playBell() {
       if (!audioReady) {
         console.log('音訊未就緒，無法播放提示音');
+        // 即使音訊未就緒，也嘗試播放語音提示
+        speak("叮咚", { muteRecognition: true, priority: true });
         return;
       }
       
@@ -649,13 +651,13 @@
         bellAudio.currentTime = 0;
         bellAudio.play().catch(e => {
           console.error("播放提示音失敗:", e);
-          // 如果播放失敗，至少嘗試語音提示
-          if (!isSpeaking) {
-            speak("叮咚", { muteRecognition: true });
-          }
+          // 如果播放失敗，立即播放語音提示（使用優先級）
+          speak("叮咚", { muteRecognition: true, priority: true });
         });
       } catch (e) {
         console.error("播放提示音異常:", e);
+        // 異常時也播放語音提示
+        speak("叮咚", { muteRecognition: true, priority: true });
       }
     }
 
@@ -711,7 +713,7 @@
 
             // LINE Pay 付款成功通知
             if (order.status === 'confirmed' && order.payment_method === 'linepay' && !alertedLinePayPaid.has(order.id)) {
-            speak("編號 " + order.id + " LINE Pay 付款成功", { muteRecognition: true, priority: true });
+            speak("編號 " + order.id + " 線上付款成功", { muteRecognition: true, priority: true });
             alertedLinePayPaid.add(order.id);
             localStorage.setItem('alerted_linepay_paid', JSON.stringify(Array.from(alertedLinePayPaid).slice(-100)));
             }
@@ -720,10 +722,13 @@
             // 先播放提示音，然後延遲播放語音，避免衝突
             playBell();
             // 延遲播放語音，確保提示音或「叮咚」播放完成，並設為優先級
+            // 增加延遲時間，確保提示音有足夠時間播放
             setTimeout(() => {
               speak("編號 " + order.id + " 客人已到櫃檯", { muteRecognition: true, priority: true });
-            }, 800);
+            }, 1000);
             alertedArrived.add(order.id);
+            // 確保在 localStorage 中保存，避免頁面重新載入後重複通知
+            localStorage.setItem('alerted_arrived', JSON.stringify(Array.from(alertedArrived).slice(-100)));
             }
 
             const isContracted = (order.status === 'final' || order.status === 'cancelled');
