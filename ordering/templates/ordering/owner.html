@@ -304,6 +304,7 @@
     let audioReady = false;
     let alertedArrived = new Set();
     let alertedNewOrder = new Set(JSON.parse(localStorage.getItem('alerted_new_orders') || '[]'));
+    let alertedLinePayPaid = new Set(JSON.parse(localStorage.getItem('alerted_linepay_paid') || '[]'));
     let notifyTimes = JSON.parse(localStorage.getItem('notify_times') || '{}');
 
     let bellAudio = new Audio('data:audio/wav;base64,UklGRl9vT19XQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YU');
@@ -534,20 +535,37 @@
       return 0;
     }
 
-    function speak(text, { muteRecognition = true } = {}) {
+    // 語音隊列管理
+    let speechQueue = [];
+    let isSpeakingNow = false;
+    
+    function processSpeechQueue() {
+      if (isSpeakingNow || speechQueue.length === 0) return;
+      
+      isSpeakingNow = true;
+      const { text, muteRecognition } = speechQueue.shift();
+      
       if (!audioReady) {
         console.log('語音未就緒，跳過:', text);
+        isSpeakingNow = false;
+        processSpeechQueue(); // 處理下一個
         return;
       }
       
       // 檢查瀏覽器是否支援語音合成
       if (!('speechSynthesis' in window)) {
         console.warn('瀏覽器不支援語音合成');
+        isSpeakingNow = false;
+        processSpeechQueue(); // 處理下一個
         return;
       }
       
       try {
-        window.speechSynthesis.cancel();
+        // 只在隊列中沒有其他語音時才取消，避免中斷重要通知
+        if (speechQueue.length === 0) {
+          window.speechSynthesis.cancel();
+        }
+        
         const u = new SpeechSynthesisUtterance(text);
         u.lang = 'zh-TW';
         u.rate = 1.0;
@@ -557,6 +575,18 @@
         // 錯誤處理
         u.onerror = (e) => {
           console.error('語音合成錯誤:', e.error, text);
+          isSpeakingNow = false;
+          processSpeechQueue(); // 處理下一個
+        };
+        
+        u.onend = () => {
+          isSpeakingNow = false;
+          if (muteRecognition && isVoiceControlling && recognition) {
+            isSpeaking = false;
+            scheduleRestart(200);
+          }
+          // 處理隊列中的下一個語音
+          setTimeout(() => processSpeechQueue(), 100);
         };
         
         if (muteRecognition && isVoiceControlling && recognition) {
@@ -566,15 +596,27 @@
           } catch(e) {
             console.warn('停止語音識別失敗:', e);
           }
-          u.onend = () => {
-            isSpeaking = false;
-            scheduleRestart(200);
-          };
         }
         
         window.speechSynthesis.speak(u);
       } catch (e) {
         console.error('語音合成異常:', e, text);
+        isSpeakingNow = false;
+        processSpeechQueue(); // 處理下一個
+      }
+    }
+    
+    function speak(text, { muteRecognition = true, priority = false } = {}) {
+      // 如果是優先級高的語音（如「客人已到櫃檯」），插入到隊列前面
+      if (priority) {
+        speechQueue.unshift({ text, muteRecognition });
+      } else {
+        speechQueue.push({ text, muteRecognition });
+      }
+      
+      // 如果當前沒有在播放，立即處理
+      if (!isSpeakingNow) {
+        processSpeechQueue();
       }
     }
 
@@ -637,6 +679,10 @@
             orders.forEach(order => {
             if (order.status === 'pending') alertedNewOrder.add(order.id);
             if (order.status === 'arrived') alertedArrived.add(order.id);
+            // 初始化時，如果已經是 confirmed 且是 LINE Pay，標記為已通知
+            if (order.status === 'confirmed' && order.payment_method === 'linepay') {
+              alertedLinePayPaid.add(order.id);
+            }
             });
             isFirstLoad = false;
         }
@@ -663,9 +709,20 @@
             localStorage.setItem('alerted_new_orders', JSON.stringify(Array.from(alertedNewOrder).slice(-100)));
             }
 
+            // LINE Pay 付款成功通知
+            if (order.status === 'confirmed' && order.payment_method === 'linepay' && !alertedLinePayPaid.has(order.id)) {
+            speak("編號 " + order.id + " LINE Pay 付款成功", { muteRecognition: true, priority: true });
+            alertedLinePayPaid.add(order.id);
+            localStorage.setItem('alerted_linepay_paid', JSON.stringify(Array.from(alertedLinePayPaid).slice(-100)));
+            }
+
             if (order.status === 'arrived' && !alertedArrived.has(order.id)) {
+            // 先播放提示音，然後延遲播放語音，避免衝突
             playBell();
-            speak("編號 " + order.id + " 客人已到櫃檯", { muteRecognition: true });
+            // 延遲播放語音，確保提示音或「叮咚」播放完成，並設為優先級
+            setTimeout(() => {
+              speak("編號 " + order.id + " 客人已到櫃檯", { muteRecognition: true, priority: true });
+            }, 800);
             alertedArrived.add(order.id);
             }
 

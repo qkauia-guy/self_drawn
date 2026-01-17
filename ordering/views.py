@@ -189,6 +189,10 @@ class OrderViewSet(viewsets.ModelViewSet):
         # retrieve 需要特殊處理（見 retrieve 方法）
         if self.action == "retrieve":
             return [permissions.AllowAny()]
+        
+        # partial_update 允許匿名，但會在方法內進行驗證（見 partial_update 方法）
+        if self.action == "partial_update":
+            return [permissions.AllowAny()]
 
         # 後台（含取消/狀態變更）必須登入
         return [permissions.IsAuthenticated()]
@@ -210,6 +214,67 @@ class OrderViewSet(viewsets.ModelViewSet):
         
         # 如果沒有提供 phone_tail，允許查看（但建議前端總是提供）
         serializer = self.get_serializer(instance)
+        return Response(serializer.data)
+    
+    def partial_update(self, request, *args, **kwargs):
+        """
+        更新訂單（PATCH）
+        - 如果已登入：允許更新所有欄位
+        - 如果未登入：只允許在提供 phone_tail 驗證的情況下更新特定狀態（arrived, final）
+        """
+        instance = self.get_object()
+        
+        # 如果已登入，使用預設行為（允許所有更新）
+        if request.user.is_authenticated:
+            return super().partial_update(request, *args, **kwargs)
+        
+        # 未登入的使用者：需要提供 phone_tail 驗證
+        phone_tail = request.data.get("phone_tail")
+        if not phone_tail:
+            return Response(
+                {"error": "請提供 phone_tail 以驗證身份"}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        if phone_tail != instance.phone_tail:
+            return Response(
+                {"error": "phone_tail 驗證失敗"}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        # 只允許更新特定狀態
+        new_status = request.data.get("status")
+        if new_status and new_status not in ["arrived", "final"]:
+            return Response(
+                {"error": "客戶端只能更新狀態為 'arrived' 或 'final'"}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        # 狀態轉換驗證
+        if new_status == "arrived":
+            # 只有 completed 狀態才能轉為 arrived
+            if instance.status != "completed":
+                return Response(
+                    {"error": f"訂單狀態必須為 'completed' 才能標記為 'arrived'，目前狀態為 '{instance.status}'"}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        elif new_status == "final":
+            # 只有 arrived 或 completed 狀態才能轉為 final
+            if instance.status not in ["arrived", "completed"]:
+                return Response(
+                    {"error": f"訂單狀態必須為 'arrived' 或 'completed' 才能完成，目前狀態為 '{instance.status}'"}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        
+        # 只更新允許的欄位
+        allowed_fields = ["status"]
+        update_data = {k: v for k, v in request.data.items() if k in allowed_fields}
+        
+        # 使用 serializer 更新
+        serializer = self.get_serializer(instance, data=update_data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        
         return Response(serializer.data)
 
     # -------- 共用：回補庫存（給 pending 取消/付款失敗用）--------

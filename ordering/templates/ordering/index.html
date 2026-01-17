@@ -474,17 +474,94 @@
         alarmAudio.pause(); alarmAudio.currentTime = 0;
         stopVibrationOnly();
     }
+    
+    function resetToOrderForm() {
+        // 停止所有輪詢和提醒
+        if (window.pollingTimer) {
+            clearInterval(window.pollingTimer);
+            window.pollingTimer = null;
+        }
+        stopAllAlerts();
+        
+        // 切換回訂購畫面
+        document.getElementById('statusPage').classList.add('d-none');
+        document.getElementById('orderForm').classList.remove('d-none');
+        
+        // 重置表單
+        document.getElementById('phone_tail').value = '';
+        const cashRadio = document.querySelector('input[name="paymentMethod"][value="cash"]');
+        if (cashRadio) cashRadio.checked = true;
+        
+        // 重置所有商品數量為 0
+        document.querySelectorAll('.item-qty').forEach(input => {
+            input.value = 0;
+        });
+        
+        // 重置總額
+        updateTotal();
+        
+        // 清除 URL 參數（如果有）
+        if (window.location.search) {
+            window.history.replaceState({}, document.title, window.location.pathname);
+        }
+        
+        // 重新載入商品列表（確保庫存是最新的）
+        fetchProducts();
+    }
 
     function stopAlarmAndNotify() {
         stopAllAlerts();
         const oid = document.getElementById('display_order_id').innerText;
-        // 注意：客戶端不應該直接修改訂單狀態，這應該由管理端處理
-        // 這裡只是停止提醒，狀態更新由管理端觸發
-        document.getElementById('arrivedBtn').className = "btn btn-secondary w-100 py-3 disabled mb-2";
-        document.getElementById('finalBtn').classList.remove('d-none');
+        const phoneTail = document.getElementById('display_phone').innerText;
         
-        // 可選：通知管理端（如果需要）
-        // 目前先移除 PATCH 請求，因為客戶端沒有權限
+        if (!phoneTail || phoneTail.length !== 4) {
+            Swal.fire({
+                icon: 'error',
+                title: '無法通知',
+                text: '缺少手機後4碼資訊',
+                confirmButtonColor: '#ff4d4d'
+            });
+            return;
+        }
+        
+        // 發送 PATCH 請求更新狀態為 arrived
+        fetch(`/api/orders/${oid}/`, {
+            method: 'PATCH',
+            headers: { 
+                'Content-Type': 'application/json', 
+                'X-CSRFToken': getCookie('csrftoken') 
+            },
+            body: JSON.stringify({ 
+                status: 'arrived',
+                phone_tail: phoneTail
+            })
+        })
+        .then(res => {
+            if (!res.ok) {
+                return res.json().then(err => {
+                    throw new Error(err.error || err.detail || `HTTP ${res.status}`);
+                });
+            }
+            return res.json();
+        })
+        .then(() => {
+            // 更新 UI
+            document.getElementById('arrivedBtn').className = "btn btn-secondary w-100 py-3 disabled mb-2";
+            document.getElementById('finalBtn').classList.remove('d-none');
+            // 更新狀態顯示
+            const statusBox = document.getElementById('statusBox');
+            statusBox.innerHTML = '🔔 已通知店家您在櫃檯';
+            statusBox.className = "status-box bg-info text-white shadow-sm";
+        })
+        .catch(err => {
+            console.error('通知失敗:', err);
+            Swal.fire({
+                icon: 'error',
+                title: '通知失敗',
+                text: err.message || '請稍後再試',
+                confirmButtonColor: '#ff4d4d'
+            });
+        });
     }
 
     function finishOrder() {
@@ -498,17 +575,66 @@
             cancelButtonText: '取消'
         }).then((result) => {
             if (result.isConfirmed) {
-                // 注意：客戶端不應該直接修改訂單狀態
-                // 這個操作應該由管理端在 owner.html 中處理
-                // 這裡只是顯示確認訊息，實際狀態更新由管理端觸發
-                Swal.fire({
-                    icon: 'success',
-                    title: '感謝您的確認',
-                    text: '訂單狀態將由店家更新',
-                    timer: 2000,
-                    showConfirmButton: false
+                const oid = document.getElementById('display_order_id').innerText;
+                const phoneTail = document.getElementById('display_phone').innerText;
+                
+                if (!phoneTail || phoneTail.length !== 4) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: '無法完成',
+                        text: '缺少手機後4碼資訊',
+                        confirmButtonColor: '#ff4d4d'
+                    });
+                    return;
+                }
+                
+                // 發送 PATCH 請求更新狀態為 final
+                fetch(`/api/orders/${oid}/`, {
+                    method: 'PATCH',
+                    headers: { 
+                        'Content-Type': 'application/json', 
+                        'X-CSRFToken': getCookie('csrftoken') 
+                    },
+                    body: JSON.stringify({ 
+                        status: 'final',
+                        phone_tail: phoneTail
+                    })
+                })
+                .then(res => {
+                    if (!res.ok) {
+                        return res.json().then(err => {
+                            throw new Error(err.error || err.detail || `HTTP ${res.status}`);
+                        });
+                    }
+                    return res.json();
+                })
+                .then(() => {
+                    // 停止輪詢
+                    if (window.pollingTimer) {
+                        clearInterval(window.pollingTimer);
+                        window.pollingTimer = null;
+                    }
+                    
+                    Swal.fire({
+                        icon: 'success',
+                        title: '完成',
+                        text: '感謝您的使用，祝您用餐愉快！',
+                        timer: 2000,
+                        showConfirmButton: false
+                    }).then(() => {
+                        // 重置頁面到初始訂購畫面
+                        resetToOrderForm();
+                    });
+                })
+                .catch(err => {
+                    console.error('完成訂單失敗:', err);
+                    Swal.fire({
+                        icon: 'error',
+                        title: '操作失敗',
+                        text: err.message || '請稍後再試',
+                        confirmButtonColor: '#ff4d4d'
+                    });
                 });
-                // 不重新載入頁面，繼續顯示當前狀態
             }
         });
     }

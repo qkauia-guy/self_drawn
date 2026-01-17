@@ -8,3 +8,4 @@ django-json-widget
 requests
 dj-database-url
 psycopg2-binary
+python-dotenv
