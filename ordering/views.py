@@ -8,8 +8,6 @@ import pytz
 import os
 
 from django.shortcuts import render, get_object_or_404, redirect
-from django.views.decorators.csrf import csrf_exempt
-from django.utils.decorators import method_decorator
 from django.contrib.auth.decorators import login_required
 from django.db.models import Sum
 from django.utils import timezone
@@ -27,10 +25,16 @@ from .serializers import ProductSerializer, OrderSerializer
 # ==========================================
 # 1. LINE Pay 設定
 # ==========================================
-# ⚠️ 你目前把 SECRET 寫死在程式碼裡且已公開貼出，請立刻去 LINE Pay 後台換一組新的 secret，再改用環境變數。
 LINE_PAY_CHANNEL_ID = os.environ.get("LINE_PAY_CHANNEL_ID")
 LINE_PAY_CHANNEL_SECRET = os.environ.get("LINE_PAY_CHANNEL_SECRET")
 LINE_PAY_SANDBOX = os.environ.get("LINE_PAY_SANDBOX", "True") == "True"
+
+# 驗證必要的環境變數（僅在需要 LINE Pay 時檢查）
+if LINE_PAY_CHANNEL_ID or LINE_PAY_CHANNEL_SECRET:
+    if not LINE_PAY_CHANNEL_ID or not LINE_PAY_CHANNEL_SECRET:
+        raise ValueError(
+            "LINE_PAY_CHANNEL_ID and LINE_PAY_CHANNEL_SECRET must both be set if using LINE Pay"
+        )
 
 LINE_PAY_API_URL = (
     "https://sandbox-api-pay.line.me" if LINE_PAY_SANDBOX else "https://api-pay.line.me"
@@ -157,7 +161,6 @@ class ProductViewSet(viewsets.ReadOnlyModelViewSet):
         return qs
 
 
-@method_decorator(csrf_exempt, name="dispatch")
 class OrderViewSet(viewsets.ModelViewSet):
     """
     下單、庫存、LINE Pay、Dashboard 統計
@@ -174,18 +177,40 @@ class OrderViewSet(viewsets.ModelViewSet):
         return qs
 
     def get_permissions(self):
-        # 前台允許：下單、查詢最新、查單、LINE 回調
+        # 前台允許：下單、查詢最新、LINE 回調
         if self.action in [
             "latest",
             "create",
-            "retrieve",
             "line_confirm",
             "line_cancel",
         ]:
             return [permissions.AllowAny()]
+        
+        # retrieve 需要特殊處理（見 retrieve 方法）
+        if self.action == "retrieve":
+            return [permissions.AllowAny()]
 
         # 後台（含取消/狀態變更）必須登入
         return [permissions.IsAuthenticated()]
+    
+    def retrieve(self, request, *args, **kwargs):
+        """
+        查詢訂單詳情
+        為了安全，建議前端在查詢時提供 phone_tail 來驗證身份
+        """
+        instance = self.get_object()
+        
+        # 如果提供了 phone_tail，驗證是否匹配
+        phone_tail = request.query_params.get("phone_tail")
+        if phone_tail and phone_tail != instance.phone_tail:
+            return Response(
+                {"error": "無權限查看此訂單"}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        # 如果沒有提供 phone_tail，允許查看（但建議前端總是提供）
+        serializer = self.get_serializer(instance)
+        return Response(serializer.data)
 
     # -------- 共用：回補庫存（給 pending 取消/付款失敗用）--------
     def _restore_stock(self, order: Order):
@@ -200,16 +225,63 @@ class OrderViewSet(viewsets.ModelViewSet):
 
     def create(self, request, *args, **kwargs):
         store_slug = request.data.get("store_slug")
+        if not store_slug:
+            return Response(
+                {"error": "請提供 store_slug"}, status=status.HTTP_400_BAD_REQUEST
+            )
+        
         store = get_object_or_404(Store, slug=store_slug)
         items_data = request.data.get("items", [])
         payment_method = request.data.get("payment_method", "cash")
 
+        # 輸入驗證：確保 items 是列表格式
+        if not isinstance(items_data, list):
+            return Response(
+                {"error": "items 必須是列表格式"}, status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        if not items_data:
+            return Response(
+                {"error": "訂單必須包含至少一個商品"}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # 驗證 payment_method
+        if payment_method not in ["cash", "linepay"]:
+            return Response(
+                {"error": "無效的付款方式"}, status=status.HTTP_400_BAD_REQUEST
+            )
+
         try:
             with transaction.atomic():
-                # 1) 庫存檢查與扣除
+                # 1) 庫存檢查與扣除（加強輸入驗證）
                 for item in items_data:
+                    if not isinstance(item, dict):
+                        return Response(
+                            {"error": "每個商品項目必須是物件格式"}, 
+                            status=status.HTTP_400_BAD_REQUEST
+                        )
+                    
                     product_id = item.get("id")
-                    qty = int(item.get("quantity") or item.get("qty", 0) or 0)
+                    if not product_id:
+                        return Response(
+                            {"error": "商品項目缺少 id"}, 
+                            status=status.HTTP_400_BAD_REQUEST
+                        )
+                    
+                    # 安全地轉換數量
+                    try:
+                        qty = int(item.get("quantity") or item.get("qty", 0))
+                        if qty <= 0:
+                            return Response(
+                                {"error": "商品數量必須大於 0"}, 
+                                status=status.HTTP_400_BAD_REQUEST
+                            )
+                    except (ValueError, TypeError):
+                        return Response(
+                            {"error": "無效的數量格式"}, 
+                            status=status.HTTP_400_BAD_REQUEST
+                        )
+                    
                     product = Product.objects.select_for_update().get(id=product_id)
 
                     if not product.is_active:
