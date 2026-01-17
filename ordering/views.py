@@ -535,3 +535,8 @@ def index(request, store_slug):
 def order_status_board(request, store_slug):
     store = get_object_or_404(Store, slug=store_slug)
     return render(request, "ordering/status.html", {"store": store})
+
+
+def about(request):
+    stores = Store.objects.filter(is_active=True)
+    return render(request, "about.html", {"stores": stores})
