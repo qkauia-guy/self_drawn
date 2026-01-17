@@ -449,79 +449,85 @@
         window.pollingTimer = timer;
     }
 
+    let hasNotified = false;    // 紀錄是否已經發出過聲音/震動
+    let lastStatus = null;      // 紀錄上一次的訂單狀態
+
     function updateStatusUI(order) {
         const box = document.getElementById('statusBox');
         const pickupInfo = document.getElementById('pickupInfo');
         const arrivedBtn = document.getElementById('arrivedBtn');
         const finalBtn = document.getElementById('finalBtn');
 
-        // 1. 更新 UI 基本資訊
+        // 1. 基本資訊更新
         document.getElementById('display_final_total').innerText = order.total;
         document.getElementById('display_phone').innerText = order.phone_tail;
-        
         const pMethodMap = { 'cash': '現金', 'linepay': 'LINE Pay' };
-        const payText = pMethodMap[order.payment_method] || '未指定';
-        document.getElementById('display_payment').innerText = payText;
-
-        // 更新商品清單
+        document.getElementById('display_payment').innerText = pMethodMap[order.payment_method] || '未指定';
         renderOrderDetailList(order.items);
 
-        // --- 2. 狀態判斷與自動化邏輯 ---
+        // 2. 狀態檢查：如果狀態改變了，就重置通知旗標
+        if (lastStatus !== order.status) {
+            if (order.status !== 'completed') {
+                hasNotified = false; // 離開完成狀態就重置
+                stopAllAlerts();     // 狀態改變（如變成 arrived），立即停止震動
+            }
+            lastStatus = order.status;
+        }
 
-        // A. 如果訂單已由後台完成 (final) 或 取消 (cancelled)
+        // --- 3. 狀態邏輯分流 ---
+
+        // A. 訂單結束 (結案或取消)
         if (order.status === 'final' || order.status === 'cancelled') {
             box.innerHTML = order.status === 'final' ? "🍓 祝您用餐愉快！" : "❌ 訂單已被取消";
             box.className = "status-box bg-dark text-white shadow-sm";
             
-            // 關鍵：徹底隱藏包含「取餐按鈕」的區塊
-            pickupInfo.classList.add('d-none'); 
+            pickupInfo.classList.add('d-none'); // 徹底隱藏按鈕區塊
             stopAllAlerts();
 
-            // 關鍵：後台完成後 3 秒鐘自動跳轉回首頁
+            // 3秒後自動導回點餐頁
             if (order.status === 'final' && !window.autoRedirectTimer) {
                 window.autoRedirectTimer = setTimeout(() => {
-                    window.autoRedirectTimer = null; 
-                    resetToOrderForm(); // 呼叫重置首頁函式
-                }, 3000); 
+                    window.autoRedirectTimer = null;
+                    resetToOrderForm();
+                }, 3000);
             }
-            return; 
+            return;
         }
 
-        // B. 如果餐點剛剛做好了 (completed)
+        // B. 餐點製作完成 (通知領取)
         if (order.status === 'completed') {
             box.innerHTML = "✅ 餐點已完成！請取餐";
             box.className = "status-box st-completed";
-            
-            // 顯示取餐區塊
             pickupInfo.classList.remove('d-none');
             document.getElementById('info_id').innerText = order.id;
-            
-            // 顯示第一個按鈕：我已到櫃檯
+
+            // 按鈕切換：顯示「我已到櫃檯」
             arrivedBtn.classList.remove('d-none');
-            arrivedBtn.classList.remove('disabled');
-            // 隱藏第二個按鈕：領取確認
             finalBtn.classList.add('d-none');
-            
-            // 觸發音效與震動
-            playAlarmAndVibrate();
+
+            // 關鍵：只有「第一次」進入 completed 狀態才觸發通知
+            if (!hasNotified) {
+                playAlarmAndVibrate();
+                hasNotified = true;
+            }
             return;
         }
 
-        // C. 如果使用者按了「我已到櫃檯」 (arrived)
+        // C. 使用者點擊「我已到櫃檯」後 (等待店員交付)
         if (order.status === 'arrived') {
             box.innerHTML = '🔔 已通知店家您在櫃檯';
             box.className = "status-box bg-info text-white shadow-sm";
-            
             pickupInfo.classList.remove('d-none');
-            // 切換按鈕：隱藏第一個，顯示第二個
+            
+            // 按鈕切換：隱藏「我已到」，顯示「確認領取」
             arrivedBtn.classList.add('d-none');
             finalBtn.classList.remove('d-none');
             
-            stopAllAlerts(); // 到櫃檯了就停掉警報音
+            stopAllAlerts(); // 既然客人都到櫃檯了，就停掉聲音震動
             return;
         }
 
-        // D. 其他製作中狀態
+        // D. 製作中或其他狀態
         const statusMap = {
             'confirmed': { text: '💰 已付款！請等候製作', class: 'bg-primary text-white shadow-sm' },
             'preparing': { text: '🍓 老闆正在努力製作中...', class: 'bg-warning text-dark shadow-sm' },
@@ -531,9 +537,8 @@
         if (statusMap[order.status]) {
             box.innerHTML = statusMap[order.status].text;
             box.className = `status-box ${statusMap[order.status].class}`;
-            
-            // 製作中狀態不應顯示取餐按鈕
-            pickupInfo.classList.add('d-none');
+            pickupInfo.classList.add('d-none'); // 沒做完不顯示按鈕
+            stopAllAlerts();
         }
     }
 
@@ -576,31 +581,46 @@
     }
     
     function triggerStrongVibrate() {
-        if (!("vibrate" in navigator)) {
-            console.log('裝置不支援震動功能');
-            return;
-        }
-        try {
-            const pattern = [2000, 500]; 
+        if (!("vibrate" in navigator)) return;
+        
+        // 先停止之前的，避免重複疊加
+        stopVibrationOnly();
+
+        const pattern = [2000, 500]; // 震動 2 秒，停 0.5 秒
+        navigator.vibrate(pattern);
+
+        // 每 2.5 秒循環一次
+        vibrationInterval = setInterval(() => {
             navigator.vibrate(pattern);
-            vibrationInterval = setInterval(() => { 
-                navigator.vibrate(pattern); 
-            }, 2500);
-            vibrationTimer = setTimeout(() => { stopVibrationOnly(); }, 15000);
-        } catch (e) {
-            console.error('震動功能異常:', e);
-        }
+        }, 2500);
+
+        // 15 秒後自動強制停止，避免手機震動過久受損
+        vibrationTimer = setTimeout(stopVibrationOnly, 15000);
     }
 
     function stopVibrationOnly() {
-        if (vibrationInterval) clearInterval(vibrationInterval);
-        if (vibrationTimer) clearTimeout(vibrationTimer);
-        if ("vibrate" in navigator) navigator.vibrate(0);
-        vibrationInterval = null; vibrationTimer = null;
+        // 1. 清除所有的 JavaScript 計時器
+        if (vibrationInterval) {
+            clearInterval(vibrationInterval);
+            vibrationInterval = null;
+        }
+        if (vibrationTimer) {
+            clearTimeout(vibrationTimer);
+            vibrationTimer = null;
+        }
+        // 2. 直接下達 0 毫秒震動指令，強制中止目前硬體運作
+        if ("vibrate" in navigator) {
+            navigator.vibrate(0);
+        }
     }
 
     function stopAllAlerts() {
-        alarmAudio.pause(); alarmAudio.currentTime = 0;
+        // 停止音效
+        if (alarmAudio) {
+            alarmAudio.pause();
+            alarmAudio.currentTime = 0;
+        }
+        // 停止震動
         stopVibrationOnly();
     }
     
