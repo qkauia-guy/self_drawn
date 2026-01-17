@@ -452,61 +452,88 @@
     function updateStatusUI(order) {
         const box = document.getElementById('statusBox');
         const pickupInfo = document.getElementById('pickupInfo');
+        const arrivedBtn = document.getElementById('arrivedBtn');
+        const finalBtn = document.getElementById('finalBtn');
 
+        // 1. 更新 UI 基本資訊
         document.getElementById('display_final_total').innerText = order.total;
         document.getElementById('display_phone').innerText = order.phone_tail;
-
-        const pMethodMap = {'cash': '現金 (未付)', 'linepay': 'LINE Pay (已付)'};
-        let payText = pMethodMap[order.payment_method] || order.payment_method || '未指定';
-        if (order.status === 'confirmed' && order.payment_method === 'linepay') {
-            payText = 'LINE Pay (付款成功)';
-        }
+        
+        const pMethodMap = { 'cash': '現金', 'linepay': 'LINE Pay' };
+        const payText = pMethodMap[order.payment_method] || '未指定';
         document.getElementById('display_payment').innerText = payText;
 
+        // 更新商品清單
         renderOrderDetailList(order.items);
 
-        // ✅ 只要被退回 pending（通常代表「退回付款前/改支付方式」）
-        // 就讓客人回到新的訂購畫面（不帶 oid）
-        if (order.status === 'pending') {
-        stopAllAlerts();
+        // --- 2. 狀態判斷與自動化邏輯 ---
 
-        if (order.payment_method === 'cash') {
-            box.innerHTML = "💰 請至櫃檯付現，店家確認收款後將開始製作";
-            box.className = "status-box bg-secondary text-white shadow-sm";
-            pickupInfo.classList.add('d-none');
+        // A. 如果訂單已由後台完成 (final) 或 取消 (cancelled)
+        if (order.status === 'final' || order.status === 'cancelled') {
+            box.innerHTML = order.status === 'final' ? "🍓 祝您用餐愉快！" : "❌ 訂單已被取消";
+            box.className = "status-box bg-dark text-white shadow-sm";
+            
+            // 關鍵：徹底隱藏包含「取餐按鈕」的區塊
+            pickupInfo.classList.add('d-none'); 
+            stopAllAlerts();
+
+            // 關鍵：後台完成後 3 秒鐘自動跳轉回首頁
+            if (order.status === 'final' && !window.autoRedirectTimer) {
+                window.autoRedirectTimer = setTimeout(() => {
+                    window.autoRedirectTimer = null; 
+                    resetToOrderForm(); // 呼叫重置首頁函式
+                }, 3000); 
+            }
+            return; 
+        }
+
+        // B. 如果餐點剛剛做好了 (completed)
+        if (order.status === 'completed') {
+            box.innerHTML = "✅ 餐點已完成！請取餐";
+            box.className = "status-box st-completed";
+            
+            // 顯示取餐區塊
+            pickupInfo.classList.remove('d-none');
+            document.getElementById('info_id').innerText = order.id;
+            
+            // 顯示第一個按鈕：我已到櫃檯
+            arrivedBtn.classList.remove('d-none');
+            arrivedBtn.classList.remove('disabled');
+            // 隱藏第二個按鈕：領取確認
+            finalBtn.classList.add('d-none');
+            
+            // 觸發音效與震動
+            playAlarmAndVibrate();
             return;
         }
 
-        // LINE Pay pending（尚未完成付款）
-        box.innerHTML = "⏳ LINE Pay 尚未完成付款，請回到 LINE Pay 完成付款";
-        box.className = "status-box bg-warning text-dark shadow-sm";
-        pickupInfo.classList.add('d-none');
-        return;
+        // C. 如果使用者按了「我已到櫃檯」 (arrived)
+        if (order.status === 'arrived') {
+            box.innerHTML = '🔔 已通知店家您在櫃檯';
+            box.className = "status-box bg-info text-white shadow-sm";
+            
+            pickupInfo.classList.remove('d-none');
+            // 切換按鈕：隱藏第一個，顯示第二個
+            arrivedBtn.classList.add('d-none');
+            finalBtn.classList.remove('d-none');
+            
+            stopAllAlerts(); // 到櫃檯了就停掉警報音
+            return;
         }
 
+        // D. 其他製作中狀態
         const statusMap = {
             'confirmed': { text: '💰 已付款！請等候製作', class: 'bg-primary text-white shadow-sm' },
             'preparing': { text: '🍓 老闆正在努力製作中...', class: 'bg-warning text-dark shadow-sm' },
-            'arrived': { text: '🔔 已通知店家您在櫃檯', class: 'bg-info text-white shadow-sm' }
+            'pending': { text: '⏳ 等候付款中...', class: 'bg-secondary text-white' }
         };
 
-        if (order.status === 'completed') {
-            if (pickupInfo.classList.contains('d-none')) {
-                box.innerHTML = "✅ 餐點已完成！請取餐";
-                box.className = "status-box st-completed";
-                pickupInfo.classList.remove('d-none');
-                document.getElementById('info_id').innerText = order.id;
-                
-                // 播放音訊和震動
-                playAlarmAndVibrate();
-            }
-        } else if (order.status === 'final' || order.status === 'cancelled') {
-            box.innerHTML = order.status === 'final' ? "🍓 祝您用餐愉快！" : "❌ 訂單已被取消";
-            box.className = "status-box bg-dark text-white shadow-sm";
-            stopAllAlerts();
-        } else if (statusMap[order.status]) {
+        if (statusMap[order.status]) {
             box.innerHTML = statusMap[order.status].text;
             box.className = `status-box ${statusMap[order.status].class}`;
+            
+            // 製作中狀態不應顯示取餐按鈕
+            pickupInfo.classList.add('d-none');
         }
     }
 
