@@ -121,23 +121,33 @@
             background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='rgba(214, 48, 49, 1)' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e") !important;
         }
 
-        .nav-item-flex-group {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 15px; /* 圖標與按鈕的間距 */
-            margin-top: 1rem;
-            width: 100%;
+        @media (max-width: 991.98px) {
+            .nav-item-flex-group {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 20px; 
+                margin-top: 1.5rem;
+                width: 100%;
+            }
+            .nav-item-flex-group .btn-order {
+                padding: 8px 20px;
+                margin-top: 0 !important;
+            }
         }
 
-        .nav-item-flex-group .nav-link {
-            margin: 0;
-            padding: 0;
-        }
-
-        .nav-item-flex-group .btn-order {
-            padding: 8px 20px; /* 稍微縮小按鈕讓排版更好看 */
-            margin-top: 0 !important;
+        /* ✅ 桌機版：恢復原始模式，取消彈性容器限制 */
+        @media (min-width: 992px) {
+            .navbar-collapse {
+                background-color: transparent !important;
+                padding: 0;
+            }
+            .nav-item-flex-group {
+                display: contents; /* 讓內部的 li 回歸到 navbar-nav 的排列邏輯 */
+            }
+            .nav-item-flex-group li {
+                margin-left: 15px;
+            }
         }
         
         /* 按鈕特效 */
@@ -592,6 +602,8 @@
                     </div>
                 </div>
 
+                
+
                 <div class="col-lg-6" data-aos="fade-left" data-aos-delay="100">
                     <div class="product-card h-100 d-md-flex align-items-center">
                         <div class="img-wrapper w-100 h-100 d-none d-md-block" style="flex:1;">
@@ -601,10 +613,12 @@
                             <div class="badge-custom">慢火細熬</div>
                             <h4 class="fw-bold mb-2">私房秘製草莓果醬</h4>
                             <p class="text-muted small">不計時間成本，以慢火細熬出草莓的酸甜精華，天然無添加，鎖住最濃郁的自然香氣。</p>
+                            <button onclick="showStoreSelector('dajin')" class="btn btn-sm btn-outline-danger rounded-pill px-3 mt-2">
+                                <i class="fas fa-shopping-cart me-1"></i> 立即點餐
+                            </button>
                         </div>
                     </div>
                 </div>
-
             </div>
         </div>
     </section>
@@ -621,30 +635,50 @@
     </footer>
     
     <script>
-        // DOM 載入後才執行初始化
+        // 確保 DOM 完全載入後執行
         document.addEventListener('DOMContentLoaded', function() {
-
-            // ✅【新增】手機上降低 AOS 成本，改善捲到底/回彈的卡頓
-            // 你可以把 disable: 'mobile' 改成 true/false 來測試差異
+            // 初始化 AOS 動畫
             AOS.init({
                 once: true,
                 offset: 100,
                 duration: 800,
                 easing: 'ease-out-cubic',
-                //disable: function () {
-                    // 768px 以下視為手機：直接停用 AOS（最有效的順暢修復）
-                //    return window.matchMedia('(max-width: 768px)').matches;
-                //}
+                // 如果手機版還是卡頓，可以取消下方註解來禁用手機動畫
+                /*
+                disable: function () {
+                    return window.matchMedia('(max-width: 768px)').matches;
+                }
+                */
             });
         });
 
-        function showStoreSelector() {
+        /**
+        * 分店選擇與跳轉邏輯
+        * @param {string|null} defaultStoreSlug - 若傳入 slug (如 'dajin') 則直接跳轉，不跳出選擇視窗
+        */
+        function showStoreSelector(defaultStoreSlug = null) {
+            
+            // 1. ✅ 自動收合漢堡選單 (針對手機版展開狀態)
+            const navbarCollapse = document.getElementById('navbarNav');
+            if (navbarCollapse && navbarCollapse.classList.contains('show')) {
+                const bsCollapse = bootstrap.Collapse.getInstance(navbarCollapse) || new bootstrap.Collapse(navbarCollapse);
+                bsCollapse.hide();
+            }
+
+            // 2. ✅ 如果有預設分店 (例如果醬點餐傳入的 'dajin')，直接跳轉
+            if (defaultStoreSlug) {
+                window.location.href = `/${defaultStoreSlug}/`;
+                return;
+            }
+
+            // 3. 獲取後端傳入的分店列表
             const stores = {
                 {% for store in stores %}
                     "{{ store.slug }}": "{{ store.name }}", 
                 {% endfor %}
             };
 
+            // 檢查是否有可用分店
             if (Object.keys(stores).length === 0) {
                 Swal.fire({
                     icon: 'warning',
@@ -655,6 +689,7 @@
                 return;
             }
 
+            // 4. 彈出分店選擇視窗
             Swal.fire({
                 title: '<span style="color:#d63031">🛒 準備點餐</span>',
                 html: '請選擇您要前往的分店<br><small class="text-muted">Select a store to continue</small>',
@@ -662,7 +697,7 @@
                 inputOptions: stores,
                 inputPlaceholder: '請選擇分店...',
                 showCancelButton: true,
-                confirmButtonText: '前往點餐</i>',
+                confirmButtonText: '前往點餐',
                 confirmButtonColor: '#d63031',
                 cancelButtonText: '取消',
                 focusConfirm: false,
