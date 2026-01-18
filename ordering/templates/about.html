@@ -69,7 +69,7 @@
         
         .navbar-collapse {
             background-color: #fff;
-            max-height: 80vh;
+            max-height: none;
             overflow-y: auto;
             padding: 1rem;
             border-radius: 0 0 15px 15px;
@@ -119,6 +119,25 @@
         }
         .navbar-toggler-icon {
             background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='rgba(214, 48, 49, 1)' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e") !important;
+        }
+
+        .nav-item-flex-group {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px; /* 圖標與按鈕的間距 */
+            margin-top: 1rem;
+            width: 100%;
+        }
+
+        .nav-item-flex-group .nav-link {
+            margin: 0;
+            padding: 0;
+        }
+
+        .nav-item-flex-group .btn-order {
+            padding: 8px 20px; /* 稍微縮小按鈕讓排版更好看 */
+            margin-top: 0 !important;
         }
         
         /* 按鈕特效 */
@@ -388,21 +407,23 @@
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav ms-auto align-items-center">
+                <ul class="navbar-nav ms-auto align-items-center text-center">
                     <li class="nav-item"><a class="nav-link" href="#">品牌故事</a></li>
                     <li class="nav-item"><a class="nav-link" href="#products">產品介紹</a></li>
                     
-                    <li class="nav-item ms-lg-3">
-                        <a class="nav-link nav-icon-link" href="https://www.instagram.com/self_draw_win/" target="_blank">
-                            <i class="fab fa-instagram"></i>
-                        </a>
-                    </li>
-                    
-                    <li class="nav-item ms-lg-2 mt-3 mt-lg-0">
-                        <button onclick="showStoreSelector()" class="btn btn-order">
-                            <i class="fas fa-utensils me-2"></i>立即點餐
-                        </button>
-                    </li>
+                    <div class="nav-item-flex-group">
+                        <li class="nav-item">
+                            <a class="nav-link nav-icon-link" href="https://www.instagram.com/self_draw_win/" target="_blank">
+                                <i class="fab fa-instagram"></i>
+                            </a>
+                        </li>
+                        
+                        <li class="nav-item">
+                            <button onclick="showStoreSelector()" class="btn btn-order">
+                                <i class="fas fa-utensils me-2"></i>立即點餐
+                            </button>
+                        </li>
+                    </div>
                 </ul>
             </div>
         </div>
@@ -610,10 +631,10 @@
                 offset: 100,
                 duration: 800,
                 easing: 'ease-out-cubic',
-                disable: function () {
+                //disable: function () {
                     // 768px 以下視為手機：直接停用 AOS（最有效的順暢修復）
-                    return window.matchMedia('(max-width: 768px)').matches;
-                }
+                //    return window.matchMedia('(max-width: 768px)').matches;
+                //}
             });
         });
 
