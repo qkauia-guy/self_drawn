@@ -15,6 +15,10 @@ class Store(models.Model):
     def __str__(self):
         return self.name
 
+    class Meta:
+        verbose_name = "分店"
+        verbose_name_plural = "分店管理"
+
 
 class Category(models.Model):
     """商品分類"""
@@ -38,12 +42,12 @@ class Category(models.Model):
 
     class Meta:
         verbose_name = "商品分類"
-        verbose_name_plural = "商品分類"
-        ordering = ["sort_order"]  # 這樣前端拿到資料時就會照順序排好
-        unique_together = ["store", "slug"]  # 同一家店代碼不能重複
+        verbose_name_plural = "分類管理"
+        ordering = ["sort_order"]
+        unique_together = ["store", "slug"]
 
     def __str__(self):
-        return f"{self.name} ({self.slug})"
+        return f"{self.name}"
 
 
 class Product(models.Model):
@@ -56,12 +60,14 @@ class Product(models.Model):
         verbose_name="所屬分店",
     )
 
-    # 修改：關聯到 Category 模型
+    # ✅ 關鍵修正：這裡正確使用了 ForeignKey 連結分類
     category = models.ForeignKey(
         Category,
-        on_delete=models.PROTECT,  # 避免誤刪分類導致商品消失
+        on_delete=models.PROTECT,
         related_name="products",
         verbose_name="商品分類",
+        null=True,  # 允許暫時沒有分類
+        blank=True,
     )
 
     name = models.CharField(max_length=50, verbose_name="商品名稱")
@@ -70,30 +76,28 @@ class Product(models.Model):
         max_length=100, blank=True, verbose_name="短描述(如：口味二選一)"
     )
 
-    # --- 口味選擇功能 ---
+    # 使用 CharField 方便在列表頁直接編輯
     flavor_options = models.CharField(
         max_length=200,
         blank=True,
         verbose_name="口味選項",
-        help_text="若需前端顯示下拉選單，請輸入選項並用逗號隔開。例：紅豆,花生,芝麻",
+        help_text="請用逗號隔開。例：紅豆,花生,芝麻",
     )
 
-    # --- 庫存功能 ---
     stock = models.IntegerField(default=99, verbose_name="剩餘庫存")
     is_active = models.BooleanField(default=True, verbose_name="是否供應")
 
     class Meta:
         verbose_name = "商品"
-        verbose_name_plural = "商品"
-        # 排序邏輯：先照分類的 sort_order 排，同分類下再照商品 ID 排
+        verbose_name_plural = "商品管理"
         ordering = ["category__sort_order", "id"]
 
     def __str__(self):
-        return f"[{self.category.name}] {self.name}"
+        cat_name = self.category.name if self.category else "未分類"
+        return f"[{cat_name}] {self.name}"
 
     @property
     def is_sold_out(self):
-        """判斷是否售完或手動停售"""
         return not self.is_active or self.stock <= 0
 
 
@@ -116,21 +120,24 @@ class Order(models.Model):
     store = models.ForeignKey(
         Store, on_delete=models.CASCADE, related_name="orders", verbose_name="所屬分店"
     )
-    phone_tail = models.CharField(max_length=4, verbose_name="手機後4碼")
+    phone_tail = models.CharField(
+        max_length=10, verbose_name="手機後4碼"
+    )  # 加大長度避免錯誤
     payment_method = models.CharField(
         max_length=10, choices=PAYMENT_CHOICES, default="cash", verbose_name="付款方式"
     )
 
-    # items 格式：[{"id": 1, "name": "草莓大福 (紅豆)", "price": 60, "quantity": 2}, ...]
     items = models.JSONField(default=list, verbose_name="訂單內容")
     subtotal = models.PositiveIntegerField(default=0, verbose_name="小計")
     total = models.PositiveIntegerField(default=0, verbose_name="總額")
 
-    # LINE Pay 相關欄位
-    linepay_transaction_id = models.CharField(max_length=50, blank=True, null=True)
-    linepay_refunded = models.BooleanField(default=False)
+    # LINE Pay 相關
+    linepay_transaction_id = models.CharField(
+        max_length=100, blank=True, null=True, verbose_name="LINE Pay 交易號"
+    )
+    linepay_refunded = models.BooleanField(default=False, verbose_name="已退款")
     linepay_refund_transaction_id = models.CharField(
-        max_length=50, blank=True, null=True
+        max_length=100, blank=True, null=True, verbose_name="退款交易號"
     )
 
     status = models.CharField(
@@ -140,12 +147,12 @@ class Order(models.Model):
         verbose_name="訂單狀態",
     )
 
-    created_at = models.DateTimeField(default=timezone.now)
-    completed_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(default=timezone.now, verbose_name="建立時間")
+    completed_at = models.DateTimeField(null=True, blank=True, verbose_name="完成時間")
 
     class Meta:
         verbose_name = "訂單"
-        verbose_name_plural = "訂單"
+        verbose_name_plural = "訂單管理"
         ordering = ["-created_at"]
 
     def __str__(self):
@@ -154,30 +161,29 @@ class Order(models.Model):
     def update_total_from_json(self):
         """從 JSONField 重新計算總額"""
         new_total = 0
-        for item in self.items:
-            price = item.get("price", 0)
-            qty = item.get("quantity", 0)
-            new_total += price * qty
+        if self.items:
+            for item in self.items:
+                price = int(item.get("price", 0))
+                qty = int(item.get("quantity", 0))
+                new_total += price * qty
         self.subtotal = new_total
         self.total = new_total
 
     def restore_stock(self):
-        """將該訂單所有商品數量歸還給庫存"""
+        """取消訂單時歸還庫存"""
         with transaction.atomic():
-            for item in self.items:
-                product_id = item.get("id")
-                qty = item.get("quantity", 0)
-                if product_id:
-                    # 使用 F 表達式避免 Race Condition
-                    Product.objects.filter(id=product_id).update(
-                        stock=models.F("stock") + qty
-                    )
+            if self.items:
+                for item in self.items:
+                    product_id = item.get("id")
+                    qty = int(item.get("quantity", 0))
+                    if product_id:
+                        Product.objects.filter(id=product_id).update(
+                            stock=models.F("stock") + qty
+                        )
 
     def save(self, *args, **kwargs):
-        # 1. 自動重算總額 (不論是前端帶入還是後台手動修改 items)
         self.update_total_from_json()
 
-        # 2. 處理庫存返還：當狀態變更為 'cancelled' 時
         if self.pk:
             try:
                 old_order = Order.objects.get(pk=self.pk)
@@ -186,7 +192,6 @@ class Order(models.Model):
             except Order.DoesNotExist:
                 pass
 
-        # 3. 自動處理完成/結案時間
         if self.status in ["completed", "final"] and not self.completed_at:
             self.completed_at = timezone.now()
 
