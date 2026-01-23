@@ -2,23 +2,25 @@
 <html lang="zh-Hant">
 <head>
     <meta charset="UTF-8">
-    {% load static %}
     <title>財務報表中心 - 一把葫</title>
     
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="icon" href="{% static 'images/favicon.png' %}" type="image/png">
-    <link rel="shortcut icon" href="{% static 'images/favicon.png' %}" type="image/x-icon">
     <style>
         body { background-color: #f4f7f6; font-family: "Microsoft JhengHei", sans-serif; }
         .navbar { background-color: #d63031 !important; }
         .card-stat { border: none; border-radius: 16px; transition: transform 0.3s; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
         .card-stat:hover { transform: translateY(-5px); }
         .rev-value { font-size: 1.8rem; letter-spacing: -1px; }
-        .item-name { font-size: 1.05rem; color: #2d3436; }
-        .qty-badge { font-size: 0.85rem; padding: 0.4em 0.7em; }
-        .item-rev { font-size: 0.9rem; color: #636e72; font-weight: bold; }
         .store-badge { background-color: rgba(255,255,255,0.2); color: white; border: 1px solid white; padding: 4px 12px; border-radius: 20px; font-size: 0.9rem; }
+        
+        /* Tabs Style */
+        .nav-tabs .nav-link { color: #636e72; font-weight: bold; border: none; border-bottom: 3px solid transparent; }
+        .nav-tabs .nav-link.active { color: #d63031; border-bottom: 3px solid #d63031; background-color: transparent; }
+        .nav-tabs .nav-link:hover { color: #d63031; }
+        
+        .qty-badge { font-size: 0.9rem; padding: 0.5em 0.8em; width: 80px; }
+        .item-rev { font-size: 0.95rem; color: #636e72; font-weight: bold; margin-top: 4px; }
     </style>
 </head>
 <body>
@@ -26,12 +28,12 @@
 <nav class="navbar navbar-dark mb-4 shadow-sm">
     <div class="container d-flex justify-content-between">
         <a class="navbar-brand fw-bold" href="/owner/">⬅️ 返回訂單管理</a>
-        <div class="store-badge" id="current_store_name">正在載入分店...</div>
+        <div class="store-badge" id="current_store_name">正在載入...</div>
     </div>
 </nav>
 
 <div class="container">
-    <div class="d-flex justify-content-between align-items-center mb-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
         <h3 class="fw-bold mb-0">📊 營業數據概覽</h3>
         <button class="btn btn-outline-danger btn-sm fw-bold" onclick="fetchStats()">🔄 重新整理</button>
     </div>
@@ -39,124 +41,201 @@
     <div class="row g-3 mb-4">
         <div class="col-6">
             <div class="card card-stat text-white" style="background: linear-gradient(135deg, #0984e3, #74b9ff);">
-                <div class="card-body p-3">
-                    <small class="opacity-75">今日總收入</small>
+                <div class="card-body p-3 text-center">
+                    <small class="opacity-75">今日總收</small>
                     <div class="rev-value fw-bold" id="day_rev">$0</div>
-                    <div class="small mt-1"><span id="day_count">0</span> 筆已完成</div>
+                    <div class="small mt-1"><span id="day_count">0</span> 筆訂單</div>
                 </div>
             </div>
         </div>
         <div class="col-6">
             <div class="card card-stat text-white" style="background: linear-gradient(135deg, #2d3436, #636e72);">
-                <div class="card-body p-3">
-                    <small class="opacity-75">本月總收入</small>
+                <div class="card-body p-3 text-center">
+                    <small class="opacity-75">本月累計</small>
                     <div class="rev-value fw-bold" id="month_rev">$0</div>
-                    <div class="small mt-1"><span id="month_count">0</span> 筆已完成</div>
+                    <div class="small mt-1"><span id="month_count">0</span> 筆訂單</div>
                 </div>
             </div>
         </div>
     </div>
 
-    <div class="card border-0 shadow-sm mb-5">
-        <div class="card-header bg-white py-3 border-0">
-            <h5 class="fw-bold mb-0 text-danger">📦 品項銷售統計</h5>
-        </div>
-        <div class="card-body p-0">
-            <div class="table-responsive">
-                <table class="table align-middle mb-0">
-                    <thead class="bg-light text-muted small text-uppercase">
-                        <tr>
-                            <th class="ps-4">品項名稱</th>
-                            <th class="text-center">今日銷售</th>
-                            <th class="text-center">本月銷售</th>
-                        </tr>
-                    </thead>
-                    <tbody id="items_table">
-                        <tr>
-                            <td colspan="3" class="text-center py-5 text-muted">正在讀取最新數據...</td>
-                        </tr>
-                    </tbody>
-                </table>
+    <ul class="nav nav-tabs nav-fill mb-3" id="statsTab" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="today-tab" data-bs-toggle="tab" data-bs-target="#today-content" type="button" role="tab">
+                📅 今日銷售細項
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="month-tab" data-bs-toggle="tab" data-bs-target="#month-content" type="button" role="tab">
+                🗓️ 本月銷售細項
+            </button>
+        </li>
+    </ul>
+
+    <div class="tab-content mb-5" id="statsTabContent">
+        
+        <div class="tab-pane fade show active" id="today-content" role="tabpanel">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white py-3 border-0">
+                    <h6 class="fw-bold mb-0 text-primary">▼ 點擊類別查看【今日】細項</h6>
+                </div>
+                <div class="table-responsive">
+                    <table class="table align-middle mb-0">
+                        <thead class="bg-light text-muted small">
+                            <tr><th class="ps-4">品項類別</th><th class="text-end pe-4">今日業績</th></tr>
+                        </thead>
+                        <tbody id="today_table_body">
+                            <tr><td colspan="2" class="text-center py-4">載入中...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
+
+        <div class="tab-pane fade" id="month-content" role="tabpanel">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white py-3 border-0">
+                    <h6 class="fw-bold mb-0 text-secondary">▼ 點擊類別查看【本月】細項</h6>
+                </div>
+                <div class="table-responsive">
+                    <table class="table align-middle mb-0">
+                        <thead class="bg-light text-muted small">
+                            <tr><th class="ps-4">品項類別</th><th class="text-end pe-4">本月累積</th></tr>
+                        </thead>
+                        <tbody id="month_table_body">
+                             <tr><td colspan="2" class="text-center py-4">載入中...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
     </div>
 
     <div class="text-center text-muted small pb-4">
-        最後更新時間：<span id="update_time">-</span><br>
-        <p class="mt-2 text-secondary">※ 系統僅統計狀態為「已完成 (final)」之訂單，並自動根據分店區分金額。</p>
+        最後更新時間：<span id="update_time">-</span>
     </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
 <script>
-// --- 分店參數解析邏輯 ---
-// 從網址獲取 ?store=xxx，若無則預設為 dajin
 const urlParams = new URLSearchParams(window.location.search);
 const currentStore = urlParams.get('store') || 'dajin';
 
+// 輔助函式：產生展開的細項 HTML
+// itemId: 唯一識別碼 (避免今日跟本月衝突)
+// detailsObj: 細項資料物件 { "品項名": {qty, rev} }
+// themeColor: 顏色樣式 (今日用 danger, 本月用 secondary)
+function generateDetailsHtml(itemId, detailsObj, themeColor) {
+    const sortedDetails = Object.entries(detailsObj || {}).sort((a, b) => b[1].qty - a[1].qty);
+    const borderClass = `border-${themeColor}`;
+    const textClass = `text-${themeColor}`; // 標題顏色
+
+    if (sortedDetails.length === 0) {
+        return `
+        <tr class="collapse bg-light" id="${itemId}">
+            <td colspan="2" class="text-center text-muted small py-3">尚無銷售紀錄</td>
+        </tr>`;
+    }
+
+    const listItems = sortedDetails.map(([prodName, stat]) => `
+        <li class="list-group-item d-flex justify-content-between align-items-center bg-transparent px-0 py-1">
+            <span>${prodName}</span>
+            <span class="fw-bold text-dark">
+                ${stat.qty} <span class="text-muted" style="font-size:0.8em">($${stat.rev.toLocaleString()})</span>
+            </span>
+        </li>
+    `).join('');
+
+    return `
+    <tr class="collapse bg-light" id="${itemId}">
+        <td colspan="2" class="p-0">
+            <div class="p-3 border-start border-4 ${borderClass}">
+                <ul class="list-group list-group-flush small">
+                    ${listItems}
+                </ul>
+            </div>
+        </td>
+    </tr>`;
+}
+
 function fetchStats() {
-    // API 請求加入 store 參數
     fetch(`/api/orders/dashboard_stats/?store=${currentStore}&t=${new Date().getTime()}`)
     .then(res => {
-        if (res.status === 401 || res.status === 403) {
-            window.location.href = '/admin/login/';
-            return;
-        }
+        if (res.status === 401 || res.status === 403) { window.location.href = '/admin/login/'; return; }
         return res.json();
     })
     .then(data => {
         if (!data) return;
 
-        // 0. 更新分店標籤
+        // 更新頂部數據
         document.getElementById('current_store_name').innerText = data.store_name || '未知分店';
-
-        // 1. 更新總額
-        document.getElementById('day_rev').innerText = '$' + data.today.revenue.toLocaleString();
-        document.getElementById('day_count').innerText = data.today.orders;
-        document.getElementById('month_rev').innerText = '$' + data.monthly.revenue.toLocaleString();
-        document.getElementById('month_count').innerText = data.monthly.orders;
+        document.getElementById('day_rev').innerText = '$' + (data.today.revenue || 0).toLocaleString();
+        document.getElementById('day_count').innerText = data.today.orders || 0;
+        document.getElementById('month_rev').innerText = '$' + (data.monthly.revenue || 0).toLocaleString();
+        document.getElementById('month_count').innerText = data.monthly.orders || 0;
         document.getElementById('update_time').innerText = data.update_time;
 
-        // 2. 更新表格 (包含金額與數量)
-        // 這裡對應 views.py 中 calculate_metrics 定義的 key
         const itemsConfig = [
-            { name: '🍡 糖葫蘆系列', key: 'hulu' },
-            { name: '🍓 草莓大福', key: 'daifuku' },
             { name: '🥛 飲品系列', key: 'drink' },
-            { name: '🍰 其他甜點', key: 'dessert' }
+            { name: '🍡 Q軟麻糬系列', key: 'mochi' },
+            { name: '🍓 元寶草莓大福', key: 'ichikomochi' },
+            { name: '🍰 草莓甜點', key: 'dessert' }
         ];
         
-        let html = '';
-        itemsConfig.forEach(item => {
-            const todayItem = data.today.items[item.key] || { qty: 0, rev: 0 };
-            const monthItem = data.monthly.items[item.key] || { qty: 0, rev: 0 };
+        let todayHtml = '';
+        let monthHtml = '';
+        
+        itemsConfig.forEach((item) => {
+            // 取得資料，若無則給預設值
+            const todayItem = (data.today.items && data.today.items[item.key]) || { qty: 0, rev: 0, details: {} };
+            const monthItem = (data.monthly.items && data.monthly.items[item.key]) || { qty: 0, rev: 0, details: {} };
             
-            // 如果數量跟金額都是 0，則跳過不顯示或顯示 0
-            html += `
-            <tr>
+            // --- 1. 產生【今日】區塊 ---
+            const todayId = `collapse-today-${item.key}`;
+            const todayDetailsHtml = generateDetailsHtml(todayId, todayItem.details, 'danger'); // 紅色主題
+
+            todayHtml += `
+            <tr style="cursor: pointer;" data-bs-toggle="collapse" data-bs-target="#${todayId}" aria-expanded="false">
                 <td class="ps-4">
-                    <div class="item-name fw-bold">${item.name}</div>
+                    <div class="fw-bold text-dark">${item.name} <span class="text-danger small">▾</span></div>
                 </td>
-                <td class="text-center">
-                    <span class="badge bg-danger rounded-pill qty-badge mb-1">${todayItem.qty} 份</span>
+                <td class="text-end pe-4">
+                    <span class="badge bg-danger rounded-pill qty-badge">${todayItem.qty} 份</span>
                     <div class="item-rev">$${todayItem.rev.toLocaleString()}</div>
                 </td>
-                <td class="text-center">
-                    <span class="badge bg-secondary rounded-pill qty-badge mb-1">${monthItem.qty} 份</span>
+            </tr>
+            ${todayDetailsHtml}
+            `;
+
+            // --- 2. 產生【本月】區塊 (現在也支援展開了) ---
+            const monthId = `collapse-month-${item.key}`;
+            // 假設 monthItem.details 存在。如果 API 沒回傳 details，列表會顯示 "尚無銷售紀錄"
+            const monthDetailsHtml = generateDetailsHtml(monthId, monthItem.details, 'secondary'); // 灰色主題
+
+            monthHtml += `
+            <tr style="cursor: pointer;" data-bs-toggle="collapse" data-bs-target="#${monthId}" aria-expanded="false">
+                <td class="ps-4">
+                    <div class="fw-bold text-dark">${item.name} <span class="text-secondary small">▾</span></div>
+                </td>
+                <td class="text-end pe-4">
+                    <span class="badge bg-secondary rounded-pill qty-badge">${monthItem.qty} 份</span>
                     <div class="item-rev">$${monthItem.rev.toLocaleString()}</div>
                 </td>
-            </tr>`;
+            </tr>
+            ${monthDetailsHtml}
+            `;
         });
-        document.getElementById('items_table').innerHTML = html;
+
+        document.getElementById('today_table_body').innerHTML = todayHtml;
+        document.getElementById('month_table_body').innerHTML = monthHtml;
     })
     .catch(err => {
         console.error("載入失敗:", err);
-        document.getElementById('items_table').innerHTML = `<tr><td colspan="3" class="text-center text-danger py-4">連線錯誤，請重新整理頁面</td></tr>`;
     });
 }
 
-// 首次加載
 fetchStats();
 </script>
 

@@ -222,7 +222,6 @@ class OrderViewSet(viewsets.ModelViewSet):
             except Product.DoesNotExist:
                 continue
 
-    # ✅ 修正重點 1: Create 方法加入分類快照邏輯
     def create(self, request, *args, **kwargs):
         store_slug = request.data.get("store_slug")
         if not store_slug:
@@ -239,6 +238,7 @@ class OrderViewSet(viewsets.ModelViewSet):
             with transaction.atomic():
                 updated_items = []
 
+                # 1. 扣除庫存並更新訂單細項
                 for item in items_data:
                     product_id = item.get("id")
                     qty = int(item.get("quantity") or item.get("qty", 0))
@@ -258,17 +258,15 @@ class OrderViewSet(viewsets.ModelViewSet):
                     product.stock -= qty
                     product.save()
 
-                    # 🔥 [修正] 將商品當下的 Category 資訊寫入訂單 JSON
+                    # 將商品當下的 Category 資訊寫入訂單 JSON (快照)
                     item_copy = item.copy()
-                    item_copy["category"] = product.category.slug  # 例如 'drink'
-                    item_copy["category_name"] = (
-                        product.category.name
-                    )  # 例如 '飲品系列'
+                    item_copy["category"] = product.category.slug
+                    item_copy["category_name"] = product.category.name
                     item_copy["name"] = product.name
                     item_copy["price"] = product.price
                     updated_items.append(item_copy)
 
-                # 建立訂單
+                # 2. 建立訂單
                 data_copy = request.data.copy()
                 data_copy["status"] = "pending"
                 data_copy["items"] = updated_items  # 使用更新後的 items
@@ -282,18 +280,23 @@ class OrderViewSet(viewsets.ModelViewSet):
 
                 order = serializer.save(store=store)
 
-                # LINE Pay 處理
+                # 3. LINE Pay 處理邏輯 (已修正網址問題)
                 if payment_method == "linepay":
                     line_handler = LinePayHandler()
-                    host = request.get_host()
-                    protocol = "https" if request.is_secure() else "http"
 
+                    # 🟢 [修正] 直接填入您的 Render 正確網址
+                    MY_DOMAIN = "self-drawn.onrender.com"
+
+                    # 🟢 [修正] 強制使用 https (LINE Pay 嚴格要求)
                     confirm_url = (
-                        f"{protocol}://{host}/api/orders/line_confirm/?oid={order.id}"
+                        f"https://{MY_DOMAIN}/api/orders/line_confirm/?oid={order.id}"
                     )
                     cancel_url = (
-                        f"{protocol}://{host}/api/orders/line_cancel/?oid={order.id}"
+                        f"https://{MY_DOMAIN}/api/orders/line_cancel/?oid={order.id}"
                     )
+
+                    # 🔵 [除錯] 印出網址確認 (請在 Render Logs 查看)
+                    print(f"DEBUG: LINE Pay Confirm URL: {confirm_url}")
 
                     result = line_handler.request_payment(
                         order, confirm_url, cancel_url
@@ -314,6 +317,8 @@ class OrderViewSet(viewsets.ModelViewSet):
                             status=201,
                         )
 
+                    # 錯誤處理：印出詳細錯誤原因
+                    print(f"ERROR: LINE Pay Request Failed: {result}")
                     raise ValueError(
                         f"LINE Pay 請求失敗: {result.get('returnMessage')}"
                     )
@@ -453,7 +458,6 @@ class OrderViewSet(viewsets.ModelViewSet):
             return Response({"error": "請提供 store 參數"}, status=400)
 
         store = get_object_or_404(Store, slug=store_slug)
-        # 🔥 [修正] 動態抓取分類，不再寫死
         categories = Category.objects.filter(store=store).order_by("sort_order")
 
         tw_tz = pytz.timezone("Asia/Taipei")
@@ -462,35 +466,60 @@ class OrderViewSet(viewsets.ModelViewSet):
         month_start = now_tw.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
 
         def calculate_metrics(queryset):
-            final_qs = queryset.filter(status="final")
+            final_qs = queryset.filter(
+                status__in=["completed", "final"]
+            )  # 建議納入 completed
             total_rev = final_qs.aggregate(Sum("total"))["total__sum"] or 0
             total_count = final_qs.count()
 
-            # 初始化統計容器
+            # 1. 初始化統計容器 (加入 details)
             items_stats = {}
             for cat in categories:
-                items_stats[cat.slug] = {"qty": 0, "rev": 0, "name": cat.name}
-            items_stats["uncategorized"] = {"qty": 0, "rev": 0, "name": "其他"}
+                items_stats[cat.slug] = {
+                    "qty": 0,
+                    "rev": 0,
+                    "name": cat.name,
+                    "details": {},  # 🔥 新增這個欄位來存細項
+                }
+            # 處理未分類或已刪除分類的情況
+            items_stats["uncategorized"] = {
+                "qty": 0,
+                "rev": 0,
+                "name": "其他",
+                "details": {},
+            }
 
             for order in final_qs:
                 for item in order.items or []:
-                    # 🔥 [修正] 讀取訂單中的分類
                     cat_slug = item.get("category", "uncategorized")
+                    p_name = item.get("name", "未知商品")  # 抓取商品名稱
 
                     qty = int(item.get("quantity") or item.get("qty", 0))
                     price = int(item.get("price", 0))
                     subtotal = price * qty
 
-                    if cat_slug in items_stats:
-                        items_stats[cat_slug]["qty"] += qty
-                        items_stats[cat_slug]["rev"] += subtotal
-                    else:
-                        items_stats["uncategorized"]["qty"] += qty
-                        items_stats["uncategorized"]["rev"] += subtotal
+                    # 確保分類存在 (防呆)
+                    target_stats = items_stats.get(
+                        cat_slug, items_stats["uncategorized"]
+                    )
+
+                    # A. 更新分類總數
+                    target_stats["qty"] += qty
+                    target_stats["rev"] += subtotal
+
+                    # B. 更新該商品細項 (Details) 🔥 關鍵邏輯
+                    details = target_stats["details"]
+                    if p_name not in details:
+                        details[p_name] = {"qty": 0, "rev": 0}
+
+                    details[p_name]["qty"] += qty
+                    details[p_name]["rev"] += subtotal
 
             return total_rev, total_count, items_stats
 
         base_qs = self.get_queryset().filter(store=store)
+
+        # 計算今日與本月
         d_rev, d_count, d_items = calculate_metrics(
             base_qs.filter(created_at__gte=today_start)
         )
