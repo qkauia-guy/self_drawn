@@ -29,7 +29,17 @@
             font-size: 2.5rem; font-weight: 900; margin: 0 auto 15px; box-shadow: 0 4px 10px rgba(255, 77, 77, 0.3);
         }
 
-        .status-box { font-size: 1.2rem; font-weight: bold; border-radius: 12px; padding: 18px; margin: 10px 0; border: 2px solid transparent; }
+        /* ✅ 修改處 1: 加入 position 和 z-index 確保層級 */
+        .status-box { 
+            font-size: 1.2rem; 
+            font-weight: bold; 
+            border-radius: 12px; 
+            padding: 18px; 
+            margin: 10px 0; 
+            border: 2px solid transparent; 
+            position: relative; 
+            z-index: 1; /* 層級較低，避免蓋住按鈕 */
+        }
         .st-completed { background: #fff3f3; color: #d63031; border: 2px solid #ff4d4d; animation: pulse 1s infinite; }
 
         @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.03); } 100% { transform: scale(1); } }
@@ -51,11 +61,9 @@
             box-shadow: none !important;
             border-color: rgba(0,0,0,.125);
         }
-        /* 讓內縮的商品卡片邊距稍微調整 */
         .accordion-body.ms-3 {
-            margin-right: 10px; /* 確保右邊不會太貼 */
+            margin-right: 10px; 
         }
-        /* 確保標題點擊區域滿版 */
         .accordion-header {
             margin-bottom: 0;
         }
@@ -70,64 +78,41 @@
             transition: all 0.2s;
         }
 
-        /* 讓內縮更明顯 */
         .accordion-body.ms-3 {
-            border-left: 1px solid rgba(255, 77, 77, 0.1); /* 淡淡的垂直線增加視覺引導 */
+            border-left: 1px solid rgba(255, 77, 77, 0.1); 
             margin-left: 1rem !important;
             padding-left: 0.5rem;
         }
 
-        /* 修正 Bootstrap 箭頭顏色 */
         .accordion-button::after {
-            filter: sepia(100%) saturate(10000%) hue-rotate(320deg); /* 變成紅色箭頭 */
+            filter: sepia(100%) saturate(10000%) hue-rotate(320deg); 
         }
 
-        /* 售完商品的微調 */
         .product-item.opacity-75 {
             filter: grayscale(0.5);
         }
 
-        /* ✅ 展開中的系列：用不同顏色區分（利用 Bootstrap 狀態：not(.collapsed)） */
         .accordion-button:not(.collapsed) {
             border-radius: 12px;
         }
 
         /* Drink */
-        .accordion-button.cat-drink:not(.collapsed){
-            background: rgba(13, 110, 253, 0.10) !important;
-            color: #0d6efd !important;
-            border-left: 6px solid #0d6efd;
-        }
-
+        .accordion-button.cat-drink:not(.collapsed){ background: rgba(13, 110, 253, 0.10) !important; color: #0d6efd !important; border-left: 6px solid #0d6efd; }
         /* Tanghulu */
-        .accordion-button.cat-tanghulu:not(.collapsed){
-            background: rgba(255, 77, 77, 0.10) !important;
-            color: #ff4d4d !important;
-            border-left: 6px solid #ff4d4d;
-        }
-
+        .accordion-button.cat-tanghulu:not(.collapsed){ background: rgba(255, 77, 77, 0.10) !important; color: #ff4d4d !important; border-left: 6px solid #ff4d4d; }
         /* Mochi */
-        .accordion-button.cat-mochi:not(.collapsed){
-            background: rgba(255, 193, 7, 0.14) !important;
-            color: #b78100 !important;
-            border-left: 6px solid #ffc107;
-        }
-
+        .accordion-button.cat-mochi:not(.collapsed){ background: rgba(255, 193, 7, 0.14) !important; color: #b78100 !important; border-left: 6px solid #ffc107; }
         /* Ichikomochi */
-        .accordion-button.cat-ichikomochi:not(.collapsed){
-            background: rgba(25, 135, 84, 0.12) !important;
-            color: #198754 !important;
-            border-left: 6px solid #198754;
-        }
-
+        .accordion-button.cat-ichikomochi:not(.collapsed){ background: rgba(25, 135, 84, 0.12) !important; color: #198754 !important; border-left: 6px solid #198754; }
         /* Dessert */
-        .accordion-button.cat-dessert:not(.collapsed){
-            background: rgba(111, 66, 193, 0.12) !important;
-            color: #6f42c1 !important;
-            border-left: 6px solid #6f42c1;
+        .accordion-button.cat-dessert:not(.collapsed){ background: rgba(111, 66, 193, 0.12) !important; color: #6f42c1 !important; border-left: 6px solid #6f42c1; }
+        
+        /* ✅ 修改處 2: 確保按鈕層級高於動畫 */
+        #pickupInfo {
+            position: relative;
+            z-index: 10; /* 層級較高，確保按鈕可以被點到 */
         }
 
-        /* ✅ 箭頭跟著變色（Bootstrap 5 的箭頭是 ::after） */
         .accordion-button.cat-drink:not(.collapsed)::after { filter: none; }
         .accordion-button.cat-tanghulu:not(.collapsed)::after { filter: none; }
         .accordion-button.cat-mochi:not(.collapsed)::after { filter: none; }
@@ -135,23 +120,21 @@
         .accordion-button.cat-dessert:not(.collapsed)::after { filter: none; }
         .accordion-button.has-items {
             border-radius: 12px;
-            background: rgba(255, 77, 77, 0.12) !important;  /* 淡粉紅底 */
+            background: rgba(255, 77, 77, 0.12) !important; 
             color: #d63031 !important;
             border-left: 6px solid #ff4d4d;
         }
 
-        /* 如果你要「不同系列不同顏色」：用 data-cat 來分色（下面 JS 會補上 data-cat） */
         .accordion-button.has-items[data-cat="drink"] { background: rgba(13,110,253,0.10) !important; border-left-color:#0d6efd; color:#0d6efd !important; }
         .accordion-button.has-items[data-cat="tanghulu"] { background: rgba(255,77,77,0.12) !important; border-left-color:#ff4d4d; color:#d63031 !important; }
         .accordion-button.has-items[data-cat="mochi"] { background: rgba(255,193,7,0.16) !important; border-left-color:#ffc107; color:#b78100 !important; }
         .accordion-button.has-items[data-cat="ichikomochi"] { background: rgba(25,135,84,0.14) !important; border-left-color:#198754; color:#198754 !important; }
         .accordion-button.has-items[data-cat="dessert"] { background: rgba(111,66,193,0.14) !important; border-left-color:#6f42c1; color:#6f42c1 !important; }
-            </style>
+    </style>
 </head>
 <body>
 
 <div class="container py-4">
-    <!-- 下單區塊 -->
     <div id="orderForm">
         <div class="text-center">
             <h1 class="display-5 fw-bold text-danger">🍓 一把葫</h1>
@@ -185,7 +168,6 @@
         </div>
     </div>
 
-    <!-- 狀態區塊 -->
     <div id="statusPage" class="d-none animate__animated animate__fadeIn">
         <div class="card p-4 text-center shadow">
             <div class="order-id-circle shadow" id="display_order_id">--</div>
@@ -224,14 +206,15 @@
 
 <script>
     const currentStoreSlug = window.location.pathname.split('/').filter(p => p)[0];
+    
+    // ✅ 修改處 3: 定義全域變數存正確的手機號碼，避免 UI 延遲導致抓不到
+    let cachedPhoneTail = ""; 
     let alarmAudio = new Audio('https://actions.google.com/sounds/v1/alarms/beep_short.ogg');
     alarmAudio.loop = true;
-    // 預載入音訊，確保可以播放
     alarmAudio.preload = 'auto';
-    // 處理音訊載入錯誤
+    
     alarmAudio.addEventListener('error', (e) => {
         console.error('音訊載入失敗:', e);
-        // 如果外部音訊載入失敗，使用內建音訊
         try {
             alarmAudio = new Audio('data:audio/wav;base64,UklGRl9vT19XQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YU');
             alarmAudio.loop = true;
@@ -240,18 +223,16 @@
             console.error('無法建立備用音訊:', err);
         }
     });
+
     let vibrationInterval = null, vibrationTimer = null;
     let audioUnlocked = false;
 
-    // --- 初始化: 檢查是否為 LINE Pay 跳回來的客人 ---
     window.onload = function() {
         fetchProducts();
 
-        // 定義解鎖音效函式 (這部分保持原本邏輯，但拉出來共用)
         const unlockAudio = () => {
             if (!audioUnlocked) {
                 try {
-                    // 播放一瞬間靜音，騙過瀏覽器已獲取權限
                     alarmAudio.play().then(() => {
                         alarmAudio.pause();
                         alarmAudio.currentTime = 0;
@@ -264,16 +245,13 @@
             }
         };
 
-        // 全域點擊解鎖 (保留備用)
         document.addEventListener('click', unlockAudio, { once: true });
         document.addEventListener('touchstart', unlockAudio, { once: true });
 
-        // 解析網址參數
         const urlParams = new URLSearchParams(window.location.search);
         const oid = urlParams.get('oid');
         const error = urlParams.get('error');
 
-        // 錯誤處理 (保留原本邏輯)
         if (error) {
             let errorMsg = '發生錯誤';
             if (error === 'missing_transaction') errorMsg = 'LINE Pay 交易資訊缺失';
@@ -292,38 +270,28 @@
             return;
         }
 
-        // --- 關鍵修改開始 ---
         if (oid) {
-            // 不直接查詢，先彈出視窗強迫使用者互動
             Swal.fire({
                 title: '🎉 付款成功！',
                 html: '請點擊下方按鈕<br>以<b>開啟叫號通知音效</b>',
                 icon: 'success',
                 confirmButtonText: '開始等候叫號 (開啟通知)',
                 confirmButtonColor: '#ff4d4d',
-                allowOutsideClick: false, // 禁止點擊背景關閉
+                allowOutsideClick: false, 
                 allowEscapeKey: false,
                 didOpen: () => {
-                    // 在彈窗出現時嘗試預載
                     alarmAudio.load();
                 }
             }).then((result) => {
                 if (result.isConfirmed) {
-                    // 1. 在這裡執行解鎖，這是使用者真實的點擊行為，瀏覽器會允許
                     unlockAudio();
-                    
-                    // 2. 為了保險，如果是 iOS，可以加一個極短的震動測試
                     if ("vibrate" in navigator) navigator.vibrate(100);
-
-                    // 3. 繼續原本的查詢流程
                     fetchOrderAndSwitch(oid);
                 }
             });
         }
-        // --- 關鍵修改結束 ---
     };
 
-    // 將原本 fetch 訂單的邏輯抽成函式，方便上面呼叫
     function fetchOrderAndSwitch(oid) {
         fetch(`/api/orders/${oid}/?t=${Date.now()}`)
             .then(res => {
@@ -354,32 +322,42 @@
                 const list = document.getElementById('productList');
                 list.innerHTML = '';
 
-                const categoryMap = {
-                    'drink': '飲品系列',
-                    'tanghulu': '糖葫蘆系列',
-                    'mochi': 'Q軟麻糬系列',
-                    'ichikomochi': '元寶麻糬系列',
-                    'dessert': '草莓甜點系列'
-                };
+                const groups = {};
+                data.forEach(p => {
+                    const catSlug = p.category; 
+                    if (!groups[catSlug]) {
+                        groups[catSlug] = {
+                            slug: catSlug,
+                            name: p.category_name || catSlug, 
+                            order: p.category_sort_order !== undefined ? p.category_sort_order : 999,
+                            products: []
+                        };
+                    }
+                    groups[catSlug].products.push(p);
+                });
+
+                const sortedCategories = Object.values(groups).sort((a, b) => a.order - b.order);
 
                 const accordionId = "productAccordion";
                 let accordionHTML = `<div class="accordion accordion-flush" id="${accordionId}">`;
 
-                Object.entries(categoryMap).forEach(([catKey, catLabel]) => {
-                    const filteredProducts = data.filter(p => p.category === catKey);
-                    if (filteredProducts.length === 0) return;
+                sortedCategories.forEach((cat, index) => {
+                    const catSlug = cat.slug;
+                    const catLabel = cat.name;
+                    const filteredProducts = cat.products;
 
-                    const isFirst = catKey === 'drink';
-                    const collapseId = `collapse_${catKey}`;
-                    const headerId = `heading_${catKey}`;
+                    const isFirst = index === 0; 
+                    const collapseId = `collapse_${catSlug}`;
+                    const headerId = `heading_${catSlug}`;
 
                     accordionHTML += `
                     <div class="accordion-item bg-transparent border-0 mb-3">
                         <h2 class="accordion-header" id="${headerId}">
-                            <button class="accordion-button ${isFirst ? '' : 'collapsed'} bg-transparent fw-bold text-danger fs-5 p-2 shadow-none" 
+                            <button class="accordion-button cat-${catSlug} ${isFirst ? '' : 'collapsed'} bg-transparent fw-bold text-danger fs-5 p-2 shadow-none" 
                                     type="button" 
                                     data-bs-toggle="collapse" 
                                     data-bs-target="#${collapseId}" 
+                                    data-cat="${catSlug}"
                                     aria-expanded="${isFirst ? 'true' : 'false'}" 
                                     aria-controls="${collapseId}">
                                 <span class="border-start border-4 border-danger ps-2">${catLabel}</span>
@@ -395,7 +373,6 @@
                                         `<span class="badge bg-secondary">今日售完</span>` : 
                                         `<small class="text-muted">剩餘庫存: ${p.stock}</small>`;
                                     
-                                    // 準備短描述 HTML，如果有內容才顯示
                                     const descHTML = p.description ? `<div class="small text-muted mb-1" style="font-size: 0.8rem;">${p.description}</div>` : '';
 
                                     return `
@@ -425,7 +402,6 @@
                 accordionHTML += `</div>`;
                 list.innerHTML = accordionHTML;
 
-                // 初始化 Accordion
                 setTimeout(() => {
                     const accElems = list.querySelectorAll('.accordion-collapse');
                     accElems.forEach(el => {
@@ -437,10 +413,11 @@
 
                 updateTotal();
             })
-            .catch(err => console.error("載入商品失敗:", err));
+            .catch(err => {
+                console.error("載入商品失敗:", err);
+                document.getElementById('productList').innerHTML = `<div class="text-center text-muted py-5">暫時無法載入菜單，請稍後再試。<br><small>${err.message}</small></div>`;
+            });
     }
-
-
 
     function changeQty(id, delta) {
         const input = document.getElementById(`qty_${id}`);
@@ -462,17 +439,13 @@
         document.querySelectorAll('.accordion-collapse').forEach(collapseEl => {
             const item = collapseEl.closest('.accordion-item');
             if (!item) return;
-
             const btn = item.querySelector('.accordion-button');
             if (!btn) return;
-
             const hasPicked = Array.from(collapseEl.querySelectorAll('.item-qty'))
                 .some(input => (parseInt(input.value, 10) || 0) > 0);
-
             btn.classList.toggle('has-items', hasPicked);
         });
     }
-
 
     function renderOrderDetailList(items) {
         let html = "";
@@ -508,7 +481,6 @@
         let tableRowsHtml = ""; 
         const inputs = document.querySelectorAll('.item-qty');
 
-        // 遍歷所有已點商品
         for (let input of inputs) {
             const q = parseInt(input.value);
             if (q <= 0) continue;
@@ -517,7 +489,6 @@
             const price = parseInt(input.dataset.price);
             const flavorsStr = input.dataset.flavors;
 
-            // 如果有口味選項，彈出 Select 選單
             if (flavorsStr && flavorsStr.trim() !== "") {
                 const flavorArray = flavorsStr.split(',');
                 const selectOptions = {};
@@ -537,7 +508,7 @@
                     inputValidator: (value) => !value && '您必須選擇一個口味才能下單喔！'
                 });
 
-                if (!selectedFlavor) return; // 客人按取消則終止流程
+                if (!selectedFlavor) return; 
 
                 const finalName = `${baseName} (${selectedFlavor})`;
                 finalItems.push({ id: input.dataset.id, name: finalName, quantity: q, price: price });
@@ -545,7 +516,6 @@
                 totalAmount += (q * price);
 
             } else {
-                // 一般商品
                 finalItems.push({ id: input.dataset.id, name: baseName, quantity: q, price: price });
                 tableRowsHtml += `<tr><td class="text-start">${baseName}</td><td>x${q}</td><td class="text-end">$${q * price}</td></tr>`;
                 totalAmount += (q * price);
@@ -556,7 +526,6 @@
             return Swal.fire({ icon: 'info', title: '購物車空空的', text: '您還沒選擇商品喔！', confirmButtonColor: '#ff4d4d' });
         }
 
-        // 最後確認視窗
         Swal.fire({
             title: '訂單確認',
             html: `
@@ -614,8 +583,6 @@
         });
     }
 
-
-    // 將切換頁面的邏輯獨立出來
     function switchToStatusPage(oid, orderData = null) {
         document.getElementById('orderForm').classList.add('d-none');
         document.getElementById('statusPage').classList.remove('d-none');
@@ -623,17 +590,16 @@
         
         startPolling(oid);
         
-        // 如果有傳入現成資料就直接顯示，不然輪詢會自己抓
         if (orderData) {
             document.getElementById('display_phone').innerText = orderData.phone_tail || '';
             document.getElementById('display_final_total').innerText = orderData.total || 0;
-            
-            // [FIXED] 這裡修復了 undefined 問題
             const pMethodMap = {'cash': '現金', 'linepay': 'LINE Pay'};
             document.getElementById('display_payment').innerText = pMethodMap[orderData.payment_method] || orderData.payment_method || '未指定';
-            
             document.getElementById('created_time').innerText = new Date().toLocaleTimeString();
             renderOrderDetailList(orderData.items);
+            
+            // ✅ 修改處 4: 在切換頁面且有資料時，也同步全域變數
+            cachedPhoneTail = orderData.phone_tail;
         }
     }
 
@@ -642,7 +608,6 @@
             fetch(`/api/orders/${oid}/?t=${Date.now()}`)
                 .then(res => {
                     if (!res.ok) {
-                        // 如果是 403 或 404，可能是權限問題或訂單不存在
                         if (res.status === 403 || res.status === 404) {
                             console.error('無法查詢訂單，可能已過期或無權限');
                             return;
@@ -658,48 +623,53 @@
                 })
                 .catch(err => {
                     console.error('查詢訂單狀態失敗:', err);
-                    // 不中斷輪詢，繼續嘗試
                 });
         };
         fetchStatus(); 
         const timer = setInterval(fetchStatus, 4000);
-        // 儲存 timer ID 以便需要時清除
         window.pollingTimer = timer;
     }
 
-    let hasNotified = false;    // 紀錄是否已經發出過聲音/震動
-    let lastStatus = null;      // 紀錄上一次的訂單狀態
+    let hasNotified = false;   
+    let lastStatus = null;     
 
     function updateStatusUI(order) {
+        // 1. 重要：將 API 回傳的正確號碼存入全域變數 (修復驗證 Bug)
+        cachedPhoneTail = order.phone_tail;
+
         const box = document.getElementById('statusBox');
         const pickupInfo = document.getElementById('pickupInfo');
         const arrivedBtn = document.getElementById('arrivedBtn');
         const finalBtn = document.getElementById('finalBtn');
 
-        // 1. 基本資訊更新
+        // 2. 更新基本文字資訊
         document.getElementById('display_final_total').innerText = order.total;
-        document.getElementById('display_phone').innerText = order.phone_tail;
+        
+        const phoneEl = document.getElementById('display_phone');
+        if (phoneEl) phoneEl.textContent = order.phone_tail;
+        
         const pMethodMap = { 'cash': '現金', 'linepay': 'LINE Pay' };
         document.getElementById('display_payment').innerText = pMethodMap[order.payment_method] || '未指定';
         renderOrderDetailList(order.items);
 
-        // 2. 狀態檢查：如果狀態改變了，就重置通知旗標
+        // 3. 狀態改變時的處理 (重置通知狀態)
         if (lastStatus !== order.status) {
+            // 如果離開了 completed 狀態，就停止警示音
             if (order.status !== 'completed') {
-                hasNotified = false; // 離開完成狀態就重置
-                stopAllAlerts();     // 狀態改變（如變成 arrived），立即停止震動
+                hasNotified = false; 
+                stopAllAlerts();    
             }
             lastStatus = order.status;
         }
 
-        // --- 3. 狀態邏輯分流 ---
+        // --- 4. 狀態邏輯分流 ---
 
         // A. 訂單結束 (結案或取消)
         if (order.status === 'final' || order.status === 'cancelled') {
             box.innerHTML = order.status === 'final' ? "🍓 祝您用餐愉快！" : "❌ 訂單已被取消";
             box.className = "status-box bg-dark text-white shadow-sm";
             
-            pickupInfo.classList.add('d-none'); // 徹底隱藏按鈕區塊
+            pickupInfo.classList.add('d-none'); 
             stopAllAlerts();
 
             // 3秒後自動導回點餐頁
@@ -719,11 +689,17 @@
             pickupInfo.classList.remove('d-none');
             document.getElementById('info_id').innerText = order.id;
 
-            // 按鈕切換：顯示「我已到櫃檯」
             arrivedBtn.classList.remove('d-none');
             finalBtn.classList.add('d-none');
 
-            // 關鍵：只有「第一次」進入 completed 狀態才觸發通知
+            // 🔥🔥🔥【關鍵修正：強制重置按鈕為紅色可按狀態】🔥🔥🔥
+            // 避免上一張訂單點過後，按鈕殘留灰色 disabled 狀態
+            arrivedBtn.className = "btn btn-danger w-100 py-3 fw-bold fs-5 shadow-sm mb-2";
+            arrivedBtn.innerText = "已到櫃檯(通知領取)";
+            arrivedBtn.disabled = false;
+            // 🔥🔥🔥 修正結束 🔥🔥🔥
+
+            // 只有第一次進入此狀態才發出聲音
             if (!hasNotified) {
                 playAlarmAndVibrate();
                 hasNotified = true;
@@ -731,21 +707,20 @@
             return;
         }
 
-        // C. 使用者點擊「我已到櫃檯」後 (等待店員交付)
+        // C. 客人已按通知 (等待店員)
         if (order.status === 'arrived') {
             box.innerHTML = '🔔 已通知店家您在櫃檯';
             box.className = "status-box bg-info text-white shadow-sm";
             pickupInfo.classList.remove('d-none');
             
-            // 按鈕切換：隱藏「我已到」，顯示「確認領取」
             arrivedBtn.classList.add('d-none');
             finalBtn.classList.remove('d-none');
             
-            stopAllAlerts(); // 既然客人都到櫃檯了，就停掉聲音震動
+            stopAllAlerts(); 
             return;
         }
 
-        // D. 製作中或其他狀態
+        // D. 其他狀態 (製作中/待付款)
         const statusMap = {
             'confirmed': { text: '💰 已付款！請等候製作', class: 'bg-primary text-white shadow-sm' },
             'preparing': { text: '🍓 老闆正在努力製作中...', class: 'bg-warning text-dark shadow-sm' },
@@ -755,14 +730,13 @@
         if (statusMap[order.status]) {
             box.innerHTML = statusMap[order.status].text;
             box.className = `status-box ${statusMap[order.status].class}`;
-            pickupInfo.classList.add('d-none'); // 沒做完不顯示按鈕
+            pickupInfo.classList.add('d-none'); 
             stopAllAlerts();
         }
     }
 
 
     function playAlarmAndVibrate() {
-        // 播放音訊
         try {
             alarmAudio.currentTime = 0;
             const playPromise = alarmAudio.play();
@@ -774,7 +748,6 @@
                     })
                     .catch(error => {
                         console.error('提示音播放失敗:', error);
-                        // 如果播放失敗，嘗試使用 Web Audio API 或語音合成
                         if ('speechSynthesis' in window) {
                             const utterance = new SpeechSynthesisUtterance('叮咚');
                             utterance.lang = 'zh-TW';
@@ -785,7 +758,6 @@
             }
         } catch (e) {
             console.error('播放音訊異常:', e);
-            // 使用語音合成作為備援
             if ('speechSynthesis' in window) {
                 const utterance = new SpeechSynthesisUtterance('叮咚');
                 utterance.lang = 'zh-TW';
@@ -794,30 +766,24 @@
             }
         }
         
-        // 觸發震動
         triggerStrongVibrate();
     }
     
     function triggerStrongVibrate() {
         if (!("vibrate" in navigator)) return;
-        
-        // 先停止之前的，避免重複疊加
         stopVibrationOnly();
 
-        const pattern = [2000, 500]; // 震動 2 秒，停 0.5 秒
+        const pattern = [2000, 500]; 
         navigator.vibrate(pattern);
 
-        // 每 2.5 秒循環一次
         vibrationInterval = setInterval(() => {
             navigator.vibrate(pattern);
         }, 2500);
 
-        // 15 秒後自動強制停止，避免手機震動過久受損
         vibrationTimer = setTimeout(stopVibrationOnly, 15000);
     }
 
     function stopVibrationOnly() {
-        // 1. 清除所有的 JavaScript 計時器
         if (vibrationInterval) {
             clearInterval(vibrationInterval);
             vibrationInterval = null;
@@ -826,72 +792,69 @@
             clearTimeout(vibrationTimer);
             vibrationTimer = null;
         }
-        // 2. 直接下達 0 毫秒震動指令，強制中止目前硬體運作
         if ("vibrate" in navigator) {
             navigator.vibrate(0);
         }
     }
 
     function stopAllAlerts() {
-        // 停止音效
         if (alarmAudio) {
             alarmAudio.pause();
             alarmAudio.currentTime = 0;
         }
-        // 停止震動
         stopVibrationOnly();
     }
     
     function resetToOrderForm() {
-        // 停止所有輪詢和提醒
         if (window.pollingTimer) {
             clearInterval(window.pollingTimer);
             window.pollingTimer = null;
         }
         stopAllAlerts();
         
-        // 切換回訂購畫面
         document.getElementById('statusPage').classList.add('d-none');
         document.getElementById('orderForm').classList.remove('d-none');
         
-        // 重置表單
         document.getElementById('phone_tail').value = '';
         const cashRadio = document.querySelector('input[name="paymentMethod"][value="cash"]');
         if (cashRadio) cashRadio.checked = true;
         
-        // 重置所有商品數量為 0
         document.querySelectorAll('.item-qty').forEach(input => {
             input.value = 0;
         });
         
-        // 重置總額
         updateTotal();
         
-        // 清除 URL 參數（如果有）
         if (window.location.search) {
             window.history.replaceState({}, document.title, window.location.pathname);
         }
         
-        // 重新載入商品列表（確保庫存是最新的）
         fetchProducts();
     }
 
     function stopAlarmAndNotify() {
         stopAllAlerts();
-        const oid = document.getElementById('display_order_id').innerText;
-        const phoneTail = document.getElementById('display_phone').innerText;
         
+        // ✅ 修改處 6: 直接從變數讀取正確的號碼，不抓 DOM 避免 UI 延遲問題
+        const phoneTail = cachedPhoneTail; 
+        const oid = document.getElementById('display_order_id').innerText;
+        
+        console.log("驗證資料:", { oid, phoneTail });
+
         if (!phoneTail || phoneTail.length !== 4) {
             Swal.fire({
                 icon: 'error',
-                title: '無法通知',
-                text: '缺少手機後4碼資訊',
+                title: '驗證失敗',
+                text: '無法讀取手機末碼，請重新整理網頁後再試',
                 confirmButtonColor: '#ff4d4d'
             });
             return;
         }
         
-        // 發送 PATCH 請求更新狀態為 arrived
+        const btn = document.getElementById('arrivedBtn');
+        btn.disabled = true;
+        btn.innerText = "處理中...";
+
         fetch(`/api/orders/${oid}/`, {
             method: 'PATCH',
             headers: { 
@@ -906,26 +869,28 @@
         .then(res => {
             if (!res.ok) {
                 return res.json().then(err => {
-                    throw new Error(err.error || err.detail || `HTTP ${res.status}`);
+                    throw new Error(err.error || `驗證錯誤 (${res.status})`);
                 });
             }
             return res.json();
         })
         .then(() => {
-            // 更新 UI
-            document.getElementById('arrivedBtn').className = "btn btn-secondary w-100 py-3 disabled mb-2";
+            btn.className = "btn btn-secondary w-100 py-3 disabled mb-2";
+            btn.innerText = "已通知 (等待店員)";
             document.getElementById('finalBtn').classList.remove('d-none');
-            // 更新狀態顯示
             const statusBox = document.getElementById('statusBox');
             statusBox.innerHTML = '🔔 已通知店家您在櫃檯';
             statusBox.className = "status-box bg-info text-white shadow-sm";
         })
         .catch(err => {
             console.error('通知失敗:', err);
+            btn.disabled = false;
+            btn.innerText = "已到櫃檯(通知領取)";
+            
             Swal.fire({
                 icon: 'error',
-                title: '通知失敗',
-                text: err.message || '請稍後再試',
+                title: '無法通知',
+                text: err.message,
                 confirmButtonColor: '#ff4d4d'
             });
         });
@@ -943,7 +908,9 @@
         }).then((result) => {
             if (result.isConfirmed) {
                 const oid = document.getElementById('display_order_id').innerText;
-                const phoneTail = document.getElementById('display_phone').innerText;
+                
+                // ✅ 修改處 7: 這裡也改用變數讀取
+                const phoneTail = cachedPhoneTail;
                 
                 if (!phoneTail || phoneTail.length !== 4) {
                     Swal.fire({
@@ -955,7 +922,6 @@
                     return;
                 }
                 
-                // 發送 PATCH 請求更新狀態為 final
                 fetch(`/api/orders/${oid}/`, {
                     method: 'PATCH',
                     headers: { 
@@ -976,7 +942,6 @@
                     return res.json();
                 })
                 .then(() => {
-                    // 停止輪詢
                     if (window.pollingTimer) {
                         clearInterval(window.pollingTimer);
                         window.pollingTimer = null;
@@ -989,7 +954,6 @@
                         timer: 2000,
                         showConfirmButton: false
                     }).then(() => {
-                        // 重置頁面到初始訂購畫面
                         resetToOrderForm();
                     });
                 })

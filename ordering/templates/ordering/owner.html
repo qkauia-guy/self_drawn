@@ -322,6 +322,7 @@
     let isSpeaking = false;
     let restartTimer = null;
     let lastFinalText = "", lastFinalAt = 0;
+    let lastOrdersJson = ''; // 用來比對資料是否變更
 
     // --- 初始化介面 ---
     document.getElementById('storeSelector').value = currentStore;
@@ -662,7 +663,7 @@
     }
 
     function loadOrders() {
-    fetch(`/api/orders/?store=${currentStore}&t=${new Date().getTime()}`)
+      fetch(`/api/orders/?store=${currentStore}&t=${new Date().getTime()}`)
         .then(res => {
           if (res.status === 401 || res.status === 403) {
             window.location.href = '/admin/login/?next=' + window.location.pathname;
@@ -674,79 +675,114 @@
           return res.json();
         })
         .then(orders => {
-          if (!orders) return; // 已重定向到登入頁面
-        if (!orders || !Array.isArray(orders)) return;
+          if (!orders) return;
+          if (!Array.isArray(orders)) return;
 
-        if (isFirstLoad) {
+          // 🔥 優化 1：資料比對
+          // 如果新抓到的資料跟上次一模一樣，直接結束，不要重繪畫面
+          // 這樣可以避免無意義的閃爍和重整
+          const currentJson = JSON.stringify(orders);
+          if (currentJson === lastOrdersJson) {
+            return; 
+          }
+          lastOrdersJson = currentJson;
+
+          if (isFirstLoad) {
             orders.forEach(order => {
-            if (order.status === 'pending') alertedNewOrder.add(order.id);
-            if (order.status === 'arrived') alertedArrived.add(order.id);
-            // 初始化時，如果已經是 confirmed 且是 LINE Pay，標記為已通知
-            if (order.status === 'confirmed' && order.payment_method === 'linepay') {
-              alertedLinePayPaid.add(order.id);
-            }
+              if (order.status === 'pending') alertedNewOrder.add(order.id);
+              if (order.status === 'arrived') alertedArrived.add(order.id);
+              if (order.status === 'confirmed' && order.payment_method === 'linepay') {
+                alertedLinePayPaid.add(order.id);
+              }
             });
             isFirstLoad = false;
-        }
+          }
 
-        const list = document.getElementById('orderList');
-        if (orders.length === 0) {
+          const list = document.getElementById('orderList');
+          if (orders.length === 0) {
             list.innerHTML = `<div class="text-center mt-5 text-muted"><p>目前沒有訂單</p></div>`;
             return;
-        }
+          }
 
-        let newHtml = '';
+          // 🔥 優化 2：更新前，先「記住」目前哪些訂單是展開的
+          const currentlyOpenedIds = [];
+          document.querySelectorAll('.detail-content').forEach(el => {
+            // 如果該元素沒有 hide-detail class，代表它是展開的
+            if (!el.classList.contains('hide-detail')) {
+              // 從 id="detail-123" 取出 123
+              const id = el.id.replace('detail-', '');
+              currentlyOpenedIds.push(parseInt(id));
+            }
+          });
 
-        orders.sort((a, b) => {
+          let newHtml = '';
+
+          orders.sort((a, b) => {
             const isAClosed = (a.status === 'final' || a.status === 'cancelled');
             const isBClosed = (b.status === 'final' || b.status === 'cancelled');
             if (isAClosed && !isBClosed) return 1;
             if (!isAClosed && isBClosed) return -1;
             return b.id - a.id;
-        }).forEach(order => {
-
+          }).forEach(order => {
+            // ... (語音通知邏輯保持不變) ...
             if (order.status === 'pending' && !alertedNewOrder.has(order.id)) {
-            speak("新訂單，編號 " + order.id, { muteRecognition: true });
-            alertedNewOrder.add(order.id);
-            localStorage.setItem('alerted_new_orders', JSON.stringify(Array.from(alertedNewOrder).slice(-100)));
+              speak("新訂單，編號 " + order.id, { muteRecognition: true });
+              alertedNewOrder.add(order.id);
+              localStorage.setItem('alerted_new_orders', JSON.stringify(Array.from(alertedNewOrder).slice(-100)));
             }
-
-            // LINE Pay 付款成功通知
             if (order.status === 'confirmed' && order.payment_method === 'linepay' && !alertedLinePayPaid.has(order.id)) {
-            speak("編號 " + order.id + " 線上付款成功", { muteRecognition: true, priority: true });
-            alertedLinePayPaid.add(order.id);
-            localStorage.setItem('alerted_linepay_paid', JSON.stringify(Array.from(alertedLinePayPaid).slice(-100)));
+              speak("編號 " + order.id + " 線上付款成功", { muteRecognition: true, priority: true });
+              alertedLinePayPaid.add(order.id);
+              localStorage.setItem('alerted_linepay_paid', JSON.stringify(Array.from(alertedLinePayPaid).slice(-100)));
             }
-
             if (order.status === 'arrived' && !alertedArrived.has(order.id)) {
-            // 先播放提示音，然後延遲播放語音，避免衝突
-            playBell();
-            // 延遲播放語音，確保提示音或「叮咚」播放完成，並設為優先級
-            // 增加延遲時間，確保提示音有足夠時間播放
-            setTimeout(() => {
-              speak("編號 " + order.id + " 客人已到櫃檯", { muteRecognition: true, priority: true });
-            }, 1000);
-            alertedArrived.add(order.id);
-            // 確保在 localStorage 中保存，避免頁面重新載入後重複通知
-            localStorage.setItem('alerted_arrived', JSON.stringify(Array.from(alertedArrived).slice(-100)));
+              playBell();
+              setTimeout(() => {
+                speak("編號 " + order.id + " 客人已到櫃檯", { muteRecognition: true, priority: true });
+              }, 1000);
+              alertedArrived.add(order.id);
+              localStorage.setItem('alerted_arrived', JSON.stringify(Array.from(alertedArrived).slice(-100)));
             }
+            // ... (語音通知邏輯結束) ...
 
+            // 🔥 優化 3：判斷這個訂單是否應該展開
+            // 如果它之前是展開的，或者它是剛完成/剛結案的狀態(視您的需求而定)，保持展開
+            // 這裡我們以「使用者之前有展開」為優先
+            const wasOpened = currentlyOpenedIds.includes(order.id);
             const isContracted = (order.status === 'final' || order.status === 'cancelled');
-            const detailClass = isContracted ? 'detail-content hide-detail' : 'detail-content';
-            const arrowRotate = isContracted ? '' : 'style="transform: rotate(180deg)"';
+            
+            // 如果之前是展開的 (wasOpened)，就強制移除 hide-detail
+            // 否則，依照原本邏輯判斷 (isContracted)
+            let detailClass = 'detail-content';
+            let arrowRotate = 'style="transform: rotate(180deg)"';
+
+            if (wasOpened) {
+                // 如果之前是開的，現在就保持開的
+                detailClass = 'detail-content'; 
+                arrowRotate = 'style="transform: rotate(180deg)"';
+            } else if (isContracted) {
+                // 如果之前沒開，且是結案狀態，就收合
+                detailClass = 'detail-content hide-detail';
+                arrowRotate = '';
+            } else {
+                // 預設展開 (依您原本程式碼邏輯，非結案狀態預設展開)
+                detailClass = 'detail-content';
+                arrowRotate = 'style="transform: rotate(180deg)"';
+            }
+            
+            // --- 下面這段 HTML 生成邏輯保持不變，但使用上方計算出的變數 ---
             const editBtn = !isContracted
-            ? `<button onclick="openEditModal(${order.id})" class="btn btn-outline-secondary w-100 mb-2 py-2 fw-bold" style="border-radius:12px; font-size:0.9rem;">✏️ 修改品項 / 庫存</button>`
-            : '';
+              ? `<button onclick="openEditModal(${order.id})" class="btn btn-outline-secondary w-100 mb-2 py-2 fw-bold" style="border-radius:12px; font-size:0.9rem;">✏️ 修改品項 / 庫存</button>`
+              : '';
 
             const isLinePay = order.payment_method === 'linepay';
             const payTag = isLinePay
-            ? `<span class="pay-tag-line">LINE</span>`
-            : `<span class="pay-tag-cash">CASH</span>`;
+              ? `<span class="pay-tag-line">LINE</span>`
+              : `<span class="pay-tag-cash">CASH</span>`;
 
             let actionBtn = '';
-
             if (order.status === 'pending') {
-            if (isLinePay) {
+               if (isLinePay) {
                 actionBtn = `
                 <div class="alert alert-warning text-center fw-bold mb-2 py-2">
                     ⏳ 等待顧客付款中（LINE Pay）
@@ -756,103 +792,85 @@
                     取消訂單（客人要改付款方式請取消後重下）
                 </button>
                 `;
-            } else {
+               } else {
                 actionBtn = `
-                <button onclick="updateStatus(${order.id}, 'confirmed')" class="btn btn-primary btn-action shadow">
-                    💰 已收錢：成立訂單
-                </button>
-                <button onclick="cancelOrder(${order.id})" class="btn btn-link btn-sm text-muted w-100 mt-2">
-                    取消訂單
-                </button>
+                  <button onclick="updateStatus(${order.id}, 'confirmed')" class="btn btn-primary btn-action shadow">💰 已收錢：成立訂單</button>
+                  <button onclick="cancelOrder(${order.id})" class="btn btn-link btn-sm text-muted w-100 mt-2">取消訂單</button>
                 `;
-            }
-
+               }
             } else if (order.status === 'confirmed') {
-            actionBtn = `
+              actionBtn = `
                 <button onclick="updateStatus(${order.id}, 'preparing')" class="btn btn-warning btn-action shadow">🍓 開始製作餐點</button>
                 <button onclick="cancelOrder(${order.id})" class="btn btn-link btn-sm text-muted w-100 mt-2">取消訂單</button>
-            `;
-
+              `;
             } else if (order.status === 'preparing') {
-            actionBtn = `
-                <button onclick="updateStatus(${order.id}, 'completed', true)" class="btn btn-success btn-action shadow">🔔 製作完成：發送取餐通知</button>
-            `;
-
+              actionBtn = `<button onclick="updateStatus(${order.id}, 'completed', true)" class="btn btn-success btn-action shadow">🔔 製作完成：發送取餐通知</button>`;
             } else if (order.status === 'completed') {
-            actionBtn = `
+              actionBtn = `
                 <div class="alert alert-info text-center mb-2 py-2 fw-bold small">⌛ 等候客人端確認中...</div>
                 <button onclick="confirmAction(${order.id}, 'final', '確定客人已領餐，要手動完成結案嗎？')" class="btn btn-final btn-action shadow text-white">✅ 手動完成交易(結案)</button>
-            `;
-
+              `;
             } else if (order.status === 'arrived') {
-            actionBtn = `
-                <button onclick="confirmAction(${order.id}, 'final', '客人已在現場，確認交付餐點並結案？')" class="btn btn-danger btn-action animate__animated animate__pulse animate__infinite shadow-lg">✨ 客人已抵達！點此交付結案</button>
-            `;
-
+              actionBtn = `<button onclick="confirmAction(${order.id}, 'final', '客人已在現場，確認交付餐點並結案？')" class="btn btn-danger btn-action animate__animated animate__pulse animate__infinite shadow-lg">✨ 客人已抵達！點此交付結案</button>`;
             } else if (order.status === 'cancelled') {
-            actionBtn = `<div class="text-center py-2 text-danger fw-bold">❌ 訂單已取消</div>`;
-
+              actionBtn = `<div class="text-center py-2 text-danger fw-bold">❌ 訂單已取消</div>`;
             } else if (order.status === 'final') {
-            actionBtn = `<div class="text-center py-2 text-success fw-bold">✅ 交易已完成</div>`;
+              actionBtn = `<div class="text-center py-2 text-success fw-bold">✅ 交易已完成</div>`;
             }
 
             const statusText = getStatusText(order.status);
-            const statusClassMap = {
-            pending: 'tag-pending',
-            confirmed: 'tag-confirmed',
-            preparing: 'tag-preparing',
-            completed: 'tag-completed',
-            arrived: 'tag-arrived',
-            final: 'tag-final',
-            cancelled: 'tag-cancelled'
-            };
+            const statusClassMap = { pending: 'tag-pending', confirmed: 'tag-confirmed', preparing: 'tag-preparing', completed: 'tag-completed', arrived: 'tag-arrived', final: 'tag-final', cancelled: 'tag-cancelled' };
             const statusTagClass = statusClassMap[order.status] || 'tag-pending';
 
             newHtml += `
-            <div class="card order-card status-${order.status}" id="card-${order.id}">
+              <div class="card order-card status-${order.status}" id="card-${order.id}">
                 <div class="card-header-clickable" onclick="toggleDetail(${order.id})">
-                <div class="order-head-left">
+                  <div class="order-head-left">
                     <span class="order-pill pill-phone">${order.phone_tail || '現場'}</span>
                     <span class="order-pill pill-id">#${order.id}</span>
                     ${payTag}
                     <span class="status-tag ${statusTagClass}">
-                    ${statusText}${order.status === 'arrived' ? ' 🚨' : ''}
+                      ${statusText}${order.status === 'arrived' ? ' 🚨' : ''}
                     </span>
-                </div>
-                <div class="order-head-right">
+                  </div>
+                  <div class="order-head-right">
                     <span class="arrow" id="arrow-${order.id}" ${arrowRotate}>▼</span>
-                </div>
+                  </div>
                 </div>
 
                 <div id="detail-${order.id}" class="${detailClass}">
-                <div class="mb-3">
+                  <div class="mb-3">
                     ${(order.items || []).map(i => `<span class="item-badge">${i.name} x ${(i.qty || i.quantity)}</span>`).join('')}
-                </div>
+                  </div>
 
-                <div class="time-box mb-3">
+                  <div class="time-box mb-3">
                     <div>🕒 下單：${new Date(order.created_at).toLocaleTimeString()}</div>
                     ${notifyTimes[order.id] ? `<div>🔔 取餐通知：${notifyTimes[order.id]}</div>` : ''}
                     <div class="mt-2 fw-bold text-danger fs-5">總額：$${order.total}</div>
-                </div>
+                  </div>
 
-                <div id="btn-zone-${order.id}">
+                  <div id="btn-zone-${order.id}">
                     ${editBtn}
                     ${actionBtn}
+                  </div>
                 </div>
-                </div>
-            </div>
+              </div>
             `;
-        });
+          });
 
-        list.innerHTML = newHtml;
+          list.innerHTML = newHtml;
         })
         .catch(err => {
           console.error('載入訂單失敗:', err);
+          // 錯誤時不要蓋掉列表，可能只是暫時網路問題
+          // 只有當列表是空的時候才顯示錯誤
           const list = document.getElementById('orderList');
-          list.innerHTML = `<div class="text-center mt-5 text-danger">
-            <p>載入訂單失敗: ${err.message}</p>
-            <button onclick="loadOrders()" class="btn btn-danger mt-3">重新載入</button>
-          </div>`;
+          if (!list.innerHTML.trim() || list.innerHTML.includes('spinner-border')) {
+             list.innerHTML = `<div class="text-center mt-5 text-danger">
+              <p>載入訂單失敗: ${err.message}</p>
+              <button onclick="loadOrders()" class="btn btn-danger mt-3">重新載入</button>
+            </div>`;
+          }
         });
     }
 

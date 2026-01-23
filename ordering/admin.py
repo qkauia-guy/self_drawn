@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.utils.html import format_html
 from django.db import models
-from .models import Product, Order, Store
+from .models import Product, Order, Store, Category  # ✅ 記得引入 Category
 from django_json_widget.widgets import JSONEditorWidget
 
 
@@ -12,10 +12,39 @@ class StoreAdmin(admin.ModelAdmin):
     prepopulated_fields = {"slug": ("name",)}
 
 
+@admin.register(Category)
+class CategoryAdmin(admin.ModelAdmin):
+    """
+    ✅ 新增：分類管理介面
+    特色：可以直接在列表頁調整順序 (sort_order)，方便管理菜單排序。
+    """
+
+    list_display = ("name", "slug", "store", "sort_order", "product_count", "is_active")
+    list_editable = ("sort_order", "is_active")  # 讓您直接在列表改順序
+    list_filter = ("store", "is_active")
+    search_fields = ("name", "slug")
+    ordering = ("store", "sort_order")  # 預設依照分店與設定的順序排列
+
+    def product_count(self, obj):
+        # 顯示該分類下有多少商品
+        count = obj.products.count()
+        return f"{count} 項商品"
+
+    product_count.short_description = "商品數量"
+
+
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
+    """
+    ✅ 優化：商品管理介面
+    特色：加入 select_related 優化資料庫查詢，並支援用分類篩選。
+    """
+
+    # 使用 select_related 預先抓取關聯資料，避免 N+1 查詢問題，提升後台速度
+    list_select_related = ("category", "store")
+
     list_display = (
-        "category",
+        "category",  # 這裡現在會顯示 Category 物件名稱
         "name",
         "store",
         "price",
@@ -24,13 +53,21 @@ class ProductAdmin(admin.ModelAdmin):
         "flavor_options",
         "display_inventory_status",
     )
-    # 解決 admin.E124 錯誤：將進入編輯頁的連結設為商品名稱
+
+    # 點擊商品名稱進入編輯
     list_display_links = ("name",)
 
+    # 在列表頁直接修改這些欄位
     list_editable = ("category", "price", "stock", "is_active", "flavor_options")
+
+    # 篩選器
     list_filter = ("store", "category", "is_active")
-    search_fields = ("name",)
-    ordering = ("category", "id")
+
+    # 搜尋欄位 (支援搜尋商品名與分類名)
+    search_fields = ("name", "category__name")
+
+    # 預設排序
+    ordering = ("category__sort_order", "id")
 
     def display_inventory_status(self, obj):
         if obj.stock <= 0:
@@ -50,7 +87,7 @@ class ProductAdmin(admin.ModelAdmin):
 
 @admin.register(Order)
 class OrderAdmin(admin.ModelAdmin):
-    # (您原本的 OrderAdmin 程式碼非常完整，保持不變即可)
+    # (保持您原本優秀的設定)
     list_display = (
         "display_id",
         "store",
@@ -126,8 +163,10 @@ class OrderAdmin(admin.ModelAdmin):
             "final": "#636e72",  # 灰 (結案)
             "cancelled": "#2d3436",  # 黑 (取消)
         }
+        # 兼容原本的 CHOICES 顯示
         status_dict = dict(obj.STATUS_CHOICES)
         status_text = status_dict.get(obj.status, obj.status)
+
         return format_html(
             '<span style="background: {}; color: white; padding: 2px 10px; border-radius: 12px; font-size: 11px; font-weight: bold;">{}</span>',
             colors.get(obj.status, "#eee"),

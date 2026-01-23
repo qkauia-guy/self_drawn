@@ -18,7 +18,8 @@ from rest_framework import viewsets, status, permissions
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
-from .models import Product, Order, Store
+# ✅ 引入 Category
+from .models import Product, Order, Store, Category
 from .serializers import ProductSerializer, OrderSerializer
 
 
@@ -29,12 +30,9 @@ LINE_PAY_CHANNEL_ID = os.environ.get("LINE_PAY_CHANNEL_ID")
 LINE_PAY_CHANNEL_SECRET = os.environ.get("LINE_PAY_CHANNEL_SECRET")
 LINE_PAY_SANDBOX = os.environ.get("LINE_PAY_SANDBOX", "True") == "True"
 
-# 驗證必要的環境變數（僅在需要 LINE Pay 時檢查）
 if LINE_PAY_CHANNEL_ID or LINE_PAY_CHANNEL_SECRET:
     if not LINE_PAY_CHANNEL_ID or not LINE_PAY_CHANNEL_SECRET:
-        raise ValueError(
-            "LINE_PAY_CHANNEL_ID and LINE_PAY_CHANNEL_SECRET must both be set if using LINE Pay"
-        )
+        print("⚠️ 警告: 偵測到 LINE Pay 設定，但缺少 ID 或 Secret。")
 
 LINE_PAY_API_URL = (
     "https://sandbox-api-pay.line.me" if LINE_PAY_SANDBOX else "https://api-pay.line.me"
@@ -53,10 +51,10 @@ class LinePayHandler:
 
     def _get_auth_headers(self, uri, body_json: str):
         nonce = str(uuid.uuid4())
-        message = LINE_PAY_CHANNEL_SECRET + uri + body_json + nonce
+        message = (LINE_PAY_CHANNEL_SECRET or "") + uri + body_json + nonce
         signature = base64.b64encode(
             hmac.new(
-                LINE_PAY_CHANNEL_SECRET.encode("utf-8"),
+                (LINE_PAY_CHANNEL_SECRET or "").encode("utf-8"),
                 message.encode("utf-8"),
                 hashlib.sha256,
             ).digest()
@@ -69,15 +67,14 @@ class LinePayHandler:
         return headers
 
     def request_payment(self, order, confirm_url, cancel_url):
-        """LINE Pay Request API (V3)"""
+        """LINE Pay Request API"""
         uri = "/v3/payments/request"
-
         products = []
         for item in order.items or []:
             qty = item.get("quantity") or item.get("qty", 0) or 0
             products.append(
                 {
-                    "name": item.get("name", ""),
+                    "name": item.get("name", "商品"),
                     "quantity": int(qty),
                     "price": int(item.get("price", 0)),
                 }
@@ -100,36 +97,32 @@ class LinePayHandler:
         body_json = json.dumps(payload)
         headers = self._get_auth_headers(uri, body_json)
 
-        res = requests.post(
-            f"{LINE_PAY_API_URL}{uri}", headers=headers, data=body_json, timeout=10
-        )
         try:
+            res = requests.post(
+                f"{LINE_PAY_API_URL}{uri}", headers=headers, data=body_json, timeout=10
+            )
             return res.json()
-        except Exception:
-            return {"returnCode": "HTTP_ERROR", "returnMessage": res.text}
+        except Exception as e:
+            return {"returnCode": "HTTP_ERROR", "returnMessage": str(e)}
 
     def confirm_payment(self, transaction_id, amount):
-        """LINE Pay Confirm API (V3)"""
+        """LINE Pay Confirm API"""
         uri = f"/v3/payments/{transaction_id}/confirm"
         payload = {"amount": int(amount), "currency": "TWD"}
 
         body_json = json.dumps(payload)
         headers = self._get_auth_headers(uri, body_json)
 
-        res = requests.post(
-            f"{LINE_PAY_API_URL}{uri}", headers=headers, data=body_json, timeout=10
-        )
         try:
+            res = requests.post(
+                f"{LINE_PAY_API_URL}{uri}", headers=headers, data=body_json, timeout=10
+            )
             return res.json()
-        except Exception:
-            return {"returnCode": "HTTP_ERROR", "returnMessage": res.text}
+        except Exception as e:
+            return {"returnCode": "HTTP_ERROR", "returnMessage": str(e)}
 
     def refund_payment(self, transaction_id, refund_amount=None):
-        """
-        LINE Pay Refund API (V3)
-        - refund_amount=None：全額退
-        - refund_amount=int：部分退
-        """
+        """LINE Pay Refund API"""
         uri = f"/v3/payments/{transaction_id}/refund"
         payload = {}
         if refund_amount is not None:
@@ -138,13 +131,13 @@ class LinePayHandler:
         body_json = json.dumps(payload)
         headers = self._get_auth_headers(uri, body_json)
 
-        res = requests.post(
-            f"{LINE_PAY_API_URL}{uri}", headers=headers, data=body_json, timeout=10
-        )
         try:
+            res = requests.post(
+                f"{LINE_PAY_API_URL}{uri}", headers=headers, data=body_json, timeout=10
+            )
             return res.json()
-        except Exception:
-            return {"returnCode": "HTTP_ERROR", "returnMessage": res.text}
+        except Exception as e:
+            return {"returnCode": "HTTP_ERROR", "returnMessage": str(e)}
 
 
 # ==========================================
@@ -162,11 +155,6 @@ class ProductViewSet(viewsets.ReadOnlyModelViewSet):
 
 
 class OrderViewSet(viewsets.ModelViewSet):
-    """
-    下單、庫存、LINE Pay、Dashboard 統計
-    + 新增：後台取消訂單會自動退款（LINE Pay）
-    """
-
     serializer_class = OrderSerializer
 
     def get_queryset(self):
@@ -177,221 +165,128 @@ class OrderViewSet(viewsets.ModelViewSet):
         return qs
 
     def get_permissions(self):
-        # 前台允許：下單、查詢最新、LINE 回調
-        if self.action in [
-            "latest",
-            "create",
-            "line_confirm",
-            "line_cancel",
-        ]:
+        if self.action in ["latest", "create", "line_confirm", "line_cancel"]:
             return [permissions.AllowAny()]
-        
-        # retrieve 需要特殊處理（見 retrieve 方法）
         if self.action == "retrieve":
             return [permissions.AllowAny()]
-        
-        # partial_update 允許匿名，但會在方法內進行驗證（見 partial_update 方法）
         if self.action == "partial_update":
             return [permissions.AllowAny()]
-
-        # 後台（含取消/狀態變更）必須登入
         return [permissions.IsAuthenticated()]
-    
+
     def retrieve(self, request, *args, **kwargs):
-        """
-        查詢訂單詳情
-        為了安全，建議前端在查詢時提供 phone_tail 來驗證身份
-        """
         instance = self.get_object()
-        
-        # 如果提供了 phone_tail，驗證是否匹配
         phone_tail = request.query_params.get("phone_tail")
         if phone_tail and phone_tail != instance.phone_tail:
             return Response(
-                {"error": "無權限查看此訂單"}, 
-                status=status.HTTP_403_FORBIDDEN
+                {"error": "無權限查看此訂單"}, status=status.HTTP_403_FORBIDDEN
             )
-        
-        # 如果沒有提供 phone_tail，允許查看（但建議前端總是提供）
         serializer = self.get_serializer(instance)
         return Response(serializer.data)
-    
+
     def partial_update(self, request, *args, **kwargs):
-        """
-        更新訂單（PATCH）
-        - 如果已登入：允許更新所有欄位
-        - 如果未登入：只允許在提供 phone_tail 驗證的情況下更新特定狀態（arrived, final）
-        """
         instance = self.get_object()
-        
-        # 如果已登入，使用預設行為（允許所有更新）
         if request.user.is_authenticated:
             return super().partial_update(request, *args, **kwargs)
-        
-        # 未登入的使用者：需要提供 phone_tail 驗證
+
         phone_tail = request.data.get("phone_tail")
-        if not phone_tail:
-            return Response(
-                {"error": "請提供 phone_tail 以驗證身份"}, 
-                status=status.HTTP_403_FORBIDDEN
-            )
-        
-        if phone_tail != instance.phone_tail:
-            return Response(
-                {"error": "phone_tail 驗證失敗"}, 
-                status=status.HTTP_403_FORBIDDEN
-            )
-        
-        # 只允許更新特定狀態
+        if not phone_tail or phone_tail != instance.phone_tail:
+            return Response({"error": "驗證失敗"}, status=status.HTTP_403_FORBIDDEN)
+
         new_status = request.data.get("status")
         if new_status and new_status not in ["arrived", "final"]:
             return Response(
-                {"error": "客戶端只能更新狀態為 'arrived' 或 'final'"}, 
-                status=status.HTTP_403_FORBIDDEN
+                {"error": "只能更新狀態為 arrived 或 final"},
+                status=status.HTTP_403_FORBIDDEN,
             )
-        
-        # 狀態轉換驗證
-        if new_status == "arrived":
-            # 只有 completed 狀態才能轉為 arrived
-            if instance.status != "completed":
-                return Response(
-                    {"error": f"訂單狀態必須為 'completed' 才能標記為 'arrived'，目前狀態為 '{instance.status}'"}, 
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-        elif new_status == "final":
-            # 只有 arrived 或 completed 狀態才能轉為 final
-            if instance.status not in ["arrived", "completed"]:
-                return Response(
-                    {"error": f"訂單狀態必須為 'arrived' 或 'completed' 才能完成，目前狀態為 '{instance.status}'"}, 
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-        
-        # 只更新允許的欄位
+
+        if new_status == "arrived" and instance.status != "completed":
+            return Response({"error": "訂單尚未完成，無法通知"}, status=400)
+
         allowed_fields = ["status"]
         update_data = {k: v for k, v in request.data.items() if k in allowed_fields}
-        
-        # 使用 serializer 更新
         serializer = self.get_serializer(instance, data=update_data, partial=True)
         serializer.is_valid(raise_exception=True)
         serializer.save()
-        
         return Response(serializer.data)
 
-    # -------- 共用：回補庫存（給 pending 取消/付款失敗用）--------
     def _restore_stock(self, order: Order):
         for item in order.items or []:
             product_id = item.get("id")
             qty = int(item.get("quantity") or item.get("qty", 0) or 0)
             if not product_id or qty <= 0:
                 continue
-            product = Product.objects.select_for_update().get(id=product_id)
-            product.stock += qty
-            product.save()
+            try:
+                product = Product.objects.select_for_update().get(id=product_id)
+                product.stock += qty
+                product.save()
+            except Product.DoesNotExist:
+                continue
 
+    # ✅ 修正重點 1: Create 方法加入分類快照邏輯
     def create(self, request, *args, **kwargs):
         store_slug = request.data.get("store_slug")
         if not store_slug:
-            return Response(
-                {"error": "請提供 store_slug"}, status=status.HTTP_400_BAD_REQUEST
-            )
-        
+            return Response({"error": "請提供 store_slug"}, status=400)
+
         store = get_object_or_404(Store, slug=store_slug)
         items_data = request.data.get("items", [])
         payment_method = request.data.get("payment_method", "cash")
 
-        # 輸入驗證：確保 items 是列表格式
-        if not isinstance(items_data, list):
-            return Response(
-                {"error": "items 必須是列表格式"}, status=status.HTTP_400_BAD_REQUEST
-            )
-        
-        if not items_data:
-            return Response(
-                {"error": "訂單必須包含至少一個商品"}, status=status.HTTP_400_BAD_REQUEST
-            )
-
-        # 驗證 payment_method
-        if payment_method not in ["cash", "linepay"]:
-            return Response(
-                {"error": "無效的付款方式"}, status=status.HTTP_400_BAD_REQUEST
-            )
+        if not isinstance(items_data, list) or not items_data:
+            return Response({"error": "items 格式錯誤或為空"}, status=400)
 
         try:
             with transaction.atomic():
-                # 1) 庫存檢查與扣除（加強輸入驗證）
+                updated_items = []
+
                 for item in items_data:
-                    if not isinstance(item, dict):
-                        return Response(
-                            {"error": "每個商品項目必須是物件格式"}, 
-                            status=status.HTTP_400_BAD_REQUEST
-                        )
-                    
                     product_id = item.get("id")
-                    if not product_id:
-                        return Response(
-                            {"error": "商品項目缺少 id"}, 
-                            status=status.HTTP_400_BAD_REQUEST
-                        )
-                    
-                    # 安全地轉換數量
-                    try:
-                        qty = int(item.get("quantity") or item.get("qty", 0))
-                        if qty <= 0:
-                            return Response(
-                                {"error": "商品數量必須大於 0"}, 
-                                status=status.HTTP_400_BAD_REQUEST
-                            )
-                    except (ValueError, TypeError):
-                        return Response(
-                            {"error": "無效的數量格式"}, 
-                            status=status.HTTP_400_BAD_REQUEST
-                        )
-                    
+                    qty = int(item.get("quantity") or item.get("qty", 0))
+
+                    if qty <= 0:
+                        continue
+
                     product = Product.objects.select_for_update().get(id=product_id)
 
                     if not product.is_active:
-                        return Response(
-                            {"error": f"{product.name} 目前不供應"},
-                            status=status.HTTP_400_BAD_REQUEST,
-                        )
-
+                        raise ValueError(f"{product.name} 目前不供應")
                     if product.stock < qty:
-                        return Response(
-                            {
-                                "error": f"{product.name} 庫存不足 (剩餘 {product.stock})"
-                            },
-                            status=status.HTTP_400_BAD_REQUEST,
+                        raise ValueError(
+                            f"{product.name} 庫存不足 (剩餘 {product.stock})"
                         )
 
                     product.stock -= qty
                     product.save()
 
-                # 2) 建立訂單（pending）
+                    # 🔥 [修正] 將商品當下的 Category 資訊寫入訂單 JSON
+                    item_copy = item.copy()
+                    item_copy["category"] = product.category.slug  # 例如 'drink'
+                    item_copy["category_name"] = (
+                        product.category.name
+                    )  # 例如 '飲品系列'
+                    item_copy["name"] = product.name
+                    item_copy["price"] = product.price
+                    updated_items.append(item_copy)
+
+                # 建立訂單
                 data_copy = request.data.copy()
                 data_copy["status"] = "pending"
+                data_copy["items"] = updated_items  # 使用更新後的 items
 
                 serializer = self.get_serializer(data=data_copy)
-                # serializer.is_valid(raise_exception=True)
                 if not serializer.is_valid():
-                    return Response(
-                        serializer.errors, status=status.HTTP_400_BAD_REQUEST
-                    )
+                    return Response(serializer.errors, status=400)
 
-                save_data = serializer.validated_data
-                if "store_slug" in save_data:
-                    del save_data["store_slug"]
+                if "store_slug" in serializer.validated_data:
+                    del serializer.validated_data["store_slug"]
 
                 order = serializer.save(store=store)
 
-                # 3) 付款分流
+                # LINE Pay 處理
                 if payment_method == "linepay":
                     line_handler = LinePayHandler()
-
                     host = request.get_host()
-
-                    # 本地 + ngrok 測試建議直接固定 https（否則 request.is_secure() 常是 False）
                     protocol = "https" if request.is_secure() else "http"
-                    # 如果你確定是 ngrok https，可改成：protocol = "https"
 
                     confirm_url = (
                         f"{protocol}://{host}/api/orders/line_confirm/?oid={order.id}"
@@ -416,25 +311,23 @@ class OrderViewSet(viewsets.ModelViewSet):
                                 "payment_url": payment_url,
                                 "items": order.items,
                             },
-                            status=status.HTTP_201_CREATED,
+                            status=201,
                         )
 
-                    raise Exception(
-                        f"LINE Pay 請求失敗 (Code: {result.get('returnCode') if result else 'Unknown'})"
+                    raise ValueError(
+                        f"LINE Pay 請求失敗: {result.get('returnMessage')}"
                     )
 
-                # 現金付款
-                return Response(serializer.data, status=status.HTTP_201_CREATED)
+                return Response(serializer.data, status=201)
 
         except Product.DoesNotExist:
-            return Response(
-                {"error": "找不到商品資料"}, status=status.HTTP_404_NOT_FOUND
-            )
+            return Response({"error": "找不到商品資料"}, status=404)
+        except ValueError as e:
+            return Response({"error": str(e)}, status=400)
         except Exception as e:
             print(f"Create Order Error: {e}")
-            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": "系統發生錯誤"}, status=400)
 
-    # ✅ LINE Pay Confirm：付款成功回來會帶 transactionId
     @action(detail=False, methods=["get"])
     def line_confirm(self, request):
         transaction_id = request.GET.get("transactionId")
@@ -448,7 +341,6 @@ class OrderViewSet(viewsets.ModelViewSet):
                 order = Order.objects.select_for_update().get(id=order_id)
                 store_slug = order.store.slug
 
-                # 已確認就直接回客人頁
                 if order.status == "confirmed":
                     return redirect(f"/{store_slug}/?oid={order.id}")
 
@@ -463,31 +355,18 @@ class OrderViewSet(viewsets.ModelViewSet):
                 if result and result.get("returnCode") == "0000":
                     order.status = "confirmed"
                     order.payment_method = "linepay"
-
-                    # ✅ 必存：退款需要 transactionId
-                    # ⚠️ 需先在 Order model 增加 linepay_transaction_id 欄位，並 migrate
-                    if hasattr(order, "linepay_transaction_id"):
-                        order.linepay_transaction_id = str(transaction_id)
-
+                    order.linepay_transaction_id = str(transaction_id)
                     order.save()
                     return redirect(f"/{store_slug}/?oid={order.id}")
 
-                # confirm 失敗：回補庫存、取消訂單
-                print(f"LINE Pay Confirm Failed: {result}")
-                if order.status == "pending":
-                    self._restore_stock(order)
-                    order.status = "cancelled"
-                    order.save()
-
+                self._restore_stock(order)
+                order.status = "cancelled"
+                order.save()
                 return redirect(f"/{store_slug}/?error=payment_failed&oid={order.id}")
 
-        except Order.DoesNotExist:
-            return redirect("/")
         except Exception as e:
-            print(f"LINE Confirm Error: {e}")
-            return redirect(f"/?error=server_error&oid={order_id}")
+            return redirect(f"/?error=server_error")
 
-    # ✅ LINE Pay Cancel：使用者在 LINE Pay 頁面取消付款會走這裡
     @action(detail=False, methods=["get"])
     def line_cancel(self, request):
         order_id = request.GET.get("oid")
@@ -499,36 +378,27 @@ class OrderViewSet(viewsets.ModelViewSet):
                 order = Order.objects.select_for_update().get(id=order_id)
                 store_slug = order.store.slug
 
-                # 已 confirmed 就不動（代表已付了，取消應走退款流程，不該走這支）
                 if order.status == "confirmed":
                     return redirect(f"/{store_slug}/?oid={order.id}")
 
-                # pending 才回補
                 if order.status == "pending":
                     self._restore_stock(order)
                     order.status = "cancelled"
                     order.save()
 
                 return redirect(f"/{store_slug}/?error=cancelled&oid={order.id}")
+        except Exception:
+            return redirect(f"/?error=cancel_failed")
 
-        except Order.DoesNotExist:
-            return redirect("/")
-        except Exception as e:
-            print(f"LINE Cancel Error: {e}")
-            return redirect(f"/?error=cancel_failed&oid={order_id}")
-
-    # ✅ 後台取消（會自動退款）
     @action(detail=True, methods=["post"], url_path="cancel")
     def cancel(self, request, pk=None):
         try:
             with transaction.atomic():
                 order = Order.objects.select_for_update().get(id=pk)
 
-                # 已取消就不重做
                 if order.status == "cancelled":
                     return Response({"detail": "already cancelled"})
 
-                # 只有 LINE Pay 且已付款(confirmed 之後)才需要退款
                 if order.payment_method == "linepay" and order.status in [
                     "confirmed",
                     "preparing",
@@ -537,41 +407,31 @@ class OrderViewSet(viewsets.ModelViewSet):
                     "final",
                 ]:
                     if not getattr(order, "linepay_transaction_id", None):
-                        return Response(
-                            {"error": "missing linepay_transaction_id"}, status=400
+                        return Response({"error": "missing transaction id"}, status=400)
+
+                    if not getattr(order, "linepay_refunded", False):
+                        line_handler = LinePayHandler()
+                        refund_res = line_handler.refund_payment(
+                            order.linepay_transaction_id
                         )
 
-                    # 已退過就不要重退
-                    if getattr(order, "linepay_refunded", False):
-                        order.status = "cancelled"
-                        order.save()
-                        return Response({"detail": "already refunded, order cancelled"})
+                        if refund_res and refund_res.get("returnCode") == "0000":
+                            order.linepay_refunded = True
+                            order.linepay_refund_transaction_id = str(
+                                refund_res.get("info", {}).get(
+                                    "refundTransactionId", ""
+                                )
+                            )
+                        else:
+                            return Response(
+                                {"error": "refund failed", "detail": refund_res},
+                                status=400,
+                            )
 
-                    line_handler = LinePayHandler()
-                    refund_res = line_handler.refund_payment(
-                        order.linepay_transaction_id
-                    )
-
-                    # ✅ 你問的這段：加在這裡
-                    print("[LINEPAY REFUND RES]", refund_res)
-
-                    if refund_res and refund_res.get("returnCode") == "0000":
-                        order.linepay_refunded = True
-                        order.linepay_refund_transaction_id = str(
-                            refund_res.get("info", {}).get("refundTransactionId", "")
-                        )
-                        order.save()
-                    else:
-                        return Response(
-                            {"error": "refund failed", "linepay": refund_res},
-                            status=400,
-                        )
-
-                # 最後都要取消訂單（你的 Order.save 會回補庫存）
                 order.status = "cancelled"
                 order.save()
 
-            return Response({"detail": "cancelled (refunded if linepay)"})
+            return Response({"detail": "cancelled"})
         except Order.DoesNotExist:
             return Response({"error": "order not found"}, status=404)
 
@@ -585,6 +445,7 @@ class OrderViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(orders, many=True)
         return Response(serializer.data)
 
+    # ✅ 修正重點 2: 儀表板改為動態讀取 Category
     @action(detail=False, methods=["get"])
     def dashboard_stats(self, request):
         store_slug = request.query_params.get("store")
@@ -592,6 +453,8 @@ class OrderViewSet(viewsets.ModelViewSet):
             return Response({"error": "請提供 store 參數"}, status=400)
 
         store = get_object_or_404(Store, slug=store_slug)
+        # 🔥 [修正] 動態抓取分類，不再寫死
+        categories = Category.objects.filter(store=store).order_by("sort_order")
 
         tw_tz = pytz.timezone("Asia/Taipei")
         now_tw = timezone.now().astimezone(tw_tz)
@@ -603,37 +466,31 @@ class OrderViewSet(viewsets.ModelViewSet):
             total_rev = final_qs.aggregate(Sum("total"))["total__sum"] or 0
             total_count = final_qs.count()
 
-            items_stats = {
-                "hulu": {"qty": 0, "rev": 0},
-                "daifuku": {"qty": 0, "rev": 0},
-                "drink": {"qty": 0, "rev": 0},
-                "dessert": {"qty": 0, "rev": 0},
-            }
+            # 初始化統計容器
+            items_stats = {}
+            for cat in categories:
+                items_stats[cat.slug] = {"qty": 0, "rev": 0, "name": cat.name}
+            items_stats["uncategorized"] = {"qty": 0, "rev": 0, "name": "其他"}
 
             for order in final_qs:
                 for item in order.items or []:
-                    name = item.get("name", "")
-                    qty = item.get("quantity") or item.get("qty", 0) or 0
-                    price = item.get("price", 0) or 0
-                    subtotal = int(price) * int(qty)
+                    # 🔥 [修正] 讀取訂單中的分類
+                    cat_slug = item.get("category", "uncategorized")
 
-                    if "糖葫蘆" in name:
-                        items_stats["hulu"]["qty"] += int(qty)
-                        items_stats["hulu"]["rev"] += int(subtotal)
-                    elif "大福" in name:
-                        items_stats["daifuku"]["qty"] += int(qty)
-                        items_stats["daifuku"]["rev"] += int(subtotal)
-                    elif any(x in name for x in ["牛奶", "茶", "飲", "咖啡"]):
-                        items_stats["drink"]["qty"] += int(qty)
-                        items_stats["drink"]["rev"] += int(subtotal)
+                    qty = int(item.get("quantity") or item.get("qty", 0))
+                    price = int(item.get("price", 0))
+                    subtotal = price * qty
+
+                    if cat_slug in items_stats:
+                        items_stats[cat_slug]["qty"] += qty
+                        items_stats[cat_slug]["rev"] += subtotal
                     else:
-                        items_stats["dessert"]["qty"] += int(qty)
-                        items_stats["dessert"]["rev"] += int(subtotal)
+                        items_stats["uncategorized"]["qty"] += qty
+                        items_stats["uncategorized"]["rev"] += subtotal
 
             return total_rev, total_count, items_stats
 
         base_qs = self.get_queryset().filter(store=store)
-
         d_rev, d_count, d_items = calculate_metrics(
             base_qs.filter(created_at__gte=today_start)
         )

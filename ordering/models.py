@@ -16,16 +16,38 @@ class Store(models.Model):
         return self.name
 
 
+class Category(models.Model):
+    """商品分類"""
+
+    store = models.ForeignKey(
+        Store,
+        on_delete=models.CASCADE,
+        related_name="categories",
+        verbose_name="所屬分店",
+    )
+    name = models.CharField(
+        max_length=50, verbose_name="分類名稱", help_text="例如：飲品系列"
+    )
+    slug = models.SlugField(
+        max_length=50,
+        verbose_name="分類代碼",
+        help_text="對應前端 ID，例如：drink, tanghulu",
+    )
+    sort_order = models.PositiveIntegerField(default=0, verbose_name="顯示順序")
+    is_active = models.BooleanField(default=True, verbose_name="是否啟用")
+
+    class Meta:
+        verbose_name = "商品分類"
+        verbose_name_plural = "商品分類"
+        ordering = ["sort_order"]  # 這樣前端拿到資料時就會照順序排好
+        unique_together = ["store", "slug"]  # 同一家店代碼不能重複
+
+    def __str__(self):
+        return f"{self.name} ({self.slug})"
+
+
 class Product(models.Model):
     """商品資訊"""
-
-    CATEGORY_CHOICES = [
-        ("drink", "飲品系列"),
-        ("tanghulu", "糖葫蘆系列"),
-        ("mochi", "Q軟麻糬系列"),
-        ("ichikomochi", "元寶草莓大福系列"),
-        ("dessert", "草莓甜點系列"),
-    ]
 
     store = models.ForeignKey(
         Store,
@@ -33,13 +55,16 @@ class Product(models.Model):
         related_name="products",
         verbose_name="所屬分店",
     )
-    name = models.CharField(max_length=50, verbose_name="商品名稱")
-    category = models.CharField(
-        max_length=20,
-        choices=CATEGORY_CHOICES,
-        default="dessert",
+
+    # 修改：關聯到 Category 模型
+    category = models.ForeignKey(
+        Category,
+        on_delete=models.PROTECT,  # 避免誤刪分類導致商品消失
+        related_name="products",
         verbose_name="商品分類",
     )
+
+    name = models.CharField(max_length=50, verbose_name="商品名稱")
     price = models.PositiveIntegerField(verbose_name="單價(元)")
     description = models.CharField(
         max_length=100, blank=True, verbose_name="短描述(如：口味二選一)"
@@ -60,10 +85,11 @@ class Product(models.Model):
     class Meta:
         verbose_name = "商品"
         verbose_name_plural = "商品"
-        ordering = ["category", "id"]
+        # 排序邏輯：先照分類的 sort_order 排，同分類下再照商品 ID 排
+        ordering = ["category__sort_order", "id"]
 
     def __str__(self):
-        return f"[{self.get_category_display()}] {self.name}"
+        return f"[{self.category.name}] {self.name}"
 
     @property
     def is_sold_out(self):
