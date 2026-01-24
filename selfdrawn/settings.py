@@ -104,7 +104,9 @@ ALLOWED_HOSTS_ENV = os.environ.get("ALLOWED_HOSTS")
 if ALLOWED_HOSTS_ENV:
     ALLOWED_HOSTS = [host.strip() for host in ALLOWED_HOSTS_ENV.split(",")]
 else:
-    ALLOWED_HOSTS = ["localhost", "127.0.0.1", "self-drawn.onrender.com"]
+    # ALLOWED_HOSTS = ["localhost", "127.0.0.1", "self-drawn.onrender.com"]
+    ALLOWED_HOSTS = ['yibahu-order.it.com', '167.99.64.109', 'localhost', '127.0.0.1']
+    
 
 # 信任的來源 (解決 CSRF 403 錯誤)
 # 注意：一定要有 https:// 開頭
@@ -119,10 +121,21 @@ else:
 
 # ...
 
+# DATABASES = {
+#     "default": {
+#         "ENGINE": "django.db.backends.sqlite3",
+#         "NAME": BASE_DIR / "db.sqlite3",
+#     }
+# }
+
 DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'self_drawn_db',         # 資料庫名稱
+        'USER': 'qkauia',               # 使用者名稱
+        'PASSWORD': 'maxa1025',          # 使用者密碼
+        'HOST': '127.0.0.1',             # 指向本機資料庫
+        'PORT': '5432',                  # PostgreSQL 預設連接埠
     }
 }
 
