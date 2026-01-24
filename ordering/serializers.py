@@ -63,7 +63,3 @@ class OrderSerializer(serializers.ModelSerializer):
         if not isinstance(value, list):
             raise serializers.ValidationError("品項必須是列表格式")
         return value
-
-    # ❌ 刪除原本這裡的 def create(...) 方法
-    # 因為 views.py 已經處理好 store 物件並呼叫 serializer.save(store=store)
-    # 預設的 ModelSerializer.create 會自動處理好剩下的欄位

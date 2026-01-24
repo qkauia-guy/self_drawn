@@ -285,7 +285,7 @@ class OrderViewSet(viewsets.ModelViewSet):
                     line_handler = LinePayHandler()
 
                     # 🟢 [修正] 直接填入您的 Render 正確網址
-                    MY_DOMAIN = "self-drawn.onrender.com"
+                    MY_DOMAIN = "yibahu-order.it.com"
 
                     # 🟢 [修正] 強制使用 https (LINE Pay 嚴格要求)
                     confirm_url = (
@@ -536,6 +536,12 @@ class OrderViewSet(viewsets.ModelViewSet):
                 "update_time": now_tw.strftime("%Y-%m-%d %H:%M:%S"),
             }
         )
+
+
+def store_list(request):
+    """回傳所有營業中的分店清單，供後台選擇器使用"""
+    stores = Store.objects.filter(is_active=True).values("name", "slug")
+    return JsonResponse(list(stores), safe=False)
 
 
 # ==========================================
