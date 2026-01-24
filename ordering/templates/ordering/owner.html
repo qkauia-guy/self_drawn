@@ -123,6 +123,101 @@
     #voiceDebug{ font-size: 0.85rem; min-height: 20px; color: #d63031; font-weight: bold; text-align: center; }
     #audio-unlocker select { background-color: white; color: #333; border: none; cursor: pointer; }
     #audio-unlocker .store-box { backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+    /* === 新增與修改樣式 === */
+  .input-group:focus-within { box-shadow: 0 4px 12px rgba(0,0,0,0.1) !important; transition: 0.3s; }
+
+  .filter-btn { white-space: nowrap; border: 1px solid transparent; transition: all 0.2s; opacity: 0.65; }
+  .filter-btn:hover { transform: translateY(-2px); opacity: 0.9; }
+
+  /* 選中狀態：不透明度變為 1，並加上邊框 */
+  .filter-btn.active { 
+      opacity: 1; 
+      box-shadow: 0 4px 10px rgba(0,0,0,0.15); 
+      border: 2px solid #fff;
+      transform: scale(1.05);
+  }
+
+  /* 個別按鈕的選中顏色強化 */
+  .filter-btn[onclick*='pending'].active { background-color: #636e72 !important; border-color: #636e72; }
+  .filter-btn[onclick*='confirmed'].active { background-color: #0d6efd !important; border-color: #0d6efd; }
+  .filter-btn[onclick*='preparing'].active { background-color: #ffc107 !important; border-color: #ffc107; color: black !important; }
+
+  /* 未取餐：選中時為鮮豔綠色 */
+  .filter-btn[onclick*='uncollected'].active { background-color: #00b894 !important; border-color: #00b894; }
+
+  /* 歷史：選中時為深灰色 */
+  .filter-btn[onclick*='history'].active { background-color: #b2bec3 !important; border-color: #b2bec3; color: #2d3436 !important; }
+
+  /* =========================================
+   手機版 RWD 優化樣式
+   ========================================= */
+
+  /* 1. 隱藏橫向卷軸但保留滑動功能 */
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
+  }
+
+  /* 2. 篩選容器樣式：強迫不換行、橫向排列 */
+  #filterContainer {
+    display: flex;
+    flex-wrap: nowrap;     /* 禁止換行 */
+    overflow-x: auto;      /* 允許橫向捲動 */
+    gap: 8px;              /* 按鈕間距 */
+    padding: 10px 5px;     /* 上下內距 */
+    -webkit-overflow-scrolling: touch; /* 讓 iOS 滑動更順暢 */
+    cursor: grab;
+  }
+
+  /* 3. 手機版按鈕微調 */
+  .filter-btn {
+    flex: 0 0 auto;       /* 防止按鈕被壓縮變形 */
+    border-radius: 50rem !important; /* 保持圓角 */
+    font-size: 0.95rem;
+  }
+
+  .filter-btn[onclick*='cancelled'].active { 
+    background-color: #d63031 !important; 
+    border-color: #d63031; 
+    color: white !important;
+    opacity: 1;
+  }
+
+  /* 4. 控制區塊黏性置頂 (Sticky) - 讓搜尋和篩選跟著跑 */
+  .sticky-controls {
+    position: sticky;
+    top: 56px; /* 根據您的 Navbar 高度調整，Bootstrap Navbar 預設約 56px */
+    z-index: 990;
+    background-color: rgba(240, 242, 245, 0.95); /* 與背景色相同但微透明 */
+    backdrop-filter: blur(5px); /* 毛玻璃效果 */
+    border-bottom: 1px solid rgba(0,0,0,0.05);
+    padding-top: 10px;
+    margin-top: -16px; /* 修正原本 container 的 margin */
+  }
+
+  /* 5. 調整手機版卡片內容 */
+  @media (max-width: 576px) {
+    .order-head-left {
+      flex-wrap: wrap; /* 手機上標籤太多時允許換行 */
+      gap: 5px;
+    }
+    .order-pill, .pay-tag-line, .pay-tag-cash, .status-tag {
+      height: 28px;      /* 稍微縮小高度 */
+      font-size: 0.8rem; /* 字體縮小 */
+      padding: 0 8px;
+    }
+    .item-badge {
+      font-size: 0.9rem;
+    }
+    /* 讓操作按鈕在手機上更好按 */
+    .btn-action {
+      padding: 12px;
+      font-size: 1.1rem;
+    }
+  }
   </style>
 </head>
 
@@ -143,6 +238,67 @@
     </div>
   </nav>
 
+  <div class="sticky-controls pb-2 mb-3">
+    <div class="container">
+      
+      <div class="input-group input-group-sm shadow-sm">
+        <span class="input-group-text bg-white border-end-0">🔍</span>
+        <input type="tel" id="searchInput" class="form-control border-start-0 ps-0" 
+               placeholder="輸入單號或手機末碼" onkeyup="handleSearch()">
+        <button class="btn btn-outline-secondary bg-white text-muted border-start-0" type="button" onclick="clearSearch()">✕</button>
+      </div>
+
+      <div id="filterContainer" class="no-scrollbar">
+        <button class="btn btn-dark filter-btn active position-relative" onclick="setFilter('all')">
+          全部
+        </button>
+        
+        <button class="btn btn-secondary filter-btn position-relative" onclick="setFilter('pending')">
+          新單
+          <span id="badge-pending" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger d-none animate__animated">0</span>
+        </button>
+        
+        <button class="btn btn-primary filter-btn position-relative" onclick="setFilter('confirmed')">
+          成立
+          <span id="badge-confirmed" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger d-none animate__animated">0</span>
+        </button>
+
+        <button class="btn btn-warning filter-btn position-relative" onclick="setFilter('preparing')">
+          製作
+          <span id="badge-preparing" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger d-none animate__animated">0</span>
+        </button>
+        
+        <button class="btn btn-success filter-btn position-relative" onclick="setFilter('uncollected')">
+          未取
+          <span id="badge-uncollected" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger d-none animate__animated">0</span>
+        </button>
+        
+        <button class="btn btn-danger bg-opacity-75 filter-btn position-relative" onclick="setFilter('cancelled')">
+          取消
+        </button>
+
+        <button class="btn btn-light border filter-btn position-relative" onclick="setFilter('final')">
+          完成
+          <span id="badge-final" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger d-none animate__animated">0</span>
+        </button>
+      </div>
+      </div>
+  </div>
+
+  <div class="container mt-3" id="orderList">
+    <div class="text-center mt-5 text-muted">
+      <div class="spinner-border text-danger mb-3" role="status"></div>
+      <p>正在同步訂單資料...</p>
+    </div>
+  </div>
+
+  <div class="container mt-4 mb-5 pb-5">
+    <nav aria-label="Order pagination">
+      <ul class="pagination justify-content-center" id="paginationControls"></ul>
+    </nav>
+    <div class="text-center text-muted small mt-2" id="pageInfo"></div>
+  </div>
+
   <div class="container">
     <div id="voiceDebug"></div>
     <div id="volumeContainer" class="progress mx-auto mt-1" style="width: 150px; height: 4px; background-color: #eee; border-radius: 5px; overflow: hidden; opacity: 0; transition: opacity 0.3s;">
@@ -157,11 +313,11 @@
     </div>
     <div class="offcanvas-body">
       <div class="list-group">
-        <a href="javascript:void(0)" onclick="goToReport()" class="list-group-item list-group-item-action py-3 fw-bold text-danger">📊 營業報表統計</a>
-        <a href="/admin/" class="list-group-item list-group-item-action py-3">Django 後台管理</a>
-        <a href="javascript:void(0)" onclick="openStatusBoard()" class="list-group-item list-group-item-action py-3 text-primary">🖥️ 打開叫號看板</a>
+        <a href="javascript:void(0)" onclick="resetBusinessDay()" class="list-group-item list-group-item-action py-3 fw-bold text-dark">營業結束 (訂單歸零)</a>
+        <a href="javascript:void(0)" onclick="goToReport()" class="list-group-item list-group-item-action py-3 fw-bold text-danger">營業報表統計</a>
+        <a href="/admin/" class="list-group-item list-group-item-action py-3">後台管理</a>
+        <a href="javascript:void(0)" onclick="openStatusBoard()" class="list-group-item list-group-item-action py-3 text-primary">叫號看板</a>
         <hr>
-        <a href="/admin/logout/" class="list-group-item list-group-item-action py-3 text-muted small">安全登出</a>
       </div>
     </div>
   </div>
@@ -180,30 +336,25 @@
     <p class="small opacity-75">啟動後將開啟語音通知與即時訂單監測</p>
   </div>
 
-  <div class="container mt-3" id="orderList">
-    <div class="text-center mt-5 text-muted">
-      <div class="spinner-border text-danger mb-3" role="status"></div>
-      <p>正在同步訂單資料...</p>
-    </div>
-  </div>
-
   <div class="modal fade" id="editOrderModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-      <div class="modal-content" style="border-radius: 20px;">
-        <div class="modal-header border-0">
-          <h5 class="modal-title fw-bold">修改訂單內容 #<span id="editOrderIdDisplay"></span></h5>
+    <div class="modal-dialog modal-dialog-centered modal-lg"> <div class="modal-content" style="border-radius: 20px;">
+        <div class="modal-header border-0 bg-light">
+          <h5 class="modal-title fw-bold">✏️ 修改訂單 #<span id="editOrderIdDisplay"></span></h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
         </div>
-        <div class="modal-body">
-          <div id="editProductList" class="list-group list-group-flush"></div>
-          <div class="mt-4 p-3 bg-light rounded-3 d-flex justify-content-between align-items-center">
-            <span class="fw-bold">修正後總額：</span>
-            <span class="fs-3 fw-bold text-danger" id="editTotalAmount">$0</span>
-          </div>
+        <div class="modal-body p-0">
+          <div id="editProductList" class="list-group list-group-flush" style="max-height: 60vh; overflow-y: auto;">
+              </div>
         </div>
-        <div class="modal-footer border-0">
-          <button type="button" class="btn btn-secondary rounded-pill" data-bs-dismiss="modal">取消</button>
-          <button type="button" class="btn btn-danger rounded-pill px-4" onclick="saveOrderChange()">確認儲存修改</button>
+        <div class="modal-footer border-top shadow-sm justify-content-between">
+          <div>
+              <span class="text-muted small">修正後總額：</span>
+              <span class="fs-4 fw-bold text-danger" id="editTotalAmount">$0</span>
+          </div>
+          <div>
+              <button type="button" class="btn btn-secondary rounded-pill me-2" data-bs-dismiss="modal">取消</button>
+              <button type="button" class="btn btn-danger rounded-pill px-4 fw-bold" onclick="saveOrderChange()">確認儲存</button>
+          </div>
         </div>
       </div>
     </div>
@@ -218,6 +369,7 @@
     let currentStore = localStorage.getItem('selected_store') || ''; 
     let storesData = []; 
     let isFirstLoad = true;
+    let lastCounts = {};
     
     // 通知記錄
     let alertedArrived = new Set(JSON.parse(localStorage.getItem('alerted_arrived') || '[]'));
@@ -247,6 +399,12 @@
     document.addEventListener('DOMContentLoaded', () => {
         fetchStores();
         if ('speechSynthesis' in window) window.speechSynthesis.getVoices(); 
+    });
+
+    document.addEventListener('DOMContentLoaded', () => {
+        fetchStores();
+        fetchAllProducts(); // 新增這行
+        // ...其他原本的代碼
     });
 
     function fetchStores() {
@@ -580,138 +738,86 @@
             document.getElementById('targetStoreName').innerText = storeObj ? storeObj.name : "";
     }
 
+    // ==========================================
+// 載入訂單與紅點動畫邏輯
+// ==========================================
     function loadOrders() {
         if (!currentStore) return;
+
+        // 加入 t=時間戳記，防止 API 被瀏覽器快取
         fetch(`/api/orders/?store=${currentStore}&t=${Date.now()}`)
             .then(res => res.json())
             .then(orders => {
                 if (!Array.isArray(orders)) return;
-                
-                const jsonStr = JSON.stringify(orders);
-                if (jsonStr === lastOrdersJson) return;
-                lastOrdersJson = jsonStr;
 
-                const list = document.getElementById('orderList');
-                if (orders.length === 0) {
-                    list.innerHTML = `<div class="text-center mt-5 text-muted">目前沒有訂單</div>`;
-                    return;
-                }
-
-                const openedIds = [];
-                document.querySelectorAll('.detail-content:not(.hide-detail)').forEach(el => {
-                    openedIds.push(parseInt(el.id.replace('detail-', '')));
-                });
-
-                let html = '';
-                orders.sort((a, b) => {
-                    const aClosed = (a.status === 'final' || a.status === 'cancelled');
-                    const bClosed = (b.status === 'final' || b.status === 'cancelled');
-                    if (aClosed && !bClosed) return 1;
-                    if (!aClosed && bClosed) return -1;
-                    return b.id - a.id;
-                });
-
+                // --- 1. 語音通知 (維持不動) ---
                 orders.forEach(order => {
                     if (order.status === 'pending' && !alertedNewOrder.has(order.id)) {
                         if (!isFirstLoad) speak(`新訂單 ${order.id}號`);
                         alertedNewOrder.add(order.id);
-                        localStorage.setItem('alerted_new_orders', JSON.stringify([...alertedNewOrder].slice(-50)));
                     }
                     if (order.status === 'arrived' && !alertedArrived.has(order.id)) {
-                        playBell(); 
+                        playBell();
                         setTimeout(() => speak(`${order.id}號 客人已經到櫃檯摟`), 1000);
                         alertedArrived.add(order.id);
-                        localStorage.setItem('alerted_arrived', JSON.stringify([...alertedArrived].slice(-50)));
                     }
-                    if (order.status === 'confirmed' && order.payment_method === 'linepay' && !alertedLinePayPaid.has(order.id)) {
-                        speak(`${order.id}號 線上付款成功`);
-                        alertedLinePayPaid.add(order.id);
-                        localStorage.setItem('alerted_linepay_paid', JSON.stringify([...alertedLinePayPaid].slice(-50)));
-                    }
-
-                    // --- UI 細項 ---
-                    const wasOpened = openedIds.includes(order.id);
-                    const isContracted = (order.status === 'final' || order.status === 'cancelled');
-                    let detailClass = (wasOpened || !isContracted) ? 'detail-content' : 'detail-content hide-detail';
-                    let arrowRotate = (wasOpened || !isContracted) ? 'style="transform: rotate(180deg)"' : '';
-
-                    const isLinePay = order.payment_method === 'linepay';
-                    const payTag = isLinePay ? `<span class="pay-tag-line">LINE</span>` : `<span class="pay-tag-cash">CASH</span>`;
-
-                    let actionBtn = '';
-                    if (order.status === 'pending') {
-                        if (isLinePay) {
-                            actionBtn = `
-                                <div class="alert alert-warning text-center fw-bold mb-2 py-2 small">⏳ 等待顧客付款中...</div>
-                                <button onclick="cancelOrder(${order.id})" class="btn btn-link btn-sm text-muted w-100 mt-1">取消訂單</button>
-                            `;
-                        } else {
-                            actionBtn = `
-                                <button onclick="updateStatus(${order.id}, 'confirmed')" class="btn btn-primary btn-action shadow">💰 已收錢：成立訂單</button>
-                                <button onclick="cancelOrder(${order.id})" class="btn btn-link btn-sm text-muted w-100 mt-1">取消訂單</button>
-                            `;
-                        }
-                    } else if (order.status === 'confirmed') {
-                        actionBtn = `
-                            <button onclick="updateStatus(${order.id}, 'preparing')" class="btn btn-warning btn-action shadow">🍓 開始製作餐點</button>
-                            <button onclick="cancelOrder(${order.id})" class="btn btn-link btn-sm text-muted w-100 mt-1">取消訂單</button>
-                        `;
-                    } else if (order.status === 'preparing') {
-                        actionBtn = `
-                            <button onclick="updateStatus(${order.id}, 'completed', true)" class="btn btn-success btn-action shadow">🔔 製作完成：發送通知</button>
-                            <button onclick="cancelOrder(${order.id})" class="btn btn-link btn-sm text-muted w-100 mt-1">取消訂單</button>
-                        `;
-                    } else if (order.status === 'completed') {
-                        actionBtn = `
-                            <div class="alert alert-info text-center mb-2 py-2 fw-bold small">⌛ 已通知，等候取餐中...</div>
-                            <button onclick="confirmAction(${order.id}, 'final', '確認交付餐點並結案？')" class="btn btn-danger btn-action shadow">✨ 交付結案</button>
-                        `;
-                    } else if (order.status === 'arrived') {
-                        actionBtn = `
-                            <button onclick="confirmAction(${order.id}, 'final', '確認交付結案？')" class="btn btn-danger btn-action animate__animated animate__pulse animate__infinite shadow-lg">🚨 客人已抵達！點此結案</button>
-                        `;
-                    } else if (order.status === 'cancelled') {
-                        actionBtn = `<div class="text-center py-2 text-danger fw-bold">❌ 訂單已取消</div>`;
-                    } else if (order.status === 'final') {
-                        actionBtn = `<div class="text-center py-2 text-success fw-bold">✅ 交易已完成</div>`;
-                    }
-
-                    const statusTagClass = { pending: 'tag-pending', confirmed: 'tag-confirmed', preparing: 'tag-preparing', completed: 'tag-completed', arrived: 'tag-arrived', final: 'tag-final', cancelled: 'tag-cancelled' }[order.status];
-
-                    html += `
-                        <div class="card order-card status-${order.status}" id="card-${order.id}">
-                            <div class="card-header-clickable" onclick="toggleDetail(${order.id})">
-                                <div class="order-head-left">
-                                    <span class="order-pill pill-phone">${order.phone_tail || '現場'}</span>
-                                    <span class="order-pill pill-id">#${order.id}</span>
-                                    ${payTag}
-                                    <span class="status-tag ${statusTagClass}">
-                                        ${getStatusText(order.status)}${order.status === 'arrived' ? ' 🚨' : ''}
-                                    </span>
-                                </div>
-                                <div class="order-head-right">
-                                    <span class="arrow" id="arrow-${order.id}" ${arrowRotate}>▼</span>
-                                </div>
-                            </div>
-
-                            <div id="detail-${order.id}" class="${detailClass}">
-                                <div class="mb-3">
-                                    ${(order.items || []).map(i => `<span class="item-badge">${i.name} x ${i.quantity || i.qty}</span>`).join('')}
-                                </div>
-
-                                <div class="time-box mb-3">
-                                    <div>🕒 下單：${new Date(order.created_at).toLocaleTimeString()}</div>
-                                    <div class="mt-2 fw-bold text-danger fs-5">總額：$${order.total}</div>
-                                </div>
-
-                                <div id="btn-zone-${order.id}">
-                                    ${actionBtn}
-                                </div>
-                            </div>
-                        </div>
-                    `;
                 });
-                list.innerHTML = html;
+
+                // --- 2. 紅點計數邏輯 (關鍵修改區) ---
+                let counts = {
+                    pending: 0,
+                    confirmed: 0,
+                    preparing: 0,
+                    uncollected: 0, 
+                    // ❌ 絕對不要包含 cancelled 和 final，否則歸零後紅點不會消失！
+                };
+
+                orders.forEach(o => {
+                    // 只計算我們定義在 counts 裡面的狀態
+                    if (counts.hasOwnProperty(o.status)) {
+                        counts[o.status]++;
+                    }
+                    // 特殊：未取餐 = 通知中(completed) + 已到櫃(arrived)
+                    if (['completed', 'arrived'].includes(o.status)) {
+                        counts.uncollected++;
+                    }
+                });
+
+                // --- 3. 更新紅點 UI 與動畫 ---
+                // 先把所有 badge 隱藏 (防呆)
+                document.querySelectorAll('[id^="badge-"]').forEach(el => el.classList.add('d-none'));
+
+                Object.keys(counts).forEach(key => {
+                    const badge = document.getElementById(`badge-${key}`);
+                    if (badge) {
+                        const newCount = counts[key];
+                        const oldCount = lastCounts[key] || 0;
+
+                        badge.innerText = newCount > 99 ? '99+' : newCount;
+
+                        if (newCount > 0) {
+                            badge.classList.remove('d-none'); // 有數字才顯示
+                            
+                            // 動畫：數字變大時才跳動
+                            if (newCount > oldCount) {
+                                badge.classList.remove('animate__heartBeat');
+                                void badge.offsetWidth; // 觸發重繪
+                                badge.classList.add('animate__heartBeat');
+                            }
+                        }
+                    }
+                });
+
+                // 紀錄本次數量供下次比對
+                lastCounts = {...counts};
+
+                // --- 4. 渲染列表 ---
+                const jsonStr = JSON.stringify(orders);
+                if (jsonStr !== lastOrdersJson) {
+                    lastOrdersJson = jsonStr;
+                    rawOrdersCache = orders;
+                    renderOrders();
+                }
                 isFirstLoad = false;
             })
             .catch(err => console.error("載入失敗", err));
@@ -776,6 +882,689 @@
     function confirmAction(id, status, msg) {
         Swal.fire({ title: msg, icon: 'question', showCancelButton: true, confirmButtonText: '確認' })
             .then(r => { if(r.isConfirmed) updateStatus(id, status); });
+    }
+
+    // ==========================================
+    // 1. 變數設定 (放在 Script 最上方)
+    // ==========================================
+    let rawOrdersCache = []; 
+    let currentFilter = 'all'; // 預設顯示全部
+    let currentPage = 1;     
+    let itemsPerPage = 15;   
+    let searchQuery = '';    
+
+    // ==========================================
+    // 2. 取代原本的 loadOrders
+    // ==========================================
+    function loadOrders() {
+        if (!currentStore) return;
+        fetch(`/api/orders/?store=${currentStore}&t=${Date.now()}`)
+            .then(res => res.json())
+            .then(orders => {
+                if (!Array.isArray(orders)) return;
+
+                // --- 1. 語音通知邏輯 (保持不變) ---
+                orders.forEach(order => {
+                    if (order.status === 'pending' && !alertedNewOrder.has(order.id)) {
+                        if (!isFirstLoad) speak(`新訂單 ${order.id}號`);
+                        alertedNewOrder.add(order.id);
+                    }
+                    if (order.status === 'arrived' && !alertedArrived.has(order.id)) {
+                        playBell();
+                        setTimeout(() => speak(`${order.id}號 客人已經到櫃檯摟`), 1000);
+                        alertedArrived.add(order.id);
+                    }
+                    if (order.status === 'confirmed' && order.payment_method === 'linepay' && !alertedLinePayPaid.has(order.id)) {
+                        speak(`${order.id}號 線上付款成功`);
+                        alertedLinePayPaid.add(order.id);
+                    }
+                });
+
+                // --- 2. 紅點數字計數邏輯 (修改版：含動畫與移除不需要的Badge) ---
+                let counts = {
+                    // all: 0,       // 移除
+                    pending: 0,
+                    confirmed: 0,
+                    preparing: 0,
+                    uncollected: 0, 
+                    // cancelled: 0, // 移除
+                    final: 0
+                };
+
+                orders.forEach(o => {
+                    if (counts.hasOwnProperty(o.status)) {
+                        counts[o.status]++;
+                    }
+                    // 特殊狀態計數 (未取餐)
+                    if (['completed', 'arrived'].includes(o.status)) {
+                        counts.uncollected++;
+                    }
+                });
+
+                // 更新畫面上的 Badge 並處理動畫
+                Object.keys(counts).forEach(key => {
+                    const badge = document.getElementById(`badge-${key}`);
+                    if (badge) {
+                        const newCount = counts[key];
+                        const oldCount = lastCounts[key] || 0;
+                        
+                        // 設定數字
+                        badge.innerText = newCount > 99 ? '99+' : newCount;
+
+                        // 顯示/隱藏邏輯
+                        if (newCount > 0) {
+                            badge.classList.remove('d-none');
+                            
+                            // ★★★ 動畫觸發邏輯 ★★★
+                            // 如果數字變多 (有新單進來)，觸發心跳動畫
+                            if (newCount > oldCount) {
+                                badge.classList.remove('animate__heartBeat'); // 先移除以利重置
+                                void badge.offsetWidth; // 觸發 Reflow (關鍵：讓瀏覽器知道要重跑動畫)
+                                badge.classList.add('animate__heartBeat');
+                            }
+                        } else {
+                            badge.classList.add('d-none');
+                        }
+                    }
+                });
+                
+                // 更新歷史計數，供下次比對
+                lastCounts = {...counts};
+
+                // --- 3. 資料渲染 (保持不變) ---
+                const jsonStr = JSON.stringify(orders);
+                if (jsonStr !== lastOrdersJson) {
+                    lastOrdersJson = jsonStr;
+                    rawOrdersCache = orders;
+                    renderOrders();
+                }
+                isFirstLoad = false;
+            })
+            .catch(err => console.error("載入失敗", err));
+    }
+
+    // ==========================================
+    // 3. 核心渲染函式 (包含新分類邏輯)
+    // ==========================================
+    function renderOrders() {
+        let filtered = rawOrdersCache.slice(); 
+
+        // [A] 搜尋邏輯：搜尋 ID 或 手機末碼
+        if (searchQuery) {
+            filtered = filtered.filter(o => 
+                o.id.toString().includes(searchQuery) || 
+                (o.phone_tail && o.phone_tail.toString().includes(searchQuery))
+            );
+        }
+
+        // [B] 篩選邏輯 (重新規劃)
+        if (currentFilter !== 'all') {
+            switch (currentFilter) {
+                case 'pending':
+                    filtered = filtered.filter(o => o.status === 'pending');
+                    break;
+                case 'confirmed':
+                    filtered = filtered.filter(o => o.status === 'confirmed');
+                    break;
+                case 'preparing':
+                    filtered = filtered.filter(o => o.status === 'preparing');
+                    break;
+                case 'uncollected':
+                    // 包含：製作完成(completed) + 客人已到(arrived)
+                    filtered = filtered.filter(o => ['completed', 'arrived'].includes(o.status));
+                    break;
+                case 'cancelled':
+                    filtered = filtered.filter(o => o.status === 'cancelled');
+                    break;
+                case 'final':
+                    filtered = filtered.filter(o => o.status === 'final');
+                    break;
+            }
+        }
+
+        // [C] 排序：未結案的優先，ID 倒序 (新單在上面)
+        filtered.sort((a, b) => {
+            const isAClosed = ['final', 'cancelled'].includes(a.status);
+            const isBClosed = ['final', 'cancelled'].includes(b.status);
+            
+            // 如果一個是歷史單，一個是進行中，進行中排前面
+            if (isAClosed && !isBClosed) return 1;
+            if (!isAClosed && isBClosed) return -1;
+            
+            // 都是進行中或都是歷史單，則比 ID (大到小)
+            return b.id - a.id;
+        });
+
+        // [D] 分頁計算
+        const totalItems = filtered.length;
+        const totalPages = Math.ceil(totalItems / itemsPerPage) || 1;
+        if (currentPage > totalPages) currentPage = 1;
+
+        const startIndex = (currentPage - 1) * itemsPerPage;
+        const pageItems = filtered.slice(startIndex, startIndex + itemsPerPage);
+
+        // [E] 生成 HTML
+        const list = document.getElementById('orderList');
+        if (pageItems.length === 0) {
+            list.innerHTML = `<div class="text-center mt-5 text-muted">
+                <h4>📭</h4><p>此分類下沒有訂單</p>
+            </div>`;
+            updatePaginationUI(0, 0);
+            return;
+        }
+
+        // 取得目前展開的訂單 ID，避免重繪後自動收合
+        const openedIds = [];
+        document.querySelectorAll('.detail-content:not(.hide-detail)').forEach(el => {
+            openedIds.push(parseInt(el.id.replace('detail-', '')));
+        });
+
+        let html = '';
+        pageItems.forEach(order => {
+            // --- ★ 自動展開核心邏輯 ★ ---
+            
+            // 1. 判斷是否為「客人已到 (arrived)」
+            const isArrived = order.status === 'arrived';
+            
+            // 2. 判斷是否原本就是手動展開的
+            const wasOpened = openedIds.includes(order.id);
+
+            // 3. 決定最終是否展開：如果是「已到」 OR 「手動展開過」，就展開
+            const shouldExpand = isArrived || wasOpened;
+
+            // 4. 設定 CSS Class (展開就不加 hide-detail)
+            let detailClass = shouldExpand ? 'detail-content' : 'detail-content hide-detail';
+            
+            // 5. 設定箭頭方向 (展開就旋轉)
+            let arrowRotate = shouldExpand ? 'style="transform: rotate(180deg)"' : '';
+            
+            // -----------------------------
+
+            const isLinePay = order.payment_method === 'linepay';
+            const payTag = isLinePay ? `<span class="pay-tag-line">LINE</span>` : `<span class="pay-tag-cash">CASH</span>`;
+            
+            const statusTagClass = { 
+                pending: 'tag-pending', confirmed: 'tag-confirmed', preparing: 'tag-preparing', 
+                completed: 'tag-completed', arrived: 'tag-arrived', final: 'tag-final', cancelled: 'tag-cancelled' 
+            }[order.status];
+
+            // 取得按鈕 HTML
+            let actionBtn = getActionBtnHtml(order);
+
+            html += `
+                <div class="card order-card status-${order.status}" id="card-${order.id}">
+                    <div class="card-header-clickable" onclick="toggleDetail(${order.id})">
+                        <div class="order-head-left">
+                            <span class="order-pill pill-phone">${order.phone_tail || '現場'}</span>
+                            <span class="order-pill pill-id">#${order.id}</span>
+                            ${payTag}
+                            <span class="status-tag ${statusTagClass}">
+                                ${getStatusText(order.status)}${order.status === 'arrived' ? ' 🚨' : ''}
+                            </span>
+                        </div>
+                        <div class="order-head-right">
+                            <span class="arrow" id="arrow-${order.id}" ${arrowRotate}>▼</span>
+                        </div>
+                    </div>
+
+                    <div id="detail-${order.id}" class="${detailClass}">
+                        <div class="mb-3">
+                            ${(order.items || []).map(i => `<span class="item-badge">${i.name} x ${i.quantity || i.qty}</span>`).join('')}
+                        </div>
+
+                        <div class="time-box mb-3">
+                            <div>🕒 下單：${new Date(order.created_at).toLocaleTimeString()}</div>
+                            <div class="mt-2 fw-bold text-danger fs-5">總額：$${order.total}</div>
+                        </div>
+
+                        <div id="btn-zone-${order.id}">
+                            ${actionBtn}
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+
+        list.innerHTML = html;
+        updatePaginationUI(totalPages, totalItems);
+    }
+
+    // ==========================================
+    // 4. 輔助函式：產生按鈕 (保持乾淨)
+    // ==========================================
+    function fetchAllProducts() {
+        if(!currentStore) return;
+        // 假設您的 API 是這個路徑
+        fetch(`/api/products/?store=${currentStore}`)
+            .then(res => res.json())
+            .then(data => {
+                allProducts = data;
+            });
+    }
+    
+    // 如果切換分店，也要重抓商品
+    function switchStore() {
+        // ... 原本的邏輯 ...
+        currentStore = document.getElementById('storeSelector').value;
+        fetchAllProducts(); // 加這行
+        // ...
+    }
+
+    // ==========================================
+    // 取得操作按鈕 HTML (含修改訂單功能)
+    // ==========================================
+    let editingItemsMap = {}; 
+
+    // 2. 打開修改視窗
+    function openEditModal(orderId) {
+        if (allProducts.length === 0) {
+            Swal.fire('載入中', '商品資料尚未載入，請稍後再試', 'info');
+            fetchAllProducts();
+            return;
+        }
+
+        const order = rawOrdersCache.find(o => o.id === orderId);
+        if (!order) return;
+
+        currentEditingOrderId = orderId;
+        document.getElementById('editOrderIdDisplay').innerText = orderId;
+        
+        // 初始化數量 Map
+        editingItemsMap = {};
+        allProducts.forEach(p => editingItemsMap[p.id] = 0); 
+        
+        if (order.items && Array.isArray(order.items)) {
+            order.items.forEach(item => {
+                if (item.id) {
+                    editingItemsMap[item.id] = item.quantity || item.qty || 0;
+                }
+            });
+        }
+
+        // 建構手風琴 HTML 結構 (只在打開時做一次)
+        buildEditAccordion();
+        
+        // 更新所有數字與樣式
+        refreshEditUI();
+
+        const modal = new bootstrap.Modal(document.getElementById('editOrderModal'));
+        modal.show();
+    }
+
+    // 2. 建構 HTML 結構 (含分類邏輯)
+    function buildEditAccordion() {
+        const container = document.getElementById('editProductList');
+        if (!container) return;
+
+        // --- A. 資料分組邏輯 ---
+        const groups = {};
+        allProducts.forEach(p => {
+            // 若後端 API 沒回傳 category_name，就用 slug 代替
+            const catSlug = p.category || 'other';
+            if (!groups[catSlug]) {
+                groups[catSlug] = {
+                    slug: catSlug,
+                    name: p.category_name || catSlug, 
+                    order: p.category_sort_order !== undefined ? p.category_sort_order : 999,
+                    products: []
+                };
+            }
+            groups[catSlug].products.push(p);
+        });
+
+        // 排序分類
+        const sortedCategories = Object.values(groups).sort((a, b) => a.order - b.order);
+
+        // --- B. 產生 HTML ---
+        let html = `<div class="accordion accordion-flush" id="editAccordionParent">`;
+
+        sortedCategories.forEach((cat, index) => {
+            const isFirst = index === 0; // 判斷是否為第一個
+            const collapseId = `edit_collapse_${cat.slug}`;
+            const headerId = `edit_heading_${cat.slug}`;
+            
+            // 決定分類顏色 Class
+            let colorClass = `cat-${cat.slug}`; 
+            
+            html += `
+            <div class="accordion-item border-0 mb-2">
+                <h2 class="accordion-header" id="${headerId}">
+                    <button class="accordion-button ${colorClass} ${isFirst ? '' : 'collapsed'} p-3 rounded" 
+                            type="button" 
+                            data-bs-toggle="collapse" 
+                            data-bs-target="#${collapseId}" 
+                            aria-expanded="${isFirst ? 'true' : 'false'}">
+                        ${cat.name}
+                    </button>
+                </h2>
+                <div id="${collapseId}" class="accordion-collapse collapse ${isFirst ? 'show' : ''}" 
+                    data-bs-parent="#editAccordionParent">
+                    <div class="accordion-body p-0 ps-2">
+                        ${cat.products.map(p => `
+                            <div id="edit-row-${p.id}" class="edit-item-row list-group-item d-flex justify-content-between align-items-center py-2 ps-3 pe-2">
+                                <div class="d-flex align-items-center">
+                                    <div>
+                                        <div class="fw-bold text-dark">${p.name}</div>
+                                        <small class="text-muted">$${p.price}</small>
+                                    </div>
+                                </div>
+                                <div class="qty-controls d-flex align-items-center bg-light rounded-pill border px-1">
+                                    <button class="btn btn-sm text-danger fw-bold fs-5 px-2" onclick="adjustEditQty(${p.id}, -1)">-</button>
+                                    <span id="edit-qty-${p.id}" class="mx-2 fw-bold fs-5 text-dark" style="min-width: 24px; text-align: center;">0</span>
+                                    <button class="btn btn-sm text-success fw-bold fs-5 px-2" onclick="adjustEditQty(${p.id}, 1)">+</button>
+                                </div>
+                            </div>
+                        `).join('')}
+                        </div>
+                </div>
+            </div>`;
+        });
+
+        html += `</div>`;
+        container.innerHTML = html;
+    }
+
+    // 3. 渲染修改列表 (包含 +- 按鈕)
+    function renderEditList() {
+        const container = document.getElementById('editProductList');
+        if (!container) return;
+        
+        let html = '';
+        let total = 0;
+
+        allProducts.forEach(p => {
+            const qty = editingItemsMap[p.id] || 0;
+            const subtotal = qty * p.price;
+            total += subtotal;
+
+            // 有選購的商品給予高亮背景
+            const activeClass = qty > 0 ? 'bg-warning bg-opacity-10' : '';
+            const borderClass = qty > 0 ? 'border-warning' : '';
+
+            html += `
+                <div class="list-group-item d-flex justify-content-between align-items-center py-3 ${activeClass} ${borderClass}">
+                    <div class="d-flex align-items-center">
+                        <div class="me-3">
+                            <h6 class="mb-0 fw-bold">${p.name}</h6>
+                            <small class="text-muted">$${p.price}</small>
+                        </div>
+                    </div>
+                    <div class="qty-controls d-flex align-items-center bg-white rounded-pill border px-1">
+                        <button class="btn btn-sm text-danger fw-bold fs-5" onclick="adjustEditQty(${p.id}, -1)">-</button>
+                        <span class="mx-3 fw-bold fs-5" style="min-width: 24px; text-align: center;">${qty}</span>
+                        <button class="btn btn-sm text-success fw-bold fs-5" onclick="adjustEditQty(${p.id}, 1)">+</button>
+                    </div>
+                </div>
+            `;
+        });
+
+        container.innerHTML = html;
+        document.getElementById('editTotalAmount').innerText = '$' + total;
+    }
+
+    function getActionBtnHtml(order) {
+        const isLinePay = order.payment_method === 'linepay';
+        
+        // --- 1. 待付款 (Pending) ---
+        if (order.status === 'pending') {
+            let html = '';
+
+            if (isLinePay) {
+                // LinePay：通常不建議後台隨意改金額，因為牽涉到第三方金流授權
+                html += `<div class="alert alert-warning text-center fw-bold mb-2 py-2 small">⏳ 等待顧客付款中...</div>`;
+            } else {
+                // 現場現金：顯示「已收錢」與「修改」並排
+                html += `
+                <div class="d-flex gap-2 mb-2">
+                    <button onclick="updateStatus(${order.id}, 'confirmed')" class="btn btn-primary btn-action shadow flex-grow-1">💰 已收錢</button>
+                    <button onclick="openEditModal(${order.id})" class="btn btn-outline-dark btn-action shadow flex-grow-1" style="border: 2px solid #333; font-weight: bold;">✏️ 修改</button>
+                </div>`;
+            }
+            
+            // 取消按鈕 (LinePay 會觸發退款，現金則直接取消)
+            html += `<button onclick="cancelOrder(${order.id})" class="btn btn-link btn-sm text-muted w-100 mt-1">取消訂單</button>`;
+            return html;
+        } 
+        
+        // --- 2. 已付款 (Confirmed) ---
+        else if (order.status === 'confirmed') {
+            return `<button onclick="updateStatus(${order.id}, 'preparing')" class="btn btn-warning btn-action shadow">🍓 開始製作</button>
+                    <button onclick="cancelOrder(${order.id})" class="btn btn-link btn-sm text-muted w-100 mt-1">取消訂單</button>`;
+        } 
+        
+        // --- 3. 製作中 (Preparing) ---
+        else if (order.status === 'preparing') {
+            return `<button onclick="updateStatus(${order.id}, 'completed', true)" class="btn btn-success btn-action shadow">🔔 製作完成：發送通知</button>
+                    <button onclick="cancelOrder(${order.id})" class="btn btn-link btn-sm text-muted w-100 mt-1">取消訂單</button>`;
+        } 
+        
+        // --- 4. 通知中/未取餐 (Completed) ---
+        else if (order.status === 'completed') {
+            return `<div class="alert alert-info text-center mb-2 py-2 fw-bold small">⌛ 已通知，等候取餐中...</div>
+                    <button onclick="confirmAction(${order.id}, 'final', '確認交付餐點並結案？')" class="btn btn-danger btn-action shadow">✨ 交付結案</button>`;
+        } 
+        
+        // --- 5. 客人已到櫃 (Arrived) ---
+        else if (order.status === 'arrived') {
+            return `<button onclick="confirmAction(${order.id}, 'final', '確認交付結案？')" class="btn btn-danger btn-action animate__animated animate__pulse animate__infinite shadow-lg">🚨 客人已抵達！點此結案</button>`;
+        } 
+        
+        // --- 6. 已取消 (Cancelled) ---
+        else if (order.status === 'cancelled') {
+            return `<div class="text-center py-2 text-danger fw-bold">❌ 訂單已取消</div>`;
+        } 
+        
+        // --- 7. 已完成 (Final / Archived) ---
+        else if (order.status === 'final' || order.status === 'archived') {
+            return `<div class="text-center py-2 text-muted fw-bold">✅ 交易已完成</div>`;
+        }
+
+        return '';
+    }
+
+    // --- 新增：調整數量 ---
+    function adjustEditQty(pid, delta) {
+        if (!editingItemsMap[pid]) editingItemsMap[pid] = 0;
+        editingItemsMap[pid] += delta;
+        if (editingItemsMap[pid] < 0) editingItemsMap[pid] = 0;
+        
+        refreshEditUI(); 
+    }
+
+    function refreshEditUI() {
+        let total = 0;
+
+        allProducts.forEach(p => {
+            const qty = editingItemsMap[p.id] || 0;
+            const subtotal = qty * p.price;
+            total += subtotal;
+
+            // 更新數字顯示
+            const qtyEl = document.getElementById(`edit-qty-${p.id}`);
+            if (qtyEl) qtyEl.innerText = qty;
+
+            // 更新選中樣式 (黃色背景)
+            const rowEl = document.getElementById(`edit-row-${p.id}`);
+            if (rowEl) {
+                if (qty > 0) {
+                    rowEl.classList.add('bg-warning', 'bg-opacity-10', 'border-warning');
+                } else {
+                    rowEl.classList.remove('bg-warning', 'bg-opacity-10', 'border-warning');
+                }
+            }
+        });
+
+        document.getElementById('editTotalAmount').innerText = '$' + total;
+    }
+
+    // --- 新增：儲存修改 ---
+    function saveOrderChange() {
+        if (!currentEditingOrderId) return;
+
+        // 1. 組裝 items 資料
+        const newItems = [];
+        for (const [pid, qty] of Object.entries(editingItemsMap)) {
+            if (qty > 0) {
+                newItems.push({ id: parseInt(pid), quantity: qty });
+            }
+        }
+
+        if (newItems.length === 0) {
+            return Swal.fire('錯誤', '訂單不能是空的', 'error');
+        }
+
+        // 2. 發送 API 請求
+        fetch(`/api/orders/${currentEditingOrderId}/`, {
+            method: 'PATCH',
+            headers: { 
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({ items: newItems }) // 只送出 items，後端會重算 total
+        })
+        .then(res => {
+            if (res.ok) return res.json();
+            return res.json().then(err => { throw new Error(err.error || '修改失敗') });
+        })
+        .then(data => {
+            // 3. 成功後關閉 Modal 並重新載入
+            bootstrap.Modal.getInstance(document.getElementById('editOrderModal')).hide();
+            Swal.fire('成功', '訂單已修改', 'success');
+            loadOrders();
+        })
+        .catch(err => {
+            Swal.fire('失敗', err.message, 'error');
+        });
+    }
+
+    // ==========================================
+    // 5. 互動控制 (篩選、分頁、搜尋)
+    // ==========================================
+    function setFilter(filterType) {
+        currentFilter = filterType;
+        currentPage = 1; 
+        
+        document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
+        // 找出點擊的按鈕並加 active，如果有點擊事件觸發源
+        if(event && event.currentTarget) {
+            event.currentTarget.classList.add('active');
+        }
+        
+        renderOrders();
+    }
+
+    function handleSearch() {
+        searchQuery = document.getElementById('searchInput').value.trim();
+        currentPage = 1;
+        renderOrders();
+    }
+    
+    function clearSearch() {
+        document.getElementById('searchInput').value = '';
+        searchQuery = '';
+        renderOrders();
+    }
+
+    function changePage(page) {
+        currentPage = page;
+        renderOrders();
+        // 換頁後滑動到頂部
+        const listTop = document.getElementById('filterContainer').offsetTop;
+        window.scrollTo({ top: listTop - 60, behavior: 'smooth' });
+    }
+
+    function updatePaginationUI(totalPages, totalItems) {
+        const pagEl = document.getElementById('paginationControls');
+        const infoEl = document.getElementById('pageInfo');
+        if (!pagEl) return;
+
+        infoEl.innerText = `共 ${totalItems} 筆訂單，第 ${currentPage} / ${totalPages} 頁`;
+
+        if (totalPages <= 1) {
+            pagEl.innerHTML = '';
+            return;
+        }
+
+        let html = '';
+        html += `<li class="page-item ${currentPage === 1 ? 'disabled' : ''}">
+                    <a class="page-link" href="#" onclick="changePage(${currentPage - 1})">上一頁</a>
+                 </li>`;
+        
+        for (let i = 1; i <= totalPages; i++) {
+             // 簡單的分頁邏輯：顯示 1, 最後一頁, 和當前頁的前後
+             if (i === 1 || i === totalPages || (i >= currentPage - 1 && i <= currentPage + 1)) {
+                 html += `<li class="page-item ${i === currentPage ? 'active' : ''}">
+                            <a class="page-link" href="#" onclick="changePage(${i})">${i}</a>
+                          </li>`;
+             } else if (i === currentPage - 2 || i === currentPage + 2) {
+                 html += `<li class="page-item disabled"><span class="page-link">...</span></li>`;
+             }
+        }
+
+        html += `<li class="page-item ${currentPage === totalPages ? 'disabled' : ''}">
+                    <a class="page-link" href="#" onclick="changePage(${currentPage + 1})">下一頁</a>
+                 </li>`;
+        
+        pagEl.innerHTML = html;
+    }
+
+    function changePage(page) {
+        currentPage = page;
+        renderOrders();
+        
+        // RWD 優化：捲動位置計算
+        // 取得 sticky-controls 的高度，避免擋住內容
+        const stickyHeight = document.querySelector('.sticky-controls').offsetHeight;
+        const navbarHeight = document.querySelector('.navbar').offsetHeight;
+        const targetPosition = 0; // 或者設為 navbarHeight 若不完全置頂
+
+        window.scrollTo({ 
+            top: 0, 
+            behavior: 'smooth' 
+        });
+    }
+
+    // 新增：營業結束歸零函式
+    // ==========================================
+    function resetBusinessDay() {
+        if (!currentStore) return Swal.fire('請先選擇分店');
+        
+        Swal.fire({
+            title: '確定營業結束？',
+            text: "這將會把今日訂單流水號歸零，並將所有未結案訂單轉為歷史紀錄。此操作無法復原！",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d63031',
+            cancelButtonColor: '#3085d6',
+            confirmButtonText: '確定歸零',
+            cancelButtonText: '取消'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                // 呼叫後端 API 進行重置 (假設後端有開這個 endpoint)
+                // 如果後端尚未實作，這段 fetch 會失敗，請確保 Django 有對應的 url
+                fetch(`/api/stores/${currentStore}/reset_daily/`, {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCookie('csrftoken') 
+                    }
+                })
+                .then(res => {
+                    if (res.ok) return res.json();
+                    throw new Error('Network response was not ok');
+                })
+                .then(data => {
+                    Swal.fire('已歸零', '今日營業數據已重置。', 'success');
+                    lastOrdersJson = ''; // 強制重繪
+                    loadOrders();        // 重新載入
+                })
+                .catch(err => {
+                    // 如果後端還沒做好，先用前端模擬提示
+                    console.error(err);
+                    Swal.fire('系統提示', '請確認後端已實作 /reset_daily/ 接口', 'info');
+                });
+            }
+        });
     }
 </script>
 </body>

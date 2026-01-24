@@ -14,6 +14,7 @@ from django.utils import timezone
 from django.db import transaction
 from django.http import JsonResponse
 
+from rest_framework.decorators import api_view
 from rest_framework import viewsets, status, permissions
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -160,8 +161,13 @@ class OrderViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         store_slug = self.request.query_params.get("store")
         qs = Order.objects.all()
+
         if store_slug:
             qs = qs.filter(store__slug=store_slug)
+
+        # 這樣「營業結束」後，這些單就不會出現在 iPad/電腦 畫面上
+        qs = qs.exclude(status="archived")
+
         return qs
 
     def get_permissions(self):
@@ -185,9 +191,82 @@ class OrderViewSet(viewsets.ModelViewSet):
 
     def partial_update(self, request, *args, **kwargs):
         instance = self.get_object()
+
+        # --- [新增功能] 後台修改訂單內容 (僅限已登入管理員 & 待付款訂單) ---
+        if request.user.is_authenticated and "items" in request.data:
+            if instance.status != "pending":
+                return Response({"error": "只能修改「待付款」狀態的訂單"}, status=400)
+
+            new_items_data = request.data.get("items")
+            if not isinstance(new_items_data, list):
+                return Response({"error": "商品資料格式錯誤"}, status=400)
+
+            try:
+                with transaction.atomic():
+                    # 1. 先「歸還」舊訂單的庫存
+                    self._restore_stock(instance)
+
+                    # 2. 重新計算新訂單內容 (扣庫存 + 建立快照)
+                    updated_items_snapshot = []
+                    new_total = 0
+
+                    for item in new_items_data:
+                        product_id = item.get("id")
+                        # 允許 quantity 或 qty 欄位
+                        qty = int(item.get("quantity") or item.get("qty") or 0)
+
+                        if qty <= 0:
+                            continue
+
+                        # 鎖定並讀取商品
+                        product = Product.objects.select_for_update().get(id=product_id)
+
+                        # 檢查庫存 (注意：剛才已經把舊單的庫存加回去了，所以這裡是檢查最新庫存)
+                        if product.stock < qty:
+                            raise ValueError(
+                                f"{product.name} 庫存不足 (剩餘 {product.stock})"
+                            )
+
+                        # 扣庫存
+                        product.stock -= qty
+                        product.save()
+
+                        # 建立訂單細項快照 (保留當下價格與分類)
+                        item_copy = {
+                            "id": product.id,
+                            "name": product.name,
+                            "price": int(product.price),
+                            "quantity": qty,
+                            "category": product.category.slug,
+                            "category_name": product.category.name,
+                        }
+                        updated_items_snapshot.append(item_copy)
+                        new_total += item_copy["price"] * qty
+
+                    # 3. 更新訂單實體
+                    instance.items = updated_items_snapshot
+                    instance.total = new_total
+                    instance.save()
+
+                    # 回傳更新後的訂單
+                    serializer = self.get_serializer(instance)
+                    return Response(serializer.data)
+
+            except Product.DoesNotExist:
+                return Response({"error": "找不到指定商品"}, status=404)
+            except ValueError as e:
+                return Response({"error": str(e)}, status=400)
+            except Exception as e:
+                print(f"Edit Order Error: {e}")
+                return Response({"error": "修改失敗"}, status=500)
+
+        # --- 以下維持原本的狀態更新邏輯 (給前端用) ---
+
+        # 如果是管理員且沒有傳 items，就走預設邏輯 (改狀態)
         if request.user.is_authenticated:
             return super().partial_update(request, *args, **kwargs)
 
+        # 客戶端驗證邏輯 (原本的程式碼)
         phone_tail = request.data.get("phone_tail")
         if not phone_tail or phone_tail != instance.phone_tail:
             return Response({"error": "驗證失敗"}, status=status.HTTP_403_FORBIDDEN)
@@ -467,9 +546,9 @@ class OrderViewSet(viewsets.ModelViewSet):
         month_start = now_tw.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
 
         def calculate_metrics(queryset):
-            final_qs = queryset.filter(
-                status__in=["completed", "final"]
-            )  # 建議納入 completed
+            # ✅ 修改 1: 這裡加入了 "archived"，確保歸檔後的業績依然被計算
+            final_qs = queryset.filter(status__in=["completed", "final", "archived"])
+
             total_rev = final_qs.aggregate(Sum("total"))["total__sum"] or 0
             total_count = final_qs.count()
 
@@ -480,7 +559,7 @@ class OrderViewSet(viewsets.ModelViewSet):
                     "qty": 0,
                     "rev": 0,
                     "name": cat.name,
-                    "details": {},  # 🔥 新增這個欄位來存細項
+                    "details": {},
                 }
             # 處理未分類或已刪除分類的情況
             items_stats["uncategorized"] = {
@@ -493,7 +572,7 @@ class OrderViewSet(viewsets.ModelViewSet):
             for order in final_qs:
                 for item in order.items or []:
                     cat_slug = item.get("category", "uncategorized")
-                    p_name = item.get("name", "未知商品")  # 抓取商品名稱
+                    p_name = item.get("name", "未知商品")
 
                     qty = int(item.get("quantity") or item.get("qty", 0))
                     price = int(item.get("price", 0))
@@ -508,7 +587,7 @@ class OrderViewSet(viewsets.ModelViewSet):
                     target_stats["qty"] += qty
                     target_stats["rev"] += subtotal
 
-                    # B. 更新該商品細項 (Details) 🔥 關鍵邏輯
+                    # B. 更新該商品細項 (Details)
                     details = target_stats["details"]
                     if p_name not in details:
                         details[p_name] = {"qty": 0, "rev": 0}
@@ -518,7 +597,10 @@ class OrderViewSet(viewsets.ModelViewSet):
 
             return total_rev, total_count, items_stats
 
-        base_qs = self.get_queryset().filter(store=store)
+        # ✅ 修改 2: 這裡改用 Order.objects 直接查詢
+        # 因為 self.get_queryset() 已經過濾掉 archived (為了前台隱藏)，
+        # 所以報表必須繞過 get_queryset 才能統計到已歸檔的資料。
+        base_qs = Order.objects.filter(store=store)
 
         # 計算今日與本月
         d_rev, d_count, d_items = calculate_metrics(
@@ -570,3 +652,35 @@ def order_status_board(request, store_slug):
 def about(request):
     stores = Store.objects.filter(is_active=True)
     return render(request, "about.html", {"stores": stores})
+
+
+# views.py 中的 reset_daily_orders
+
+
+@api_view(["POST"])
+def reset_daily_orders(request, store_slug):
+    """
+    營業結束歸零邏輯 (修正版)：
+    1. 進行中訂單 -> 轉為 'cancelled' (清空且不計費)
+    2. 已完成訂單 -> 轉為 'archived' (清空但保留業績)
+    """
+    store = get_object_or_404(Store, slug=store_slug)
+
+    # 1. 處理「進行中」的單 -> 取消
+    active_statuses = ["pending", "confirmed", "preparing", "completed", "arrived"]
+    cancelled_count = Order.objects.filter(
+        store=store, status__in=active_statuses
+    ).update(status="cancelled")
+
+    # 2. 處理「已完成(final)」的單 -> 歸檔 (隱藏但保留業績)
+    # 注意：update() 會繞過 model validate，所以即使 choices 裡沒有 archived 也可以寫入
+    archived_count = Order.objects.filter(store=store, status="final").update(
+        status="archived"
+    )
+
+    return Response(
+        {
+            "status": "success",
+            "message": f"今日結算完成：\n已取消 {cancelled_count} 筆未完成訂單\n已歸檔 {archived_count} 筆完成訂單 (業績保留)",
+        }
+    )

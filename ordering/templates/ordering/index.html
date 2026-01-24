@@ -130,6 +130,27 @@
         .accordion-button.has-items[data-cat="mochi"] { background: rgba(255,193,7,0.16) !important; border-left-color:#ffc107; color:#b78100 !important; }
         .accordion-button.has-items[data-cat="ichikomochi"] { background: rgba(25,135,84,0.14) !important; border-left-color:#198754; color:#198754 !important; }
         .accordion-button.has-items[data-cat="dessert"] { background: rgba(111,66,193,0.14) !important; border-left-color:#6f42c1; color:#6f42c1 !important; }
+
+        /* =========================================
+       新增：後台修改訂單 Modal 的分類樣式
+       ========================================= */
+    .accordion-button:not(.collapsed) {
+        background-color: transparent !important;
+        box-shadow: none !important;
+    }
+    .accordion-button { font-weight: bold; font-size: 1.1rem; }
+    .accordion-button::after { filter: sepia(100%) saturate(10000%) hue-rotate(320deg); }
+    
+    /* 各分類顏色 (仿照前台) */
+    .cat-drink { color: #0d6efd !important; border-left: 5px solid #0d6efd; background: rgba(13, 110, 253, 0.05); }
+    .cat-tanghulu { color: #ff4d4d !important; border-left: 5px solid #ff4d4d; background: rgba(255, 77, 77, 0.05); }
+    .cat-mochi { color: #b78100 !important; border-left: 5px solid #ffc107; background: rgba(255, 193, 7, 0.05); }
+    .cat-ichikomochi { color: #198754 !important; border-left: 5px solid #198754; background: rgba(25, 135, 84, 0.05); }
+    .cat-dessert { color: #6f42c1 !important; border-left: 5px solid #6f42c1; background: rgba(111, 66, 193, 0.05); }
+    
+    /* 商品列樣式微調 */
+    .edit-item-row { transition: background-color 0.2s; border-bottom: 1px dashed #eee; }
+    .edit-item-row:last-child { border-bottom: none; }
     </style>
 </head>
 <body>
