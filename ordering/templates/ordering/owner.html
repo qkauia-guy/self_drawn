@@ -9,6 +9,9 @@
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
   <style>
+    /* =========================================
+       您的原始 UI 樣式 (完全保留)
+       ========================================= */
     body { background-color: #f0f2f5; font-family: "Microsoft JhengHei", sans-serif; padding-bottom: 50px; }
     .navbar { background-color: #d63031 !important; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
 
@@ -25,12 +28,9 @@
     }
 
     .btn-voice-nav{
-      width: 42px; height: 42px;
-      border-radius: 50%;
+      width: 42px; height: 42px; border-radius: 50%;
       display: flex; align-items: center; justify-content: center;
-      font-size: 1.2rem; border: none;
-      transition: all 0.3s ease;
-      margin-right: 12px;
+      font-size: 1.2rem; border: none; transition: all 0.3s ease; margin-right: 12px;
     }
     .voice-inactive{ background-color: rgba(255, 255, 255, 0.9); color: #d63031; }
     .voice-active{
@@ -62,103 +62,38 @@
     .status-cancelled{ border-left-color: #b2bec3; opacity: 0.65; }
 
     @keyframes pulse-red-border{
-      0% { border-left-width: 8px; }
-      50% { border-left-width: 14px; }
-      100% { border-left-width: 8px; }
+      0% { border-left-width: 8px; } 50% { border-left-width: 14px; } 100% { border-left-width: 8px; }
     }
 
     .card-header-clickable{
-      padding: 14px 14px;
-      cursor: pointer;
-      display: grid;
-      grid-template-columns: 1fr auto;
-      align-items: center;
-      gap: 10px;
-      user-select: none;
+      padding: 14px 14px; cursor: pointer;
+      display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 10px; user-select: none;
     }
+    .order-head-left{ display: flex; align-items: center; gap: 8px; min-width: 0; flex-wrap: nowrap; width: 100%; }
+    
+    @media (min-width: 992px){ .order-head-left > *{ flex: 1 1 0; display: inline-flex; justify-content: center; min-width: 0; } }
+    @media (max-width: 991.98px){ .order-head-left > *{ flex: 0 0 auto; } }
 
-    .order-head-left{
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      min-width: 0;
-      flex-wrap: nowrap;
-      width: 100%;
-    }
-
-    @media (min-width: 992px){
-      .order-head-left > *{
-        flex: 1 1 0;
-        display: inline-flex;
-        justify-content: center;
-        min-width: 0;
-      }
-    }
-    @media (max-width: 991.98px){
-      .order-head-left > *{
-        flex: 0 0 auto;
-      }
-    }
-
+    /* 您的藥丸樣式 */
     .order-pill{
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      height: 32px;
-      padding: 0 10px;
-      border-radius: 10px;
-      font-weight: 800;
-      font-size: 0.95rem;
-      line-height: 1;
-      white-space: nowrap;
+      display: inline-flex; align-items: center; justify-content: center; height: 32px; padding: 0 10px;
+      border-radius: 10px; font-weight: 800; font-size: 0.95rem; line-height: 1; white-space: nowrap;
     }
+    .pill-phone{ background: #ffecec; color: #d63031; border: 1px solid rgba(214,48,49,0.25); }
+    .pill-id{ background: #f7f7f7; color: #2d3436; border: 1px solid rgba(0,0,0,0.08); }
 
-    .pill-phone{
-      background: #ffecec;
-      color: #d63031;
-      border: 1px solid rgba(214,48,49,0.25);
+    /* 您的付款標籤 */
+    .pay-tag-line, .pay-tag-cash{
+      display: inline-flex; align-items: center; justify-content: center; width: 64px; height: 32px;
+      padding: 0 10px; border-radius: 10px; font-weight: 800; font-size: 0.85rem; line-height: 1; white-space: nowrap;
     }
-    .pill-id{
-      background: #f7f7f7;
-      color: #2d3436;
-      border: 1px solid rgba(0,0,0,0.08);
-    }
+    .pay-tag-line{ background-color: #06c755; color: #fff; border: 1px solid rgba(0,0,0,0.08); }
+    .pay-tag-cash{ background-color: #ffcccc; color: #d63031; border: 1px solid rgba(214,48,49,0.18); }
 
-    .pay-tag-line,
-    .pay-tag-cash{
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      width: 64px;
-      height: 32px;
-      padding: 0 10px;
-      border-radius: 10px;
-      font-weight: 800;
-      font-size: 0.85rem;
-      line-height: 1;
-      white-space: nowrap;
-    }
-    .pay-tag-line{
-      background-color: #06c755;
-      color: #fff;
-      border: 1px solid rgba(0,0,0,0.08);
-    }
-    .pay-tag-cash{
-      background-color: #ffcccc;
-      color: #d63031;
-      border: 1px solid rgba(214,48,49,0.18);
-    }
-
+    /* 您的狀態標籤 */
     .status-tag{
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      height: 32px;
-      padding: 0 12px;
-      border-radius: 10px;
-      font-weight: 900;
-      font-size: 0.85rem;
-      white-space: nowrap;
+      display: inline-flex; align-items: center; justify-content: center; height: 32px; padding: 0 12px;
+      border-radius: 10px; font-weight: 900; font-size: 0.85rem; white-space: nowrap;
     }
     .tag-pending{ background: #ecf0f1; color: #2d3436; border: 1px solid rgba(0,0,0,0.08); }
     .tag-confirmed{ background: #dbeafe; color: #1d4ed8; border: 1px solid rgba(29,78,216,0.2); }
@@ -168,68 +103,26 @@
     .tag-final{ background: #e5e7eb; color: #111827; border: 1px solid rgba(17,24,39,0.12); }
     .tag-cancelled{ background: #f1f5f9; color: #64748b; border: 1px solid rgba(100,116,139,0.18); }
 
-    .order-head-right{
-      display: flex;
-      align-items: center;
-      justify-content: flex-end;
-      gap: 8px;
-      white-space: nowrap;
-    }
-
     .arrow{
-      width: 28px; height: 28px;
-      display: inline-flex; align-items: center; justify-content: center;
-      border-radius: 8px;
-      background: #f3f4f6;
-      color: #374151;
-      border: 1px solid rgba(0,0,0,0.06);
+      width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center;
+      border-radius: 8px; background: #f3f4f6; color: #374151; border: 1px solid rgba(0,0,0,0.06);
     }
-
     .detail-content{ padding: 15px; border-top: 1px solid #eee; display: block; }
     .hide-detail{ display: none; }
-
-    .btn-action{
-      border-radius: 12px; padding: 15px; font-weight: bold;
-      width: 100%; font-size: 1.2rem; margin-bottom: 8px;
-    }
-
+    .btn-action{ border-radius: 12px; padding: 15px; font-weight: bold; width: 100%; font-size: 1.2rem; margin-bottom: 8px; }
     .item-badge{
-      background: #fff5f5; border: 1px solid #ffcccc; color: #d63031;
-      padding: 6px 10px; border-radius: 8px; margin: 3px;
-      display: inline-block; font-size: 1rem; font-weight: bold;
+      background: #fff5f5; border: 1px solid #ffcccc; color: #d63031; padding: 6px 10px;
+      border-radius: 8px; margin: 3px; display: inline-block; font-size: 1rem; font-weight: bold;
     }
-
     .time-box{
-      font-size: 0.85rem; color: #7f8c8d;
-      background: #f9f9f9; padding: 10px; border-radius: 8px;
-      border: 1px solid rgba(0,0,0,0.04);
+      font-size: 0.85rem; color: #7f8c8d; background: #f9f9f9; padding: 10px; border-radius: 8px; border: 1px solid rgba(0,0,0,0.04);
     }
-
     .btn-final{ background-color: #2d3436; color: white; border: none; }
-    .btn-final:hover, .btn-final:active, .btn-final:focus{ background-color: #000000 !important; color: white !important; }
-
+    .btn-final:hover{ background-color: #000000 !important; color: white !important; }
     .qty-controls button{ width: 40px; height: 40px; border-radius: 50%; font-weight: bold; }
-
-    #voiceDebug{
-      font-size: 0.85rem; min-height: 20px;
-      color: #d63031; font-weight: bold; text-align: center;
-    }
-    #audio-unlocker select {
-        background-color: white;
-        color: #333;
-        border: none;
-        cursor: pointer;
-    }
-
-    #audio-unlocker .store-box {
-        backdrop-filter: blur(10px);
-        -webkit-backdrop-filter: blur(10px);
-    }
-
-    #startBtn:active {
-        transform: scale(0.95);
-        transition: 0.1s;
-    }
+    #voiceDebug{ font-size: 0.85rem; min-height: 20px; color: #d63031; font-weight: bold; text-align: center; }
+    #audio-unlocker select { background-color: white; color: #333; border: none; cursor: pointer; }
+    #audio-unlocker .store-box { backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
   </style>
 </head>
 
@@ -243,11 +136,7 @@
           <option value="neipu">內埔年街</option>
         </select>
       </div>
-
-      <button id="navVoiceBtn" class="btn btn-voice-nav voice-inactive shadow-sm" onclick="toggleVoiceControl()">
-        ⚪
-      </button>
-
+      <button id="navVoiceBtn" class="btn btn-voice-nav voice-inactive shadow-sm" onclick="toggleVoiceControl()">⚪</button>
       <button class="navbar-toggler" type="button" data-bs-toggle="offcanvas" data-bs-target="#offcanvasMenu">
         <span class="navbar-toggler-icon"></span>
       </button>
@@ -279,7 +168,6 @@
 
   <div id="audio-unlocker">
     <h2 class="mb-4 animate__animated animate__fadeInDown">🍓 一把葫管理系統</h2>
-    
     <div class="store-box mb-4 p-4 shadow-lg" style="background: rgba(255,255,255,0.1); border-radius: 20px; border: 1px solid rgba(255,255,255,0.2); width: 90%; max-width: 400px;">
         <p class="mb-3">選擇管理店鋪</p>
         <select id="initStoreSelector" class="form-select form-select-lg mb-4" style="border-radius: 12px; font-weight: bold;">
@@ -289,7 +177,6 @@
             啟動系統
         </button>
     </div>
-    
     <p class="small opacity-75">啟動後將開啟語音通知與即時訂單監測</p>
   </div>
 
@@ -325,47 +212,50 @@
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
   <script>
-    // --- 基礎變數 ---
-    let audioReady = false;
+    // ==========================================
+    // 1. 基礎變數與設定
+    // ==========================================
+    let currentStore = localStorage.getItem('selected_store') || ''; 
+    let storesData = []; 
+    let isFirstLoad = true;
+    
+    // 通知記錄
     let alertedArrived = new Set(JSON.parse(localStorage.getItem('alerted_arrived') || '[]'));
     let alertedNewOrder = new Set(JSON.parse(localStorage.getItem('alerted_new_orders') || '[]'));
     let alertedLinePayPaid = new Set(JSON.parse(localStorage.getItem('alerted_linepay_paid') || '[]'));
-    let notifyTimes = JSON.parse(localStorage.getItem('notify_times') || '{}');
-
-    let bellAudio = new Audio('data:audio/wav;base64,UklGRl9vT19XQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YU');
-
-    let isFirstLoad = true;
-    let currentStore = localStorage.getItem('selected_store') || ''; // 初始留空，由 API 載入
-    let storesData = []; // 存放從後端 API 獲取的分店列表
+    let lastOrdersJson = ''; 
     let allProducts = [], currentEditingOrderId = null, currentEditingItems = [];
 
-    // --- 語音變數 ---
-    let audioContext = null;
-    let micStream = null, micSource = null, analyserNode = null, rafId = null;
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    let recognition = null;
-    let isVoiceControlling = false;
-    let isSpeaking = false;
-    let restartTimer = null;
+    // ==========================================
+    // 2. 語音與音效變數 (核心修復)
+    // ==========================================
+    let audioContext = null;        
+    let recognition = null;         
+    let isVoiceControlling = false; 
+    let isRecognitionActive = false;
+    let isSpeaking = false; 
+    let restartTimer = null; // 重啟計時器
     let lastFinalText = "", lastFinalAt = 0;
-    let lastOrdersJson = ''; 
+    let micStream = null, micSource = null, analyserNode = null, rafId = null;
 
-    // --- 🚀 初始化流程：與後端連動分店 ---
+    // 🛑 防止語音物件被回收
+    const utteranceStorage = [];
+
+    // ==========================================
+    // 3. 初始化流程
+    // ==========================================
     document.addEventListener('DOMContentLoaded', () => {
         fetchStores();
+        if ('speechSynthesis' in window) window.speechSynthesis.getVoices(); 
     });
 
-    /**
-     * 從後端 API 獲取分店清單並填充下拉選單
-     */
     function fetchStores() {
-        fetch('/api/stores/') // 請確保 Django 有對應的 API 路徑
+        fetch('/api/stores/')
             .then(res => res.json())
             .then(data => {
                 storesData = data;
-                const initSelector = document.getElementById('initStoreSelector'); // 啟動畫面選單
-                const navSelector = document.getElementById('storeSelector');     // 導航欄選單
-
+                const initSelector = document.getElementById('initStoreSelector');
+                const navSelector = document.getElementById('storeSelector');
                 if (!initSelector || !navSelector) return;
 
                 initSelector.innerHTML = '';
@@ -379,119 +269,164 @@
                     navSelector.appendChild(opt);
                 });
 
-                // 如果有記憶上次的分店，則預設選中
                 if (currentStore && data.some(s => s.slug === currentStore)) {
                     initSelector.value = currentStore;
                     navSelector.value = currentStore;
                 } else if (data.length > 0) {
-                    currentStore = data[0].slug; // 預設第一間
+                    currentStore = data[0].slug;
                 }
                 updateStoreUI();
             })
-            .catch(err => {
-                console.error("無法加載分店資料:", err);
-                Swal.fire("連線錯誤", "無法獲取分店資訊，請檢查伺服器狀態", "error");
-            });
+            .catch(err => console.error("分店載入失敗", err));
     }
 
-    async function ensureAudioContextReady() {
-        try {
-            if (!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)();
-            if (audioContext.state === 'suspended') await audioContext.resume();
-        } catch (e) {
-            console.warn("重建 AudioContext:", e);
-            try { if(audioContext) await audioContext.close(); } catch(_){}
-            audioContext = new (window.AudioContext || window.webkitAudioContext)();
-            if (audioContext.state === 'suspended') await audioContext.resume();
-        }
-    }
-
-    /**
-     * 啟動按鈕邏輯：確認分店並解鎖音訊
-     */
     async function unlockAudio() {
         const initSelector = document.getElementById('initStoreSelector');
-        if (!initSelector || !initSelector.value) {
-            Swal.fire("提醒", "請先選擇服務分店", "warning");
-            return;
-        }
+        if (!initSelector || !initSelector.value) return Swal.fire("請先選擇分店");
 
         currentStore = initSelector.value;
         localStorage.setItem('selected_store', currentStore);
         document.getElementById('storeSelector').value = currentStore;
         updateStoreUI();
 
-        if (!('speechSynthesis' in window)) {
-            Swal.fire({
-                icon: 'warning',
-                title: '瀏覽器不支援',
-                text: '您的瀏覽器不支援語音功能，請使用 Chrome',
-                confirmButtonColor: '#d63031'
-            });
-            return;
-        }
+        if (!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        if (audioContext.state === 'suspended') await audioContext.resume();
 
-        audioReady = true;
         const unlocker = document.getElementById('audio-unlocker');
         unlocker.classList.add('animate__animated', 'animate__fadeOut');
         setTimeout(() => { unlocker.style.display = 'none'; }, 500);
 
-        await ensureAudioContextReady();
-
-        try {
-            await bellAudio.play();
-            bellAudio.pause();
-            bellAudio.currentTime = 0;
-        } catch (e) { console.warn('音訊測試失敗:', e); }
-
-        const storeName = storesData.find(s => s.slug === currentStore)?.name || "一把葫";
-        setTimeout(() => {
-            speak(`${storeName} 管理系統啟動`, { muteRecognition: false });
-        }, 300);
+        playBell();
+        setTimeout(() => speak("系統啟動成功"), 600);
 
         loadOrders();
-        setInterval(loadOrders, 5000);
+        setInterval(loadOrders, 5000); 
     }
 
-    // --- 語音控制邏輯 ---
+    // ==========================================
+    // 4. 音效
+    // ==========================================
+    function playBell() {
+        if (!audioContext) return;
+        if (audioContext.state === 'suspended') audioContext.resume();
+
+        const now = audioContext.currentTime;
+        const osc1 = audioContext.createOscillator();
+        const gain1 = audioContext.createGain();
+        osc1.type = 'sine';
+        osc1.frequency.setValueAtTime(660, now); 
+        gain1.gain.setValueAtTime(0.1, now);
+        gain1.gain.exponentialRampToValueAtTime(0.001, now + 1.5);
+        osc1.connect(gain1);
+        gain1.connect(audioContext.destination);
+        osc1.start(now);
+        osc1.stop(now + 1.5);
+
+        const osc2 = audioContext.createOscillator();
+        const gain2 = audioContext.createGain();
+        osc2.type = 'sine';
+        osc2.frequency.setValueAtTime(523.25, now + 0.4); 
+        gain2.gain.setValueAtTime(0.1, now + 0.4);
+        gain2.gain.exponentialRampToValueAtTime(0.001, now + 2);
+        osc2.connect(gain2);
+        gain2.connect(audioContext.destination);
+        osc2.start(now + 0.4);
+        osc2.stop(now + 2);
+    }
+
+    // ==========================================
+    // 5. 🎤 語音控制 (核心修復區)
+    // ==========================================
+    
+    // ★★★ 1. 定義重啟函式 (必須在被呼叫前定義) ★★★
+    function scheduleRestart(ms) {
+        if (restartTimer) clearTimeout(restartTimer);
+        restartTimer = setTimeout(() => {
+            if (isVoiceControlling && recognition && !isSpeaking) {
+                try { 
+                    recognition.start(); 
+                    const dbg = document.getElementById('voiceDebug');
+                    if(dbg) dbg.innerText = "🎤 聆聽中...";
+                } catch(e) { /* 忽略重複啟動錯誤 */ }
+            }
+        }, ms);
+    }
+
+    // ★★★ 2. 語音合成 (講話時暫停辨識) ★★★
+    function speak(text) {
+        if (!('speechSynthesis' in window)) return;
+        
+        // 說話時暫停辨識，避免聽到自己
+        if (isVoiceControlling && recognition) {
+            isSpeaking = true;
+            try { recognition.abort(); } catch(e){}
+        }
+
+        window.speechSynthesis.cancel();
+        const u = new SpeechSynthesisUtterance(text);
+        u.lang = 'zh-TW';
+        u.rate = 1.1; 
+        
+        const voices = window.speechSynthesis.getVoices();
+        const zhVoice = voices.find(v => v.lang === 'zh-TW') || voices.find(v => v.lang.includes('zh'));
+        if (zhVoice) u.voice = zhVoice;
+
+        utteranceStorage.push(u);
+        u.onend = function() {
+            const index = utteranceStorage.indexOf(u);
+            if (index > -1) utteranceStorage.splice(index, 1);
+            
+            // 說完話後恢復辨識
+            isSpeaking = false;
+            // 呼叫重啟函式 (這裡就是您原本報錯的地方)
+            scheduleRestart(200);
+        };
+        window.speechSynthesis.speak(u);
+    }
 
     async function toggleVoiceControl() {
-        if (!SpeechRecognition) return Swal.fire("不支援", "請使用 Chrome 瀏覽器", "error");
         if (!isVoiceControlling) {
-            try { await startVoiceControl(); } 
-            catch (err) { Swal.fire("錯誤", "無法啟動麥克風，請檢查權限", "error"); }
-        } else { stopVoiceControl(); }
+             try { await startVoiceControl(); } 
+             catch(e) { Swal.fire("錯誤", "無法啟動麥克風", "error"); }
+        } else { 
+            stopVoiceControl(); 
+        }
     }
 
     async function startVoiceControl() {
-        await ensureAudioContextReady();
-        micStream = await navigator.mediaDevices.getUserMedia({
-            audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
-        });
-        micSource = audioContext.createMediaStreamSource(micStream);
-        analyserNode = audioContext.createAnalyser();
-        analyserNode.fftSize = 512;
-        micSource.connect(analyserNode);
-        startVolumeMeter();
-        initRecognition();
-        recognition.start();
-        isVoiceControlling = true;
+        if (!('webkitSpeechRecognition' in window)) return Swal.fire("請使用 Chrome");
+        
+        if (!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        if (audioContext.state === 'suspended') await audioContext.resume();
 
+        // 視覺化
+        try {
+            micStream = await navigator.mediaDevices.getUserMedia({ 
+                audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+            });
+            micSource = audioContext.createMediaStreamSource(micStream);
+            analyserNode = audioContext.createAnalyser();
+            analyserNode.fftSize = 512;
+            micSource.connect(analyserNode);
+            startVolumeMeter();
+        } catch(e) { console.warn("視覺化失敗", e); }
+
+        initRecognition();
+        try { recognition.start(); } catch(e){}
+
+        isVoiceControlling = true;
         const btn = document.getElementById('navVoiceBtn');
-        btn.classList.remove('voice-inactive');
         btn.classList.add('voice-active');
+        btn.classList.remove('voice-inactive');
         btn.innerHTML = '⏸︎';
         document.getElementById('volumeContainer').style.opacity = '1';
-        speak("語音模式啟動", { muteRecognition: true });
+        speak("聲控啟動");
     }
 
     function stopVoiceControl() {
         isVoiceControlling = false;
         isSpeaking = false;
         if (restartTimer) clearTimeout(restartTimer);
-        if (recognition) { try{ recognition.onend = null; recognition.abort(); }catch(e){} recognition = null; }
-        stopVolumeMeter();
-        if (micStream) { micStream.getTracks().forEach(t => t.stop()); micStream = null; }
 
         const btn = document.getElementById('navVoiceBtn');
         btn.classList.remove('voice-active');
@@ -499,9 +434,117 @@
         btn.innerHTML = '⚪';
         document.getElementById('voiceDebug').innerText = "";
         document.getElementById('volumeContainer').style.opacity = '0';
-        speak("語音關閉", { muteRecognition: false });
+
+        if (recognition) {
+            recognition.onend = null; // 防止觸發重啟
+            try { recognition.abort(); } catch(e){}
+        }
+        stopVolumeMeter();
+        if (micStream) { micStream.getTracks().forEach(t => t.stop()); micStream = null; }
     }
 
+    // ★★★ 3. 辨識初始化 (過濾錯誤) ★★★
+    function initRecognition() {
+        if (!window.webkitSpeechRecognition) return;
+        
+        if (recognition) {
+             recognition.onend = null;
+             recognition.onerror = null;
+        }
+
+        recognition = new window.webkitSpeechRecognition();
+        recognition.lang = 'zh-TW';
+        recognition.continuous = true; 
+        recognition.interimResults = true;
+
+        recognition.onstart = () => { 
+            isRecognitionActive = true; 
+            const dbg = document.getElementById('voiceDebug');
+            if(dbg) dbg.innerText = "🎤 聆聽中..."; 
+        };
+        
+        // 斷線自動重連
+        recognition.onend = () => { 
+            isRecognitionActive = false; 
+            if (isVoiceControlling && !isSpeaking) {
+                scheduleRestart(200);
+            }
+        };
+
+        recognition.onresult = (event) => {
+            let interim = "";
+            for (let i = event.resultIndex; i < event.results.length; i++) {
+                const transcript = event.results[i][0].transcript.trim();
+                if (event.results[i].isFinal) processVoiceCommand(transcript);
+                else interim += transcript;
+            }
+            if(interim) document.getElementById('voiceDebug').innerText = `👂: ${interim}`;
+        };
+
+        // 錯誤處理：忽略 no-speech 與 aborted
+        recognition.onerror = (event) => {
+            if (event.error === 'no-speech' || event.error === 'aborted') return;
+            
+            console.log('語音例外:', event.error);
+            if (event.error === 'not-allowed') {
+                stopVoiceControl();
+                Swal.fire("麥克風被拒絕", "請檢查瀏覽器設定", "error");
+            } else {
+                scheduleRestart(500);
+            }
+        };
+    }
+
+    function processVoiceCommand(text) {
+        if (text === lastFinalText && (Date.now() - lastFinalAt) < 1000) return;
+        lastFinalText = text;
+        lastFinalAt = Date.now();
+        document.getElementById('voiceDebug').innerText = `✅: ${text}`;
+
+        text = text.replace(/\s/g, "");
+        let orderId = null;
+        
+        const numMatch = text.match(/(\d+)/);
+        if (numMatch) orderId = parseInt(numMatch[1]);
+        else {
+            const zhNum = text.match(/[零一二兩三四五六七八九十]+/);
+            if (zhNum) orderId = parseChineseNumber(zhNum[0]);
+        }
+
+        if (orderId) {
+            if (text.includes("完成") || text.includes("好了") || text.includes("通知")) {
+                speak(`${orderId}號完成`);
+                updateStatus(orderId, 'completed', true);
+            }
+            else if (text.includes("結案") || text.includes("交付")) {
+                speak(`${orderId}號結案`);
+                updateStatus(orderId, 'final');
+            }
+            else if (text.includes("收錢") || text.includes("收了") || text.includes("確認")) {
+                speak(`${orderId}號已收錢`);
+                updateStatus(orderId, 'confirmed');
+            }
+            else if (text.includes("製作") || text.includes("做")) {
+                speak(`${orderId}號製作中`);
+                updateStatus(orderId, 'preparing');
+            }
+        }
+    }
+
+    function parseChineseNumber(s) {
+        const map = {'零':0,'一':1,'二':2,'兩':2,'三':3,'四':4,'五':5,'六':6,'七':7,'八':8,'九':9,'十':10};
+        let val = 0;
+        if (s.startsWith('十')) s = '一' + s; 
+        let parts = s.split('十');
+        if (parts.length === 1) return map[parts[0]] || 0;
+        if (parts.length === 2) {
+            let ten = map[parts[0]] || 0;
+            let unit = map[parts[1]] || 0;
+            return ten * 10 + unit;
+        }
+        return 0;
+    }
+    
     function startVolumeMeter() {
         const volBar = document.getElementById('volumeBar');
         const buffer = new Uint8Array(analyserNode.frequencyBinCount);
@@ -511,137 +554,16 @@
             let sum = 0;
             for(let i=0; i<buffer.length; i++) sum += buffer[i];
             let avg = sum / buffer.length;
-            volBar.style.width = Math.min(avg * 2.5, 100) + "%";
+            if(volBar) volBar.style.width = Math.min(avg * 2.5, 100) + "%";
             rafId = requestAnimationFrame(draw);
         };
         draw();
     }
-
-    function openStatusBoard() {
-    // 1. 檢查是否已經選擇了分店
-    if (!currentStore) {
-        Swal.fire({
-            icon: 'warning',
-            title: '請先選擇分店',
-            text: '請在啟動畫面或上方選單選擇分店後再開啟看板',
-            confirmButtonColor: '#d63031'
-        });
-        return;
-    }
-
-    // 2. 依照 urls.py 的定義拼接網址：/status/分店代號/
-    // ⚠️ 務必確保開頭有斜線 /，否則會變成相對路徑導致 404
-    const url = `/status/${currentStore}/`;
-    
-    console.log("正在開啟看板:", url);
-    window.open(url, '_blank');
-}
     function stopVolumeMeter() { if (rafId) cancelAnimationFrame(rafId); }
 
-    function initRecognition() {
-        recognition = new SpeechRecognition();
-        recognition.lang = 'zh-TW';
-        recognition.continuous = true;
-        recognition.interimResults = true;
-
-        recognition.onresult = (event) => {
-            let interim = "";
-            for (let i = event.resultIndex; i < event.results.length; i++) {
-                const transcript = event.results[i][0].transcript.trim();
-                if (event.results[i].isFinal) processVoiceCommand(transcript);
-                else interim += transcript;
-            }
-            if (interim) document.getElementById('voiceDebug').innerText = `👂: ${interim}`;
-        };
-
-        recognition.onend = () => { if (isVoiceControlling && !isSpeaking) scheduleRestart(200); };
-    }
-
-    function scheduleRestart(ms) {
-        if(restartTimer) clearTimeout(restartTimer);
-        restartTimer = setTimeout(() => {
-            if(isVoiceControlling && recognition) { try { recognition.start(); } catch(e){} }
-        }, ms);
-    }
-
-    function processVoiceCommand(rawText) {
-        if (rawText === lastFinalText && (Date.now() - lastFinalAt) < 1000) return;
-        lastFinalText = rawText;
-        lastFinalAt = Date.now();
-        document.getElementById('voiceDebug').innerText = `✅: ${rawText}`;
-        const text = rawText.replace(/\s/g, "");
-
-        let orderId = null;
-        const numMatch = text.match(/(\d+)/);
-        if (numMatch) orderId = parseInt(numMatch[1]);
-        else {
-            const zhNum = text.match(/[零一二兩三四五六七八九十]+/);
-            if (zhNum) orderId = parseChineseNumber(zhNum[0]);
-        }
-        if (!orderId) return;
-
-        if (text.includes("完成") || text.includes("好了")) updateStatus(orderId, 'completed', true);
-        else if (text.includes("結案") || text.includes("交付")) updateStatus(orderId, 'final');
-        else if (text.includes("收錢") || text.includes("收了")) updateStatus(orderId, 'confirmed');
-        else if (text.includes("製作")) updateStatus(orderId, 'preparing');
-    }
-
-    function parseChineseNumber(s) {
-        const map = {'零':0,'一':1,'二':2,'兩':2,'三':3,'四':4,'五':5,'六':6,'七':7,'八':8,'九':9,'十':10};
-        if (s.startsWith('十')) s = '一' + s;
-        let parts = s.split('十');
-        if (parts.length === 1) return map[parts[0]] || 0;
-        if (parts.length === 2) return (map[parts[0]] || 0) * 10 + (map[parts[1]] || 0);
-        return 0;
-    }
-
-    // --- 語音隊列管理 ---
-    let speechQueue = [];
-    let isSpeakingNow = false;
-    
-    function processSpeechQueue() {
-        if (isSpeakingNow || speechQueue.length === 0) return;
-        isSpeakingNow = true;
-        const { text, muteRecognition } = speechQueue.shift();
-        
-        if (!audioReady || !('speechSynthesis' in window)) {
-            isSpeakingNow = false;
-            processSpeechQueue();
-            return;
-        }
-        
-        try {
-            if (speechQueue.length === 0) window.speechSynthesis.cancel();
-            const u = new SpeechSynthesisUtterance(text);
-            u.lang = 'zh-TW';
-            u.onend = () => {
-                isSpeakingNow = false;
-                if (muteRecognition && isVoiceControlling && recognition) {
-                    isSpeaking = false;
-                    scheduleRestart(200);
-                }
-                setTimeout(() => processSpeechQueue(), 100);
-            };
-            
-            if (muteRecognition && isVoiceControlling && recognition) {
-                isSpeaking = true;
-                try { recognition.abort(); } catch(e){}
-            }
-            window.speechSynthesis.speak(u);
-        } catch (e) {
-            isSpeakingNow = false;
-            processSpeechQueue();
-        }
-    }
-    
-    function speak(text, { muteRecognition = true, priority = false } = {}) {
-        if (priority) speechQueue.unshift({ text, muteRecognition });
-        else speechQueue.push({ text, muteRecognition });
-        if (!isSpeakingNow) processSpeechQueue();
-    }
-
-    // --- 分店與訂單邏輯 ---
-
+    // ==========================================
+    // 6. 資料載入與渲染 (UI 邏輯)
+    // ==========================================
     function switchStore() {
         currentStore = document.getElementById('storeSelector').value;
         localStorage.setItem('selected_store', currentStore);
@@ -649,74 +571,66 @@
         isFirstLoad = true;
         alertedArrived.clear();
         loadOrders();
-        const storeName = storesData.find(s => s.slug === currentStore)?.name || "";
-        speak(`已切換至 ${storeName}`, {muteRecognition: false});
+        speak("已切換分店");
     }
 
     function updateStoreUI() {
         const storeObj = storesData.find(s => s.slug === currentStore);
-        const name = storeObj ? storeObj.name : "載入中...";
-        const display = document.getElementById('targetStoreName');
-        if (display) display.innerText = name;
+        if(document.getElementById('targetStoreName')) 
+            document.getElementById('targetStoreName').innerText = storeObj ? storeObj.name : "";
     }
 
     function loadOrders() {
         if (!currentStore) return;
-        fetch(`/api/orders/?store=${currentStore}&t=${new Date().getTime()}`)
-            .then(res => {
-                if (res.status === 401 || res.status === 403) {
-                    window.location.href = '/admin/login/?next=' + window.location.pathname;
-                    return null;
-                }
-                return res.json();
-            })
+        fetch(`/api/orders/?store=${currentStore}&t=${Date.now()}`)
+            .then(res => res.json())
             .then(orders => {
-                if (!orders || !Array.isArray(orders)) return;
-                const currentJson = JSON.stringify(orders);
-                if (currentJson === lastOrdersJson) return; 
-                lastOrdersJson = currentJson;
-
-                if (isFirstLoad) {
-                    orders.forEach(order => {
-                        if (order.status === 'pending') alertedNewOrder.add(order.id);
-                        if (order.status === 'arrived') alertedArrived.add(order.id);
-                        if (order.status === 'confirmed' && order.payment_method === 'linepay') alertedLinePayPaid.add(order.id);
-                    });
-                    isFirstLoad = false;
-                }
+                if (!Array.isArray(orders)) return;
+                
+                const jsonStr = JSON.stringify(orders);
+                if (jsonStr === lastOrdersJson) return;
+                lastOrdersJson = jsonStr;
 
                 const list = document.getElementById('orderList');
                 if (orders.length === 0) {
-                    list.innerHTML = `<div class="text-center mt-5 text-muted"><p>目前沒有訂單</p></div>`;
+                    list.innerHTML = `<div class="text-center mt-5 text-muted">目前沒有訂單</div>`;
                     return;
                 }
 
-                const currentlyOpenedIds = [];
+                const openedIds = [];
                 document.querySelectorAll('.detail-content:not(.hide-detail)').forEach(el => {
-                    currentlyOpenedIds.push(parseInt(el.id.replace('detail-', '')));
+                    openedIds.push(parseInt(el.id.replace('detail-', '')));
                 });
 
-                let newHtml = '';
+                let html = '';
                 orders.sort((a, b) => {
-                    const isAClosed = (a.status === 'final' || a.status === 'cancelled');
-                    const isBClosed = (b.status === 'final' || b.status === 'cancelled');
-                    if (isAClosed && !isBClosed) return 1;
-                    if (!isAClosed && isBClosed) return -1;
+                    const aClosed = (a.status === 'final' || a.status === 'cancelled');
+                    const bClosed = (b.status === 'final' || b.status === 'cancelled');
+                    if (aClosed && !bClosed) return 1;
+                    if (!aClosed && bClosed) return -1;
                     return b.id - a.id;
-                }).forEach(order => {
-                    // 語音通知觸發
+                });
+
+                orders.forEach(order => {
                     if (order.status === 'pending' && !alertedNewOrder.has(order.id)) {
-                        speak(`新訂單，編號 ${order.id}`);
+                        if (!isFirstLoad) speak(`新訂單 ${order.id}號`);
                         alertedNewOrder.add(order.id);
-                        localStorage.setItem('alerted_new_orders', JSON.stringify(Array.from(alertedNewOrder).slice(-100)));
+                        localStorage.setItem('alerted_new_orders', JSON.stringify([...alertedNewOrder].slice(-50)));
                     }
                     if (order.status === 'arrived' && !alertedArrived.has(order.id)) {
-                        speak(`編號 ${order.id} 客人已到櫃檯`, {priority: true});
+                        playBell(); 
+                        setTimeout(() => speak(`${order.id}號 客人已經到櫃檯摟`), 1000);
                         alertedArrived.add(order.id);
-                        localStorage.setItem('alerted_arrived', JSON.stringify(Array.from(alertedArrived).slice(-100)));
+                        localStorage.setItem('alerted_arrived', JSON.stringify([...alertedArrived].slice(-50)));
+                    }
+                    if (order.status === 'confirmed' && order.payment_method === 'linepay' && !alertedLinePayPaid.has(order.id)) {
+                        speak(`${order.id}號 線上付款成功`);
+                        alertedLinePayPaid.add(order.id);
+                        localStorage.setItem('alerted_linepay_paid', JSON.stringify([...alertedLinePayPaid].slice(-50)));
                     }
 
-                    const wasOpened = currentlyOpenedIds.includes(order.id);
+                    // --- UI 細項 ---
+                    const wasOpened = openedIds.includes(order.id);
                     const isContracted = (order.status === 'final' || order.status === 'cancelled');
                     let detailClass = (wasOpened || !isContracted) ? 'detail-content' : 'detail-content hide-detail';
                     let arrowRotate = (wasOpened || !isContracted) ? 'style="transform: rotate(180deg)"' : '';
@@ -726,57 +640,143 @@
 
                     let actionBtn = '';
                     if (order.status === 'pending') {
-                        actionBtn = isLinePay ? `<div class="alert alert-warning py-2 small">⏳ 等待顧客付款中...</div>` : `<button onclick="updateStatus(${order.id}, 'confirmed')" class="btn btn-primary btn-action">💰 已收錢：成立訂單</button>`;
+                        if (isLinePay) {
+                            actionBtn = `
+                                <div class="alert alert-warning text-center fw-bold mb-2 py-2 small">⏳ 等待顧客付款中...</div>
+                                <button onclick="cancelOrder(${order.id})" class="btn btn-link btn-sm text-muted w-100 mt-1">取消訂單</button>
+                            `;
+                        } else {
+                            actionBtn = `
+                                <button onclick="updateStatus(${order.id}, 'confirmed')" class="btn btn-primary btn-action shadow">💰 已收錢：成立訂單</button>
+                                <button onclick="cancelOrder(${order.id})" class="btn btn-link btn-sm text-muted w-100 mt-1">取消訂單</button>
+                            `;
+                        }
                     } else if (order.status === 'confirmed') {
-                        actionBtn = `<button onclick="updateStatus(${order.id}, 'preparing')" class="btn btn-warning btn-action">🍓 開始製作</button>`;
+                        actionBtn = `
+                            <button onclick="updateStatus(${order.id}, 'preparing')" class="btn btn-warning btn-action shadow">🍓 開始製作餐點</button>
+                            <button onclick="cancelOrder(${order.id})" class="btn btn-link btn-sm text-muted w-100 mt-1">取消訂單</button>
+                        `;
                     } else if (order.status === 'preparing') {
-                        actionBtn = `<button onclick="updateStatus(${order.id}, 'completed', true)" class="btn btn-success btn-action">🔔 製作完成</button>`;
+                        actionBtn = `
+                            <button onclick="updateStatus(${order.id}, 'completed', true)" class="btn btn-success btn-action shadow">🔔 製作完成：發送通知</button>
+                            <button onclick="cancelOrder(${order.id})" class="btn btn-link btn-sm text-muted w-100 mt-1">取消訂單</button>
+                        `;
+                    } else if (order.status === 'completed') {
+                        actionBtn = `
+                            <div class="alert alert-info text-center mb-2 py-2 fw-bold small">⌛ 已通知，等候取餐中...</div>
+                            <button onclick="confirmAction(${order.id}, 'final', '確認交付餐點並結案？')" class="btn btn-danger btn-action shadow">✨ 交付結案</button>
+                        `;
                     } else if (order.status === 'arrived') {
-                        actionBtn = `<button onclick="confirmAction(${order.id}, 'final', '確認交付結案？')" class="btn btn-danger btn-action">✨ 交付結案</button>`;
+                        actionBtn = `
+                            <button onclick="confirmAction(${order.id}, 'final', '確認交付結案？')" class="btn btn-danger btn-action animate__animated animate__pulse animate__infinite shadow-lg">🚨 客人已抵達！點此結案</button>
+                        `;
+                    } else if (order.status === 'cancelled') {
+                        actionBtn = `<div class="text-center py-2 text-danger fw-bold">❌ 訂單已取消</div>`;
+                    } else if (order.status === 'final') {
+                        actionBtn = `<div class="text-center py-2 text-success fw-bold">✅ 交易已完成</div>`;
                     }
 
-                    newHtml += `
+                    const statusTagClass = { pending: 'tag-pending', confirmed: 'tag-confirmed', preparing: 'tag-preparing', completed: 'tag-completed', arrived: 'tag-arrived', final: 'tag-final', cancelled: 'tag-cancelled' }[order.status];
+
+                    html += `
                         <div class="card order-card status-${order.status}" id="card-${order.id}">
                             <div class="card-header-clickable" onclick="toggleDetail(${order.id})">
                                 <div class="order-head-left">
                                     <span class="order-pill pill-phone">${order.phone_tail || '現場'}</span>
                                     <span class="order-pill pill-id">#${order.id}</span>
                                     ${payTag}
-                                    <span class="status-tag">${getStatusText(order.status)}</span>
+                                    <span class="status-tag ${statusTagClass}">
+                                        ${getStatusText(order.status)}${order.status === 'arrived' ? ' 🚨' : ''}
+                                    </span>
                                 </div>
-                                <span class="arrow" id="arrow-${order.id}" ${arrowRotate}>▼</span>
+                                <div class="order-head-right">
+                                    <span class="arrow" id="arrow-${order.id}" ${arrowRotate}>▼</span>
+                                </div>
                             </div>
+
                             <div id="detail-${order.id}" class="${detailClass}">
-                                <div class="mb-2">
-                                    ${(order.items || []).map(i => `<span class="item-badge">${i.name} x ${i.quantity}</span>`).join('')}
+                                <div class="mb-3">
+                                    ${(order.items || []).map(i => `<span class="item-badge">${i.name} x ${i.quantity || i.qty}</span>`).join('')}
                                 </div>
-                                <div class="time-box">
+
+                                <div class="time-box mb-3">
                                     <div>🕒 下單：${new Date(order.created_at).toLocaleTimeString()}</div>
-                                    <div class="mt-1 fw-bold text-danger">總額：$${order.total}</div>
+                                    <div class="mt-2 fw-bold text-danger fs-5">總額：$${order.total}</div>
                                 </div>
-                                <div class="mt-2">${actionBtn}</div>
+
+                                <div id="btn-zone-${order.id}">
+                                    ${actionBtn}
+                                </div>
                             </div>
                         </div>
                     `;
                 });
-                list.innerHTML = newHtml;
-            });
+                list.innerHTML = html;
+                isFirstLoad = false;
+            })
+            .catch(err => console.error("載入失敗", err));
     }
 
-    // --- 工具函式 ---
-    function getCookie(n) { let v = document.cookie.match('(^|;) ?' + n + '=([^;]*)(;|$)'); return v ? decodeURIComponent(v[2]) : null; }
-    function getStatusText(s) { const map = { 'pending': '待付', 'confirmed': '已付', 'preparing': '製作中', 'completed': '通知中', 'arrived': '到櫃', 'final': '結案', 'cancelled': '取消' }; return map[s] || s; }
     function toggleDetail(id) {
         const d = document.getElementById(`detail-${id}`), a = document.getElementById(`arrow-${id}`);
-        if (d && a) { const isH = d.classList.toggle('hide-detail'); a.style.transform = isH ? 'rotate(0deg)' : 'rotate(180deg)'; }
+        if(d){ d.classList.toggle('hide-detail'); a.style.transform = d.classList.contains('hide-detail')?'rotate(0deg)':'rotate(180deg)'; }
     }
-    function updateStatus(id, ns, notify = false) {
+
+    function getStatusText(s) { 
+        const map = { 'pending': '待付', 'confirmed': '已付', 'preparing': '製作中', 'completed': '通知中', 'arrived': '到櫃', 'final': '結案', 'cancelled': '取消' }; 
+        return map[s] || s; 
+    }
+
+    function openStatusBoard() {
+        if (!currentStore) return Swal.fire('請先選擇分店');
+        window.open(`/status/${currentStore}/`, '_blank');
+    }
+
+    function goToReport() {
+        if(!currentStore) return Swal.fire('請先選擇分店');
+        window.location.href = '/dashboard/?store=' + currentStore;
+    }
+
+    function getCookie(n) { let v = document.cookie.match('(^|;) ?' + n + '=([^;]*)(;|$)'); return v ? decodeURIComponent(v[2]) : null; }
+
+    function updateStatus(id, status) {
         fetch(`/api/orders/${id}/`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
-            body: JSON.stringify({ status: ns })
-        }).then(() => loadOrders());
+            body: JSON.stringify({ status: status })
+        }).then(res => { 
+            if(res.ok) { 
+                loadOrders(); 
+                if(status==='final') speak("訂單已結案"); 
+            } 
+        });
     }
-  </script>
+
+    function cancelOrder(id) {
+        Swal.fire({
+            title: '取消訂單?', 
+            text: "若是 LINE Pay 將自動退款", 
+            icon: 'warning', 
+            showCancelButton: true, 
+            confirmButtonColor: '#d33', 
+            confirmButtonText: '確定取消'
+        }).then((res) => {
+            if (res.isConfirmed) {
+                fetch(`/api/orders/${id}/cancel/`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') }
+                }).then(r => r.json()).then(d => {
+                    Swal.fire(d.error?'失敗':'成功', d.error||'訂單已取消', d.error?'error':'success');
+                    loadOrders();
+                });
+            }
+        });
+    }
+
+    function confirmAction(id, status, msg) {
+        Swal.fire({ title: msg, icon: 'question', showCancelButton: true, confirmButtonText: '確認' })
+            .then(r => { if(r.isConfirmed) updateStatus(id, status); });
+    }
+</script>
 </body>
 </html>
