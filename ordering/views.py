@@ -356,6 +356,7 @@ class OrderViewSet(viewsets.ModelViewSet):
 
                 line_handler = LinePayHandler()
                 result = line_handler.confirm_payment(transaction_id, order.total)
+                print(f"DEBUG: LINE Pay 回傳內容: {result}")
 
                 if result and result.get("returnCode") == "0000":
                     order.status = "confirmed"
