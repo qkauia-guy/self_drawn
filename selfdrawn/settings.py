@@ -1,36 +1,57 @@
 import os
 import dj_database_url
-
 from pathlib import Path
 
 # 1. 基本路徑設定
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# 2. 安全設定
+# 2. 環境變數讀取 (從 .env 載入)
+# 建議確保在啟動 Gunicorn 前已 export 變數，或在服務中載入 EnvironmentFile
 SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY")
 if not SECRET_KEY:
-    raise ValueError("DJANGO_SECRET_KEY environment variable is required. Please set it in your environment.")
+    # 正式環境若沒設定 SECRET_KEY 必須報錯退出，確保安全性
+    raise ValueError(
+        "DJANGO_SECRET_KEY environment variable is required. Please set it in your environment."
+    )
 
+# 預設為 False，只有環境變數明確設為 "True" 時才開啟
 DEBUG = os.environ.get("DEBUG", "False") == "True"
 
+# 3. 網域與信任來源設定
+ALLOWED_HOSTS_ENV = os.environ.get("ALLOWED_HOSTS")
+if ALLOWED_HOSTS_ENV:
+    ALLOWED_HOSTS = [host.strip() for host in ALLOWED_HOSTS_ENV.split(",")]
+else:
+    # 預設支援你的 DigitalOcean IP 與網域
+    ALLOWED_HOSTS = ["yibahu-order.it.com", "167.99.64.109", "localhost", "127.0.0.1"]
 
-# 3. 應用程式定義
+CSRF_TRUSTED_ORIGINS_ENV = os.environ.get("CSRF_TRUSTED_ORIGINS")
+if CSRF_TRUSTED_ORIGINS_ENV:
+    CSRF_TRUSTED_ORIGINS = [
+        origin.strip() for origin in CSRF_TRUSTED_ORIGINS_ENV.split(",")
+    ]
+else:
+    # 預設信任你的正式網域 (HTTPS)
+    CSRF_TRUSTED_ORIGINS = ["https://yibahu-order.it.com"]
+
+# 4. 應用程式定義
 INSTALLED_APPS = [
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
     "django.contrib.sessions",
     "django.contrib.messages",
+    "whitenoise.runserver_nostatic",  # WhiteNoise 輔助
     "django.contrib.staticfiles",
     "rest_framework",
-    "ordering",
-    "django_json_widget",
+    "ordering",  # 你的訂單邏輯
+    "django_json_widget",  # 管理後台 UI
 ]
 
-# 4. 中間件 (加入 WhiteNoise 修復 CSS)
+# 5. 中間件 (WhiteNoise 必須放在 Security 之後)
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
-    "whitenoise.middleware.WhiteNoiseMiddleware",  # <--- 必須在 SecurityMiddleware 之後
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -58,135 +79,70 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "selfdrawn.wsgi.application"
 
-# 5. 資料庫 (目前使用 SQLite)
+# 6. 資料庫設定 (優先讀取 DATABASE_URL)
+# 支援 PostgreSQL (正式) 或 SQLite (開發)
 DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
-    }
+    "default": dj_database_url.config(
+        default=f'sqlite:///{BASE_DIR / "db.sqlite3"}', conn_max_age=600
+    )
 }
 
-# 6. 密碼驗證
-AUTH_PASSWORD_VALIDATORS = [
-    {
-        "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"
-    },
-    {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
-    {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
-    {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
-]
-
-# 7. 語言與時區
+# 7. 語言與時區 (設定為台灣)
 LANGUAGE_CODE = "zh-Hant"
 TIME_ZONE = "Asia/Taipei"
 USE_I18N = True
 USE_TZ = True
-LOGIN_REDIRECT_URL = "/owner/"
 
-# 8. 靜態檔案設定 (修復 CSS 與 Icon 的核心)
+# 8. 靜態檔案 (WhiteNoise 設定)
 STATIC_URL = "static/"
-
-# 告訴 Django 收集所有靜態檔案到此資料夾，讓 WhiteNoise 讀取
 STATIC_ROOT = BASE_DIR / "staticfiles"
-
-# 你的原始靜態檔案存放位置
 STATICFILES_DIRS = [
     BASE_DIR / "selfdrawn" / "static",
 ]
-
-# 啟用 WhiteNoise 的壓縮與緩存功能
+# 啟用壓縮與快取，優化讀取速度
 STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
-DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
-
-# ALLOWED_HOSTS 設定（支援環境變數）
-ALLOWED_HOSTS_ENV = os.environ.get("ALLOWED_HOSTS")
-if ALLOWED_HOSTS_ENV:
-    ALLOWED_HOSTS = [host.strip() for host in ALLOWED_HOSTS_ENV.split(",")]
-else:
-    # ALLOWED_HOSTS = ["localhost", "127.0.0.1", "self-drawn.onrender.com"]
-    ALLOWED_HOSTS = ['yibahu-order.it.com', '167.99.64.109', 'localhost', '127.0.0.1']
-    
-
-# 信任的來源 (解決 CSRF 403 錯誤)
-# 注意：一定要有 https:// 開頭
-CSRF_TRUSTED_ORIGINS_ENV = os.environ.get("CSRF_TRUSTED_ORIGINS")
-if CSRF_TRUSTED_ORIGINS_ENV:
-    CSRF_TRUSTED_ORIGINS = [origin.strip() for origin in CSRF_TRUSTED_ORIGINS_ENV.split(",")]
-else:
-    CSRF_TRUSTED_ORIGINS = [
-        "https://self-drawn.onrender.com",
-    ]
-
-
-# ...
-
-# DATABASES = {
-#     "default": {
-#         "ENGINE": "django.db.backends.sqlite3",
-#         "NAME": BASE_DIR / "db.sqlite3",
-#     }
-# }
-
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'self_drawn_db',         # 資料庫名稱
-        'USER': 'qkauia',               # 使用者名稱
-        'PASSWORD': 'maxa1025',          # 使用者密碼
-        'HOST': '127.0.0.1',             # 指向本機資料庫
-        'PORT': '5432',                  # PostgreSQL 預設連接埠
-    }
-}
-
-# 如果有讀取到 DATABASE_URL 環境變數 (代表在 Render 上)，就改用 PostgreSQL
-db_from_env = dj_database_url.config(conn_max_age=600)
-DATABASES["default"].update(db_from_env)
-
-# ==========================================
-# 安全標頭與 HTTPS 設定
-# ==========================================
+# 9. 安全標頭與 HTTPS 設定 (當 DEBUG=False 時啟用)
 if not DEBUG:
-    # HTTPS 強制重定向
+    # 強制將所有 HTTP 請求重定向至 HTTPS
     SECURE_SSL_REDIRECT = True
+    # 透過 Nginx 轉發時，讓 Django 辨識 HTTPS
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
     # Cookie 安全性
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
-    # 瀏覽器安全標頭
+
+    # 瀏覽器防禦
     SECURE_BROWSER_XSS_FILTER = True
     SECURE_CONTENT_TYPE_NOSNIFF = True
-    X_FRAME_OPTIONS = 'DENY'
-    # HSTS (HTTP Strict Transport Security)
-    SECURE_HSTS_SECONDS = 31536000  # 1 年
+    X_FRAME_OPTIONS = "DENY"
+
+    # HSTS 啟動 (告訴瀏覽器這一年內都只能用 HTTPS 連線)
+    SECURE_HSTS_SECONDS = 31536000
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_PRELOAD = True
-    # 其他安全設定
-    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
-# Session 安全性設定
+# 10. Session 安全
 SESSION_COOKIE_HTTPONLY = True
-SESSION_COOKIE_SAMESITE = 'Lax'
-SESSION_COOKIE_AGE = 3600  # 1 小時
-SESSION_SAVE_EVERY_REQUEST = True  # 每次請求更新 session
+SESSION_COOKIE_SAMESITE = "Lax"
+SESSION_COOKIE_AGE = 3600  # 1 小時後過期
+SESSION_SAVE_EVERY_REQUEST = True
 
-# ==========================================
-# REST Framework 設定（加入 Rate Limiting）
-# ==========================================
+# 11. REST Framework 設定 (加入 API 流量限制)
 REST_FRAMEWORK = {
-    'DEFAULT_THROTTLE_CLASSES': [
-        'rest_framework.throttling.AnonRateThrottle',
-        'rest_framework.throttling.UserRateThrottle'
+    "DEFAULT_THROTTLE_CLASSES": [
+        "rest_framework.throttling.AnonRateThrottle",
+        "rest_framework.throttling.UserRateThrottle",
     ],
-    'DEFAULT_THROTTLE_RATES': {
-        'anon': '100/hour',  # 匿名使用者每小時 100 次請求
-        'user': '1000/hour'  # 登入使用者每小時 1000 次請求
-    },
-    'DEFAULT_AUTHENTICATION_CLASSES': [
-        'rest_framework.authentication.SessionAuthentication',
+    "DEFAULT_THROTTLE_RATES": {"anon": "100/hour", "user": "1000/hour"},  # 防止惡意刷單
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "rest_framework.authentication.SessionAuthentication",
     ],
-    # 預設權限設為 AllowAny，讓各個 ViewSet 自己決定權限
-    # 這樣可以更靈活地控制每個端點的存取權限
-    'DEFAULT_PERMISSION_CLASSES': [
-        'rest_framework.permissions.AllowAny',
+    "DEFAULT_PERMISSION_CLASSES": [
+        "rest_framework.permissions.AllowAny",
     ],
 }
+
+DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+LOGIN_REDIRECT_URL = "/owner/"
