@@ -15,7 +15,15 @@
         crossorigin="anonymous"></script>
 
     <style>
-        :root { --strawberry: #ff4d4d; --bg-pink: #fffafa; }
+
+/* 讓分類標題 / accordion item 捲動時，會自動保留頂部空間 */
+        
+        :root { --strawberry: #ff4d4d; --bg-pink: #fffafa; --sticky-offset: 84px; }
+        .accordion-header,
+        .accordion-item,
+        .accordion-collapse{
+            scroll-margin-top: var(--sticky-offset);
+        }
         body {
             background-color: var(--bg-pink);
             font-family: "Microsoft JhengHei", sans-serif;
@@ -545,7 +553,8 @@
                     list.querySelectorAll('.accordion-collapse').forEach(el => {
                         if (!bootstrap.Collapse.getInstance(el)) new bootstrap.Collapse(el, { toggle: false });
                     });
-                }, 50);
+                    bindAccordionAutoScroll();
+                }, 80);
 
                 // 🔥🔥🔥 關鍵邏輯：還原購物車數量 🔥🔥🔥
                 if (savedCart) {
@@ -572,6 +581,46 @@
                 console.error("載入商品失敗:", err);
             });
     }
+
+    function getStickyOffset(){
+        const header = document.querySelector('.sticky-header');
+        const h = header ? header.getBoundingClientRect().height : 0;
+
+        // iPhone 安全區（有些機型會用到；沒有就 0）
+        const safeTop = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--sat')) || 0;
+
+        return Math.ceil(h + safeTop);
+        }
+
+        function syncStickyOffsetVar(){
+        const off = getStickyOffset();
+        document.documentElement.style.setProperty('--sticky-offset', (off + 10) + 'px'); // +10 留一點呼吸
+        return off + 10;
+        }
+
+        function scrollCategoryHeaderIntoTop(btn){
+        if(!btn) return;
+        const off = syncStickyOffsetVar();
+
+        // 捲到「這個 button」的位置 - sticky header 高度
+        const top = window.scrollY + btn.getBoundingClientRect().top - off;
+        window.scrollTo({ top, behavior: 'smooth' });
+        }
+
+        function bindAccordionAutoScroll(){
+        syncStickyOffsetVar();
+        window.addEventListener('resize', syncStickyOffsetVar, { passive:true });
+
+        document.querySelectorAll('#productAccordion .accordion-collapse').forEach(collapseEl => {
+            collapseEl.addEventListener('shown.bs.collapse', function(){
+            const item = collapseEl.closest('.accordion-item');
+            const btn = item ? item.querySelector('.accordion-button') : null;
+            // 展開完再捲，避免高度變動造成算錯
+            setTimeout(() => scrollCategoryHeaderIntoTop(btn), 30);
+            });
+        });
+    }
+
 
     function changeQty(id, delta) {
         const input = document.getElementById(`qty_${id}`);
