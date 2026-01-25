@@ -453,13 +453,15 @@
             });
     }
 
-    function fetchProducts() {
+    function fetchProducts(savedCart = null) {
+        // 加入時間戳記避免快取
         fetch(`/api/products/?store=${currentStoreSlug}&t=${Date.now()}`)
             .then(res => res.json())
             .then(data => {
                 const list = document.getElementById('productList');
                 list.innerHTML = '';
 
+                // ... (中間的分類邏輯與原本相同，省略不變) ...
                 const groups = {};
                 data.forEach(p => {
                     const catSlug = p.category; 
@@ -473,8 +475,8 @@
                     }
                     groups[catSlug].products.push(p);
                 });
-
                 const sortedCategories = Object.values(groups).sort((a, b) => a.order - b.order);
+                // ... (以上邏輯維持原樣) ...
 
                 const accordionId = "productAccordion";
                 let accordionHTML = `<div class="accordion accordion-flush" id="${accordionId}">`;
@@ -483,77 +485,91 @@
                     const catSlug = cat.slug;
                     const catLabel = cat.name;
                     const filteredProducts = cat.products;
-
                     const isFirst = index === 0; 
                     const collapseId = `collapse_${catSlug}`;
                     const headerId = `heading_${catSlug}`;
 
+                    // --- 渲染分類標題 ---
                     accordionHTML += `
                     <div class="accordion-item bg-transparent border-0 mb-3">
                         <h2 class="accordion-header" id="${headerId}">
                             <button class="accordion-button cat-${catSlug} ${isFirst ? '' : 'collapsed'} bg-transparent fw-bold text-danger fs-5 p-2 shadow-none" 
-                                    type="button" 
-                                    data-bs-toggle="collapse" 
-                                    data-bs-target="#${collapseId}" 
-                                    data-cat="${catSlug}"
-                                    aria-expanded="${isFirst ? 'true' : 'false'}" 
-                                    aria-controls="${collapseId}">
+                                    type="button" data-bs-toggle="collapse" data-bs-target="#${collapseId}" 
+                                    data-cat="${catSlug}" aria-expanded="${isFirst ? 'true' : 'false'}" aria-controls="${collapseId}">
                                 <span class="border-start border-4 border-danger ps-2">${catLabel}</span>
                             </button>
                         </h2>
-                        <div id="${collapseId}" class="accordion-collapse collapse ${isFirst ? 'show' : ''}" 
-                            aria-labelledby="${headerId}" 
-                            data-bs-parent="#${accordionId}">
-                            <div class="accordion-body p-0 pt-2 ms-3"> 
-                                ${filteredProducts.map(p => {
-                                    const isSoldOut = p.stock <= 0 || !p.is_active;
-                                    const statusLabel = isSoldOut ? 
-                                        `<span class="badge bg-secondary">今日售完</span>` : 
-                                        `<small class="text-muted">剩餘庫存: ${p.stock}</small>`;
+                        <div id="${collapseId}" class="accordion-collapse collapse ${isFirst ? 'show' : ''}" aria-labelledby="${headerId}" data-bs-parent="#${accordionId}">
+                            <div class="accordion-body p-0 pt-2 ms-3">`;
+
+                    // --- 渲染商品列表 ---
+                    filteredProducts.forEach(p => {
+                        const isSoldOut = p.stock <= 0 || !p.is_active;
+                        const statusLabel = isSoldOut ? 
+                            `<span class="badge bg-secondary">今日售完</span>` : 
+                            `<small class="text-muted">剩餘庫存: ${p.stock}</small>`;
+                        
+                        const descHTML = p.description ? `<div class="small text-muted mb-1" style="font-size: 0.8rem;">${p.description}</div>` : '';
+
+                        // 🔥 重點修改：在渲染 HTML 時，不設定 value，稍後用 JS 補上
+                        accordionHTML += `
+                        <div class="card mb-3 p-1 product-item ${isSoldOut ? 'opacity-75 bg-light' : ''}">
+                            <div class="card-body d-flex justify-content-between align-items-center p-3">
+                                <div class="flex-grow-1">
+                                    <div class="fw-bold h6 mb-1">${p.name}</div>
+                                    ${descHTML} <div class="text-danger fw-bold small">$${p.price}</div>
+                                    ${statusLabel}
+                                </div>
+                                <div class="d-flex align-items-center gap-2">
+                                    <button class="qty-btn" onclick="changeQty('${p.id}', -1)" ${isSoldOut ? 'disabled' : ''}>-</button>
                                     
-                                    const descHTML = p.description ? `<div class="small text-muted mb-1" style="font-size: 0.8rem;">${p.description}</div>` : '';
-
-                                    return `
-                                    <div class="card mb-3 p-1 product-item ${isSoldOut ? 'opacity-75 bg-light' : ''}">
-                                        <div class="card-body d-flex justify-content-between align-items-center p-3">
-                                            <div class="flex-grow-1">
-                                                <div class="fw-bold h6 mb-1">${p.name}</div>
-                                                ${descHTML} <div class="text-danger fw-bold small">$${p.price}</div>
-                                                ${statusLabel}
-                                            </div>
-                                            <div class="d-flex align-items-center gap-2">
-                                                <button class="qty-btn" onclick="changeQty('${p.id}', -1)" ${isSoldOut ? 'disabled' : ''}>-</button>
-                                                <input type="number" id="qty_${p.id}" class="form-control item-qty border-0 bg-transparent text-center fw-bold fs-5" 
-                                                    style="width: 45px" value="0" readonly 
-                                                    data-id="${p.id}" data-price="${p.price}" 
-                                                    data-name="${p.name}" data-flavors="${p.flavor_options || ''}">
-                                                <button class="qty-btn" onclick="changeQty('${p.id}', 1)" ${isSoldOut ? 'disabled' : ''}>+</button>
-                                            </div>
-                                        </div>
-                                    </div>`;
-                                }).join('')}
+                                    <input type="number" id="qty_${p.id}" class="form-control item-qty border-0 bg-transparent text-center fw-bold fs-5" 
+                                        style="width: 45px" value="0" readonly 
+                                        data-id="${p.id}" data-price="${p.price}" 
+                                        data-name="${p.name}" data-flavors="${p.flavor_options || ''}"
+                                        data-stock="${p.stock}" data-active="${p.is_active}">
+                                        
+                                    <button class="qty-btn" onclick="changeQty('${p.id}', 1)" ${isSoldOut ? 'disabled' : ''}>+</button>
+                                </div>
                             </div>
-                        </div>
-                    </div>`;
-                });
+                        </div>`;
+                    });
 
+                    accordionHTML += `</div></div></div>`;
+                });
                 accordionHTML += `</div>`;
                 list.innerHTML = accordionHTML;
 
+                // --- 初始化 Accordion ---
                 setTimeout(() => {
-                    const accElems = list.querySelectorAll('.accordion-collapse');
-                    accElems.forEach(el => {
-                        if (!bootstrap.Collapse.getInstance(el)) {
-                            new bootstrap.Collapse(el, { toggle: false });
-                        }
+                    list.querySelectorAll('.accordion-collapse').forEach(el => {
+                        if (!bootstrap.Collapse.getInstance(el)) new bootstrap.Collapse(el, { toggle: false });
                     });
                 }, 50);
 
+                // 🔥🔥🔥 關鍵邏輯：還原購物車數量 🔥🔥🔥
+                if (savedCart) {
+                    for (const [pid, qty] of Object.entries(savedCart)) {
+                        const input = document.getElementById(`qty_${pid}`);
+                        // 只有當商品存在，且「還有庫存 (Active且Stock>0)」時，才把數量填回去
+                        // 如果現在已經售完 (input 上面的按鈕被 disabled)，就不還原，讓它維持 0
+                        if (input) {
+                            const stock = parseInt(input.dataset.stock || 0);
+                            const isActive = input.dataset.active === 'true';
+                            
+                            if (stock > 0 && isActive) {
+                                // 如果原本點的數量 > 現在庫存，就只能給最大庫存量 (例如原本點5個，現在剩3個，就自動變3個)
+                                input.value = Math.min(qty, stock);
+                            }
+                        }
+                    }
+                }
+
+                // 最後更新總金額與分類紅點
                 updateTotal();
             })
             .catch(err => {
                 console.error("載入商品失敗:", err);
-                document.getElementById('productList').innerHTML = `<div class="text-center text-muted py-5">暫時無法載入菜單，請稍後再試。<br><small>${err.message}</small></div>`;
             });
     }
 
@@ -719,6 +735,9 @@
     }
 
     function submitOrder(phone, items, total, paymentMethod) {
+        // 顯示讀取中，避免重複點擊
+        Swal.fire({ title: '訂單處理中...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+
         fetch('/api/orders/', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
@@ -731,9 +750,38 @@
                 payment_method: paymentMethod
             })
         })
-        .then(res => {
-            if (!res.ok) return res.json().then(err => { throw new Error(err.error || '伺服器發生錯誤'); });
-            return res.json();
+        .then(async res => {
+            // 🔥 改進 1: 先檢查是不是 200 OK，不管內容是什麼先讀成文字
+            const text = await res.text();
+            
+            try {
+                // 嘗試把文字轉成 JSON
+                const data = JSON.parse(text);
+                
+                // 如果後端回傳錯誤狀態 (例如 400, 500)
+                if (!res.ok) {
+                    // 優先抓取 error 或 detail 欄位
+                    const errorMsg = data.error || data.detail || '伺服器發生未知的錯誤';
+                    throw new Error(errorMsg);
+                }
+                
+                return data; // 成功，回傳 JSON 資料
+                
+            } catch (e) {
+                // 如果解析 JSON 失敗 (代表後端回傳了 HTML 錯誤頁面)
+                // 或者是我們上面自己 throw 的 Error
+                if (!res.ok) {
+                    // 如果是我們自己 throw 的，e.message 就是錯誤訊息
+                    // 如果是 JSON 解析失敗，通常是 500 Error
+                    if (e.message && e.message.includes('JSON')) {
+                        console.error("後端回傳了非 JSON 的內容:", text);
+                        throw new Error('伺服器內部錯誤 (請檢查後端 Console)');
+                    }
+                    throw e; 
+                }
+                // 如果狀態是 200 但 JSON 解析失敗...
+                throw new Error('伺服器回傳格式錯誤');
+            }
         })
         .then(order => {
             Swal.close();
@@ -744,8 +792,33 @@
             switchToStatusPage(order.id, order);
         })
         .catch(err => {
+            console.error("捕捉到下單錯誤:", err); // 🔥 請按 F12 看這裡印出什麼
             Swal.close();
-            Swal.fire({ icon: 'error', title: '下單失敗', text: err.message, confirmButtonColor: '#ff4d4d' });
+            
+            // 🔥 改進 2: 安全地備份購物車 (用 try-catch 包起來)
+            let currentCart = {};
+            try {
+                document.querySelectorAll('.item-qty').forEach(input => {
+                    const val = parseInt(input.value);
+                    if (val > 0) {
+                        currentCart[input.dataset.id] = val;
+                    }
+                });
+            } catch (backupError) {
+                console.warn("購物車備份失敗，但不影響錯誤顯示", backupError);
+            }
+
+            // 顯示錯誤視窗
+            Swal.fire({ 
+                icon: 'error', 
+                title: '下單失敗', 
+                text: err.message, // 這裡會顯示後端的錯誤訊息
+                confirmButtonText: '重新整理菜單',
+                confirmButtonColor: '#ff4d4d' 
+            }).then(() => {
+                // 呼叫重整
+                fetchProducts(currentCart); 
+            });
         });
     }
 
