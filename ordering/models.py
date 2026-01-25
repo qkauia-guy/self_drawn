@@ -60,13 +60,12 @@ class Product(models.Model):
         verbose_name="所屬分店",
     )
 
-    # ✅ 關鍵修正：這裡正確使用了 ForeignKey 連結分類
     category = models.ForeignKey(
         Category,
         on_delete=models.PROTECT,
         related_name="products",
         verbose_name="商品分類",
-        null=True,  # 允許暫時沒有分類
+        null=True,
         blank=True,
     )
 
@@ -76,7 +75,6 @@ class Product(models.Model):
         max_length=100, blank=True, verbose_name="短描述(如：口味二選一)"
     )
 
-    # 使用 CharField 方便在列表頁直接編輯
     flavor_options = models.CharField(
         max_length=200,
         blank=True,
@@ -99,6 +97,18 @@ class Product(models.Model):
     @property
     def is_sold_out(self):
         return not self.is_active or self.stock <= 0
+
+    # 🔥🔥🔥 重點修改：覆寫 save 方法 🔥🔥🔥
+    def save(self, *args, **kwargs):
+        # 邏輯：只要庫存 <= 0，強制將 is_active 設為 False (下架)
+        if self.stock <= 0:
+            self.is_active = False
+
+        # 備註：通常"不建議"寫「庫存>0 自動上架」，
+        # 因為有時候店員補庫存只是先輸入，但還沒準備好要賣。
+
+        # 執行原本的儲存動作
+        super().save(*args, **kwargs)
 
 
 class Order(models.Model):

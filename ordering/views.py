@@ -12,15 +12,18 @@ from django.contrib.auth.decorators import login_required
 from django.db.models import Sum
 from django.utils import timezone
 from django.db import transaction
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
+from django.views.decorators.http import require_POST
 
 from rest_framework.decorators import api_view
 from rest_framework import viewsets, status, permissions
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
+
 # ✅ 引入 Category
 from .models import Product, Order, Store, Category
+from .forms import ProductForm
 from .serializers import ProductSerializer, OrderSerializer
 
 
@@ -690,3 +693,194 @@ def reset_daily_orders(request, store_slug):
             "message": f"今日結算完成：\n已取消 {cancelled_count} 筆未完成訂單\n已歸檔 {archived_count} 筆完成訂單 (業績保留)",
         }
     )
+
+
+def mobile_admin(request):
+    """
+    對應網址: /backend/
+    功能: 顯示手機版管理介面
+    """
+    # 1. 取得分店 (支援 ?store=ID 切換)
+    stores = Store.objects.filter(is_active=True)
+    current_store_id = request.GET.get("store")
+
+    # 預設選第一間，或者選網址參數指定的那間
+    if current_store_id:
+        current_store = get_object_or_404(Store, id=current_store_id)
+    else:
+        current_store = stores.first()
+
+    if not current_store:
+        return HttpResponse("請先至 Django Admin 後台建立至少一間分店")
+
+    # 2. 取得分類與商品
+    # 這裡依照您的 Model 結構，Category 有 store 外鍵
+    categories = Category.objects.filter(store=current_store).order_by("sort_order")
+
+    # 取得篩選參數
+    current_cat_id = request.GET.get("category")
+
+    # 撈取該分店所有商品
+    products = Product.objects.filter(store=current_store).select_related("category")
+
+    # 如果有選特定分類，就進行過濾
+    if current_cat_id and current_cat_id != "all":
+        products = products.filter(category_id=current_cat_id)
+
+    # 3. 初始化新增商品的表單 (給 Modal 用)
+    product_form = ProductForm(store=current_store)
+
+    context = {
+        "stores": stores,
+        "current_store": current_store,
+        "categories": categories,
+        "products": products,
+        "current_cat_id": current_cat_id or "all",
+        "product_form": product_form,
+    }
+
+    return render(request, "ordering/mobile_admin.html", context)
+
+
+@require_POST
+def quick_update_product(request, pk):
+    """
+    對應網址: /backend/api/update/<pk>/
+    功能: HTMX 快速更新 (不刷新頁面)
+    """
+    product = get_object_or_404(Product, pk=pk)
+
+    # 更新價格
+    if "price" in request.POST:
+        product.price = request.POST.get("price")
+
+    # 更新庫存
+    if "stock" in request.POST:
+        product.stock = request.POST.get("stock")
+
+    # 更新上下架 (HTMX 傳來的是字串 'true' 或 'false')
+    if "is_active" in request.POST:
+        val = request.POST.get("is_active")
+        product.is_active = val == "true"
+
+    if "description" in request.POST:
+        product.description = request.POST.get("description")
+
+    product.save()
+    return HttpResponse("", status=200)  # HTMX 不需要回傳內容，只要 200 OK
+
+
+@require_POST
+def create_product(request):
+    # 1. 取得基本資料
+    current_store_id = request.POST.get("store_id")
+    current_store = get_object_or_404(Store, id=current_store_id)
+
+    # 2. 檢查是否有勾選「批量建立」
+    is_batch = request.POST.get("batch_create") == "true"
+
+    # 3. 建立原本那筆 (當作主體)
+    form = ProductForm(request.POST, store=current_store)
+
+    if form.is_valid():
+        try:
+            with transaction.atomic():  # 開啟交易，確保要嘛全成功，要嘛全失敗
+                # A. 先建立當前這筆
+                master_product = form.save(commit=False)
+                master_product.store = current_store
+                master_product.save()
+
+                # B. 如果勾選批量，開始複製到其他分店
+                if is_batch:
+                    # 找出所有"其他"營業中的分店
+                    other_stores = Store.objects.filter(is_active=True).exclude(
+                        id=current_store_id
+                    )
+
+                    # 取得原始分類名稱 (用來去別間店找對應)
+                    source_cat_name = (
+                        master_product.category.name
+                        if master_product.category
+                        else None
+                    )
+
+                    for target_store in other_stores:
+                        target_category = None
+
+                        # 處理分類對應
+                        if source_cat_name:
+                            # 嘗試在目標分店找同名分類，找不到就自動建立！
+                            # slug 隨機產生或是用名稱轉碼皆可，這裡簡化用 uuid 避免衝突
+                            import uuid
+
+                            target_category, _ = Category.objects.get_or_create(
+                                store=target_store,
+                                name=source_cat_name,
+                                defaults={
+                                    "slug": f"auto_{uuid.uuid4().hex[:6]}",
+                                    "sort_order": 99,
+                                },
+                            )
+
+                        # 複製商品
+                        Product.objects.create(
+                            store=target_store,
+                            category=target_category,
+                            name=master_product.name,
+                            price=master_product.price,
+                            stock=master_product.stock,
+                            flavor_options=master_product.flavor_options,
+                            description=master_product.description,
+                            is_active=master_product.is_active,
+                        )
+
+        except Exception as e:
+            # 這裡可以加 log，暫時先簡單處理
+            print(f"Batch Create Error: {e}")
+
+    # 導回原本頁面
+    return redirect(f"/backend/?store={current_store_id}")
+
+
+@require_POST
+def api_create_category(request):
+    """新增分類"""
+    store_id = request.POST.get("store_id")
+    name = request.POST.get("name")
+    store = get_object_or_404(Store, id=store_id)
+
+    # 簡單產生 slug (實際專案建議用更嚴謹的方式)
+    import uuid
+
+    slug = f"cat_{uuid.uuid4().hex[:8]}"
+
+    Category.objects.create(store=store, name=name, slug=slug, sort_order=99)
+    return JsonResponse({"status": "ok"})
+
+
+@require_POST
+def api_update_category(request, pk):
+    """修改分類名稱"""
+    cat = get_object_or_404(Category, pk=pk)
+    new_name = request.POST.get("name")
+    if new_name:
+        cat.name = new_name
+        cat.save()
+    return JsonResponse({"status": "ok"})
+
+
+def api_get_categories_options(request):
+    store_id = request.GET.get("store_id")
+
+    # 預設選項
+    options_html = '<option value="">---------</option>'
+
+    if store_id:
+        # 抓取該分店的分類
+        categories = Category.objects.filter(store_id=store_id).order_by("sort_order")
+        for cat in categories:
+            options_html += (
+                f'<option value="{cat.id}">{cat.name} ({cat.store.name})</option>'
+            )
+
+    return HttpResponse(options_html)
