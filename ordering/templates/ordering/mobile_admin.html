@@ -1,718 +1,737 @@
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>手機版後台 - {{ current_store.name }}</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>手機版後台 - {{ current_store.name }}</title>
 
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
 
-    <script src="https://unpkg.com/htmx.org@1.9.6"></script>
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <script src="https://unpkg.com/htmx.org@1.9.6"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
-    <style>
-        :root {
-            --primary-color: #ff6b6b;
-            --accent-green: #2ecc71;
-            --text-main: #2d3436;
-            --text-sub: #636e72;
+  <style>
+    :root {
+      --primary-color: #ff6b6b;
+      --accent-green: #2ecc71;
+      --text-main: #2d3436;
+      --text-sub: #636e72;
 
-            --glass-bg: rgba(255, 255, 255, 0.45);
-            --glass-border: rgba(255, 255, 255, 0.6);
-            --glass-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.07);
-            --glass-blur: 16px;
+      --glass-bg: rgba(255, 255, 255, 0.45);
+      --glass-border: rgba(255, 255, 255, 0.6);
+      --glass-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.07);
+      --glass-blur: 16px;
 
-            --frost-bg: rgba(255, 255, 255, 0.22);
-            --frost-border: rgba(255, 255, 255, 0.55);
-            --frost-blur: 22px;
-            --frost-shadow: 0 18px 55px rgba(0,0,0,0.12);
-        }
+      --frost-bg: rgba(255, 255, 255, 0.22);
+      --frost-border: rgba(255, 255, 255, 0.55);
+      --frost-blur: 22px;
+      --frost-shadow: 0 18px 55px rgba(0,0,0,0.12);
+    }
 
-        body {
-            background: linear-gradient(135deg, #b2dc50 20%, #4ba957 50%, #fff385 100%);
-            min-height: 100vh;
-            background-attachment: fixed;
-            overflow-x: hidden;
-        }
+    body {
+      background: linear-gradient(135deg, #b2dc50 20%, #4ba957 50%, #fff385 100%);
+      min-height: 100vh;
+      background-attachment: fixed;
+      overflow-x: hidden;
+    }
 
-        @keyframes fadeInUp {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        @keyframes popIn {
-            0% { opacity: 0; transform: scale(0.9); }
-            100% { opacity: 1; transform: scale(1); }
-        }
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes popIn {
+      0% { opacity: 0; transform: scale(0.9); }
+      100% { opacity: 1; transform: scale(1); }
+    }
 
-        .sticky-header {
-            position: sticky; top: 0; z-index: 1020;
-            background: rgba(255, 255, 255, 0.35);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            border-bottom: 1px solid rgba(255, 255, 255, 0.5);
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
-            border-bottom-left-radius: 24px;
-            border-bottom-right-radius: 24px;
-            transition: all 0.3s ease;
-        }
+    .sticky-header {
+      position: sticky; top: 0; z-index: 1020;
+      background: rgba(255, 255, 255, 0.35);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.5);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
+      border-bottom-left-radius: 24px;
+      border-bottom-right-radius: 24px;
+      transition: all 0.3s ease;
+    }
 
-        .form-select {
-            border: 1px solid rgba(255,255,255,0.8);
-            background-color: rgba(255,255,255,0.5);
-            border-radius: 14px;
-            font-weight: 700;
-            color: var(--text-main);
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
-            box-shadow: inset 0 2px 4px rgba(255,255,255,0.5);
-        }
-        .form-select:focus {
-            background-color: rgba(255,255,255,0.9);
-            box-shadow: 0 0 0 4px rgba(46, 204, 113, 0.15);
-            border-color: var(--accent-green);
-        }
+    .form-select {
+      border: 1px solid rgba(255,255,255,0.8);
+      background-color: rgba(255,255,255,0.5);
+      border-radius: 14px;
+      font-weight: 700;
+      color: var(--text-main);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      box-shadow: inset 0 2px 4px rgba(255,255,255,0.5);
+    }
+    .form-select:focus {
+      background-color: rgba(255,255,255,0.9);
+      box-shadow: 0 0 0 4px rgba(46, 204, 113, 0.15);
+      border-color: var(--accent-green);
+    }
 
-        .product-card {
-            background: var(--glass-bg);
-            backdrop-filter: blur(var(--glass-blur));
-            -webkit-backdrop-filter: blur(var(--glass-blur));
-            border: 1px solid var(--glass-border);
-            border-top: 1px solid rgba(255,255,255,0.9);
-            border-radius: 20px;
-            box-shadow: var(--glass-shadow);
-            transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            position: relative;
-            overflow: hidden;
-            animation: fadeInUp 0.6s ease-out forwards;
-            opacity: 0;
-        }
+    .product-card {
+      background: var(--glass-bg);
+      backdrop-filter: blur(var(--glass-blur));
+      -webkit-backdrop-filter: blur(var(--glass-blur));
+      border: 1px solid var(--glass-border);
+      border-top: 1px solid rgba(255,255,255,0.9);
+      border-radius: 20px;
+      box-shadow: var(--glass-shadow);
+      transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      position: relative;
+      overflow: hidden;
+      animation: fadeInUp 0.6s ease-out forwards;
+      opacity: 0;
+    }
 
-        .row > div:nth-child(1) .product-card { animation-delay: 0.05s; }
-        .row > div:nth-child(2) .product-card { animation-delay: 0.1s; }
-        .row > div:nth-child(3) .product-card { animation-delay: 0.15s; }
-        .row > div:nth-child(4) .product-card { animation-delay: 0.2s; }
-        .row > div:nth-child(5) .product-card { animation-delay: 0.25s; }
+    .row > div:nth-child(1) .product-card { animation-delay: 0.05s; }
+    .row > div:nth-child(2) .product-card { animation-delay: 0.1s; }
+    .row > div:nth-child(3) .product-card { animation-delay: 0.15s; }
+    .row > div:nth-child(4) .product-card { animation-delay: 0.2s; }
+    .row > div:nth-child(5) .product-card { animation-delay: 0.25s; }
 
-        .product-card:active { transform: scale(0.98); }
+    .product-card:active { transform: scale(0.98); }
 
-        .product-card.inactive {
-            background: rgba(230, 230, 230, 0.2);
-            border-color: rgba(255,255,255,0.1);
-        }
-        .product-card.inactive .card-body { filter: grayscale(100%); opacity: 0.6; }
+    .product-card.inactive {
+      background: rgba(230, 230, 230, 0.2);
+      border-color: rgba(255,255,255,0.1);
+    }
+    .product-card.inactive .card-body { filter: grayscale(100%); opacity: 0.6; }
 
-        .category-text { font-size: 0.8rem; font-weight: 800; margin-bottom: 4px; display: inline-block; letter-spacing: 0.5px; }
+    .category-text { font-size: 0.8rem; font-weight: 800; margin-bottom: 4px; display: inline-block; letter-spacing: 0.5px; }
 
-        .input-transparent {
-            border: none; background: rgba(255,255,255,0.2);
-            border-bottom: 1px dashed rgba(0,0,0,0.1);
-            border-radius: 6px; padding: 6px 8px; width: 100%;
-            color: var(--text-sub); font-size: 0.9rem; transition: all 0.3s;
-        }
-        .input-transparent:focus {
-            outline: none; background: rgba(255,255,255,0.8);
-            border-bottom: 1px solid var(--primary-color);
-            color: var(--text-main); transform: translateY(-1px);
-        }
+    .input-transparent {
+      border: none; background: rgba(255,255,255,0.2);
+      border-bottom: 1px dashed rgba(0,0,0,0.1);
+      border-radius: 6px; padding: 6px 8px; width: 100%;
+      color: var(--text-sub); font-size: 0.9rem; transition: all 0.3s;
+    }
+    .input-transparent:focus {
+      outline: none; background: rgba(255,255,255,0.8);
+      border-bottom: 1px solid var(--primary-color);
+      color: var(--text-main); transform: translateY(-1px);
+    }
 
-        .input-price {
-            width: 80px; border: none; background: transparent;
-            font-weight: 800; color: var(--primary-color); font-size: 1.3rem;
-            padding: 0; border-bottom: 2px dashed rgba(255, 71, 87, 0.2);
-        }
-        .input-price:focus { outline: none; border-bottom-style: solid; }
+    .input-price {
+      width: 80px; border: none; background: transparent;
+      font-weight: 800; color: var(--primary-color); font-size: 1.3rem;
+      padding: 0; border-bottom: 2px dashed rgba(255, 71, 87, 0.2);
+    }
+    .input-price:focus { outline: none; border-bottom-style: solid; }
 
-        .input-stock {
-            width: 45px; text-align: center; border: none; background: transparent;
-            font-weight: 800; font-size: 1.1rem; color: var(--text-main); padding: 0;
-        }
+    .input-stock {
+      width: 45px; text-align: center; border: none; background: transparent;
+      font-weight: 800; font-size: 1.1rem; color: var(--text-main); padding: 0;
+    }
 
-        .stock-stepper {
-            display: flex; align-items: center;
-            background: rgba(255,255,255,0.5);
-            border: 1px solid rgba(255,255,255,0.7);
-            border-radius: 50px; padding: 4px;
-            box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);
-        }
-        .stock-btn {
-            width: 32px; height: 32px; border-radius: 50%;
-            border: none; background: #fff; color: var(--text-main);
-            display: flex; align-items: center; justify-content: center;
-            font-size: 1.2rem; box-shadow: 0 2px 6px rgba(0,0,0,0.08);
-            transition: transform 0.1s;
-        }
-        .stock-btn:active { transform: scale(0.85); }
+    .stock-stepper {
+      display: flex; align-items: center;
+      background: rgba(255,255,255,0.5);
+      border: 1px solid rgba(255,255,255,0.7);
+      border-radius: 50px; padding: 4px;
+      box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);
+    }
+    .stock-btn {
+      width: 32px; height: 32px; border-radius: 50%;
+      border: none; background: #fff; color: var(--text-main);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.2rem; box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+      transition: transform 0.1s;
+    }
+    .stock-btn:active { transform: scale(0.85); }
 
-        .fab-btn {
-            position: fixed; bottom: 30px; right: 25px;
-            width: 64px; height: 64px; border-radius: 50%;
-            background: linear-gradient(135deg, #ff6b6b 0%, #ee5253 100%);
-            color: white; border: none;
-            box-shadow: 0 10px 25px rgba(255, 107, 107, 0.4);
-            display: flex; align-items: center; justify-content: center;
-            font-size: 2.2rem; z-index: 1030;
-            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-        }
-        .fab-btn:active { transform: scale(0.9) rotate(90deg); }
-        .fab-btn:hover { box-shadow: 0 15px 35px rgba(255, 107, 107, 0.5); transform: translateY(-3px); }
+    /* 右下：新增商品 FAB */
+    .fab-btn {
+      position: fixed; bottom: 30px; right: 25px;
+      width: 64px; height: 64px; border-radius: 50%;
+      background: linear-gradient(135deg, #ff6b6b 0%, #ee5253 100%);
+      color: white; border: none;
+      box-shadow: 0 10px 25px rgba(255, 107, 107, 0.4);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 2.2rem; z-index: 1030;
+      transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+    .fab-btn:active { transform: scale(0.9) rotate(90deg); }
+    .fab-btn:hover { box-shadow: 0 15px 35px rgba(255, 107, 107, 0.5); transform: translateY(-3px); }
 
-        .modal-content {
-            background: rgba(255, 255, 255, 0.8);
-            backdrop-filter: blur(25px);
-            -webkit-backdrop-filter: blur(25px);
-            border: 1px solid rgba(255, 255, 255, 0.9);
-            border-radius: 28px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.15);
-            animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-        }
-        .modal-header { border-bottom: 1px solid rgba(0,0,0,0.05); padding: 20px 24px; }
-        .modal-body { padding: 24px; }
-        .modal-footer { border-top: 1px solid rgba(0,0,0,0.05); padding: 16px 24px; }
+    /* 左下：回 owner (黃色房子 FAB) */
+    .fab-btn-home{
+      position: fixed;
+      bottom: 30px;
+      left: 25px;
 
-        .modal-label {
-            font-size: 0.85rem; font-weight: 800; letter-spacing: 0.5px;
-            color: #636e72; margin-bottom: 6px; display: block;
-            text-transform: uppercase;
-        }
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      border: none;
 
-        .glass-input {
-            background: rgba(255, 255, 255, 0.6);
-            border: 1px solid rgba(255, 255, 255, 0.5);
-            border-radius: 12px;
-            padding: 12px 16px;
-            font-weight: 600;
-            color: var(--text-main);
-            width: 100%;
-            transition: all 0.2s;
-            box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);
-        }
-        .glass-input:focus {
-            background: white;
-            border-color: var(--primary-color);
-            box-shadow: 0 4px 15px rgba(255, 107, 107, 0.1);
-            outline: none;
-        }
+      background: linear-gradient(135deg, #ffd43b 0%, #f6b93b 100%);
+      color: #2d3436;
 
-        .glass-card{
-            position: relative;
-            border-radius: 18px;
-            background: var(--frost-bg);
-            border: 1px solid var(--frost-border);
-            backdrop-filter: blur(var(--frost-blur));
-            -webkit-backdrop-filter: blur(var(--frost-blur));
-            box-shadow: var(--frost-shadow);
-            overflow: hidden;
-        }
-        .glass-card::before{
-            content:"";
-            position:absolute; inset:0;
-            background:
-              radial-gradient(circle at 20% 10%, rgba(255,255,255,0.35), transparent 55%),
-              radial-gradient(circle at 80% 0%, rgba(255,255,255,0.25), transparent 50%),
-              linear-gradient(180deg, rgba(255,255,255,0.18), rgba(255,255,255,0.06));
-            pointer-events:none;
-        }
-        .glass-card::after{
-            content:"";
-            position:absolute; inset:0;
-            background-image: radial-gradient(rgba(255,255,255,0.12) 1px, transparent 1px);
-            background-size: 3px 3px;
-            opacity: .35;
-            mix-blend-mode: overlay;
-            pointer-events:none;
-        }
-        .glass-card > *{ position: relative; z-index: 1; }
+      box-shadow: 0 10px 25px rgba(246, 185, 59, 0.45);
+      display: flex;
+      align-items: center;
+      justify-content: center;
 
-        .modal-body .batch-card.glass-card{
-            padding: 16px;
-            margin-top: 15px;
-            background: var(--frost-bg) !important;
-            border: 1px solid var(--frost-border) !important;
-            box-shadow: var(--frost-shadow) !important;
-        }
-        .modal-body .batch-card.glass-card::before{
-            content: '';
-            position: absolute; left: 0; top: 10px; bottom: 10px; width: 4px;
-            border-radius: 10px;
-            background: linear-gradient(to bottom, rgba(46,204,113,1), rgba(38,222,129,0.6));
-            z-index: 2;
-        }
+      font-size: 2.2rem;
+      z-index: 1030;
 
-        /* === SweetAlert2 霧面玻璃（新增/修改分類 popup） === */
-        .swal-glass {
-            background: var(--frost-bg) !important;
-            border: 1px solid var(--frost-border) !important;
-            border-radius: 22px !important;
-            box-shadow: var(--frost-shadow) !important;
-            backdrop-filter: blur(var(--frost-blur)) saturate(160%) !important;
-            -webkit-backdrop-filter: blur(var(--frost-blur)) saturate(160%) !important;
-            overflow: hidden;
-        }
-        .swal-glass::before{
-            content:"";
-            position:absolute; inset:0;
-            background:
-              radial-gradient(circle at 20% 10%, rgba(255,255,255,0.35), transparent 55%),
-              radial-gradient(circle at 80% 0%, rgba(255,255,255,0.25), transparent 50%),
-              linear-gradient(180deg, rgba(255,255,255,0.18), rgba(255,255,255,0.06));
-            pointer-events:none;
-        }
-        .swal-glass .swal2-title{
-            color: var(--text-main) !important;
-            font-weight: 900 !important;
-            letter-spacing: .5px;
-        }
-        .swal-glass .swal2-html-container{
-            color: var(--text-sub) !important;
-        }
-        .swal-glass .swal2-input{
-            background: rgba(255,255,255,0.55) !important;
-            border: 1px solid rgba(255,255,255,0.55) !important;
-            border-radius: 14px !important;
-            box-shadow: inset 0 2px 4px rgba(0,0,0,0.02) !important;
-            color: var(--text-main) !important;
-        }
-        .swal-glass .swal2-input:focus{
-            border-color: var(--primary-color) !important;
-            box-shadow: 0 0 0 4px rgba(255, 107, 107, 0.12) !important;
-        }
+      transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      text-decoration: none;
+    }
+    .fab-btn-home:hover{
+      transform: translateY(-3px);
+      box-shadow: 0 15px 35px rgba(246, 185, 59, 0.55);
+    }
+    .fab-btn-home:active{
+      transform: scale(0.9) rotate(-10deg);
+    }
 
-        /* === 新增商品 Modal：強化霧面玻璃一致性 === */
-        #addProductModal .modal-dialog {
-          padding: 8px;
-        }
+    /* Modal 基本 */
+    .modal-content {
+      background: rgba(255, 255, 255, 0.8);
+      backdrop-filter: blur(25px);
+      -webkit-backdrop-filter: blur(25px);
+      border: 1px solid rgba(255, 255, 255, 0.9);
+      border-radius: 28px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+      animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+    .modal-header { border-bottom: 1px solid rgba(0,0,0,0.05); padding: 20px 24px; }
+    .modal-body { padding: 24px; }
+    .modal-footer { border-top: 1px solid rgba(0,0,0,0.05); padding: 16px 24px; }
 
-        #addProductModal .modal-content{
-          background: rgba(255,255,255,0.55) !important;
-          border: 1px solid rgba(255,255,255,0.65) !important;
-          border-radius: 30px !important;
-          box-shadow: 0 28px 80px rgba(0,0,0,0.18) !important;
+    .modal-label {
+      font-size: 0.85rem; font-weight: 800; letter-spacing: 0.5px;
+      color: #636e72; margin-bottom: 6px; display: block;
+      text-transform: uppercase;
+    }
 
-          backdrop-filter: blur(26px) saturate(180%) !important;
-          -webkit-backdrop-filter: blur(26px) saturate(180%) !important;
+    .glass-input {
+      background: rgba(255, 255, 255, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.5);
+      border-radius: 12px;
+      padding: 12px 16px;
+      font-weight: 600;
+      color: var(--text-main);
+      width: 100%;
+      transition: all 0.2s;
+      box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);
+    }
+    .glass-input:focus {
+      background: white;
+      border-color: var(--primary-color);
+      box-shadow: 0 4px 15px rgba(255, 107, 107, 0.1);
+      outline: none;
+    }
 
-          overflow: hidden;
-        }
+    .glass-card{
+      position: relative;
+      border-radius: 18px;
+      background: var(--frost-bg);
+      border: 1px solid var(--frost-border);
+      backdrop-filter: blur(var(--frost-blur));
+      -webkit-backdrop-filter: blur(var(--frost-blur));
+      box-shadow: var(--frost-shadow);
+      overflow: hidden;
+    }
+    .glass-card::before{
+      content:"";
+      position:absolute; inset:0;
+      background:
+        radial-gradient(circle at 20% 10%, rgba(255,255,255,0.35), transparent 55%),
+        radial-gradient(circle at 80% 0%, rgba(255,255,255,0.25), transparent 50%),
+        linear-gradient(180deg, rgba(255,255,255,0.18), rgba(255,255,255,0.06));
+      pointer-events:none;
+    }
+    .glass-card::after{
+      content:"";
+      position:absolute; inset:0;
+      background-image: radial-gradient(rgba(255,255,255,0.12) 1px, transparent 1px);
+      background-size: 3px 3px;
+      opacity: .35;
+      mix-blend-mode: overlay;
+      pointer-events:none;
+    }
+    .glass-card > *{ position: relative; z-index: 1; }
 
-        #addProductModal .modal-content::before{
-          content:"";
-          position:absolute; inset:0;
-          background:
-            radial-gradient(circle at 20% 10%, rgba(255,255,255,0.40), transparent 55%),
-            radial-gradient(circle at 85% 0%, rgba(255,255,255,0.25), transparent 55%),
-            linear-gradient(180deg, rgba(255,255,255,0.18), rgba(255,255,255,0.06));
-          pointer-events:none;
-        }
+    .modal-body .batch-card.glass-card{
+      padding: 16px;
+      margin-top: 15px;
+      background: var(--frost-bg) !important;
+      border: 1px solid var(--frost-border) !important;
+      box-shadow: var(--frost-shadow) !important;
+    }
+    .modal-body .batch-card.glass-card::before{
+      content: '';
+      position: absolute; left: 0; top: 10px; bottom: 10px; width: 4px;
+      border-radius: 10px;
+      background: linear-gradient(to bottom, rgba(46,204,113,1), rgba(38,222,129,0.6));
+      z-index: 2;
+    }
 
-        #addProductModal .modal-header,
-        #addProductModal .modal-body,
-        #addProductModal .modal-footer{
-          position: relative;
-          z-index: 1;
-        }
+    /* ===== SweetAlert2 霧面玻璃 + 置頂 ===== */
+    .swal2-container{ z-index: 200000 !important; } /* 避免被 sticky/modal 蓋住 [web:190] */
+    .swal2-popup{ z-index: 200001 !important; }
 
-        #addProductModal .modal-header{
-          border-bottom: 1px solid rgba(0,0,0,0.06) !important;
-        }
+    .swal-glass {
+      background: var(--frost-bg) !important;
+      border: 1px solid var(--frost-border) !important;
+      border-radius: 22px !important;
+      box-shadow: var(--frost-shadow) !important;
+      backdrop-filter: blur(var(--frost-blur)) saturate(160%) !important;
+      -webkit-backdrop-filter: blur(var(--frost-blur)) saturate(160%) !important;
+      overflow: hidden;
+    }
+    .swal-glass::before{
+      content:"";
+      position:absolute; inset:0;
+      background:
+        radial-gradient(circle at 20% 10%, rgba(255,255,255,0.35), transparent 55%),
+        radial-gradient(circle at 80% 0%, rgba(255,255,255,0.25), transparent 50%),
+        linear-gradient(180deg, rgba(255,255,255,0.18), rgba(255,255,255,0.06));
+      pointer-events:none;
+    }
+    .swal-glass .swal2-title{
+      color: var(--text-main) !important;
+      font-weight: 900 !important;
+      letter-spacing: .5px;
+    }
+    .swal-glass .swal2-html-container{
+      color: var(--text-sub) !important;
+      margin: 0 !important;
+      padding: 0 !important;
+    }
+    .swal-glass .swal2-input{
+      background: rgba(255,255,255,0.55) !important;
+      border: 1px solid rgba(255,255,255,0.55) !important;
+      border-radius: 14px !important;
+      box-shadow: inset 0 2px 4px rgba(0,0,0,0.02) !important;
+      color: var(--text-main) !important;
+      height: 44px !important;
+      font-size: 16px !important; /* iOS 避免自動放大 */
+      padding: 10px 12px !important;
+    }
+    .swal-glass .swal2-input:focus{
+      border-color: var(--primary-color) !important;
+      box-shadow: 0 0 0 4px rgba(255, 107, 107, 0.12) !important;
+    }
 
-        #addProductModal .modal-footer{
-          border-top: 1px solid rgba(0,0,0,0.06) !important;
-        }
+    /* Swal 兩欄表單 grid + 手機 RWD 間距 */
+    .swal-form-grid{
+      display: grid;
+      grid-template-columns: 1fr 110px;
+      column-gap: 10px;
+      row-gap: 14px;
+      margin-top: 10px;
+      padding: 6px 2px;
+      position: relative;
+      z-index: 1;
+    }
+    .swal-form-grid .swal2-input{ margin: 0 !important; }
+    .swal-glass .swal2-input.is-sort{ text-align: center; font-weight: 800; }
 
-        /* hr 也柔和一點 */
-        #addProductModal hr{
-          border-color: rgba(0,0,0,0.10) !important;
-        }
+    @media (max-width: 576px){
+      .swal2-container{ padding: 14px !important; }
+      .swal-glass.swal2-popup{
+        width: min(92vw, 380px) !important;
+        max-width: 92vw !important;
+        padding: 18px 16px 14px !important;
+      }
+      .swal-form-grid{ grid-template-columns: 1fr; row-gap: 14px; }
+    }
 
-        /* Modal 內輸入框更霧面、邊框更細緻 */
-        #addProductModal .glass-input{
-          background: rgba(255,255,255,0.55) !important;
-          border: 1px solid rgba(255,255,255,0.60) !important;
-          border-radius: 14px !important;
-          box-shadow: inset 0 2px 6px rgba(0,0,0,0.03) !important;
-        }
+    /* ===== 新增商品 Modal：強化霧面玻璃一致性 + RWD ===== */
+    #addProductModal .modal-dialog { padding: 8px; }
 
-        #addProductModal .glass-input:focus{
-          background: rgba(255,255,255,0.85) !important;
-          border-color: rgba(255, 107, 107, 0.75) !important;
-          box-shadow: 0 0 0 4px rgba(255, 107, 107, 0.12) !important;
-        }
+    #addProductModal .modal-content{
+      background: rgba(255,255,255,0.55) !important;
+      border: 1px solid rgba(255,255,255,0.65) !important;
+      border-radius: 30px !important;
+      box-shadow: 0 28px 80px rgba(0,0,0,0.18) !important;
+      backdrop-filter: blur(26px) saturate(180%) !important;
+      -webkit-backdrop-filter: blur(26px) saturate(180%) !important;
+      overflow: hidden;
+    }
+    #addProductModal .modal-content::before{
+      content:"";
+      position:absolute; inset:0;
+      background:
+        radial-gradient(circle at 20% 10%, rgba(255,255,255,0.40), transparent 55%),
+        radial-gradient(circle at 85% 0%, rgba(255,255,255,0.25), transparent 55%),
+        linear-gradient(180deg, rgba(255,255,255,0.18), rgba(255,255,255,0.06));
+      pointer-events:none;
+    }
+    #addProductModal .modal-header,
+    #addProductModal .modal-body,
+    #addProductModal .modal-footer{
+      position: relative;
+      z-index: 1;
+    }
+    #addProductModal .modal-header{ border-bottom: 1px solid rgba(0,0,0,0.06) !important; }
+    #addProductModal .modal-footer{ border-top: 1px solid rgba(0,0,0,0.06) !important; }
+    #addProductModal hr{ border-color: rgba(0,0,0,0.10) !important; }
 
-        /* 讓 checkbox switch 周圍也更一致 */
-        #addProductModal .form-check-input{
-          box-shadow: none !important;
-        }
+    #addProductModal .glass-input{
+      background: rgba(255,255,255,0.55) !important;
+      border: 1px solid rgba(255,255,255,0.60) !important;
+      border-radius: 14px !important;
+      box-shadow: inset 0 2px 6px rgba(0,0,0,0.03) !important;
+    }
+    #addProductModal .glass-input:focus{
+      background: rgba(255,255,255,0.85) !important;
+      border-color: rgba(255, 107, 107, 0.75) !important;
+      box-shadow: 0 0 0 4px rgba(255, 107, 107, 0.12) !important;
+    }
+    #addProductModal .form-check-input{ box-shadow: none !important; }
 
-        /* Footer 按鈕一致化（取消：玻璃、確認：品牌漸層） */
-        #addProductModal .modal-footer .btn{
-          border-radius: 999px !important;
-          padding: 10px 18px;
-        }
+    #addProductModal .modal-footer .btn{
+      border-radius: 999px !important;
+      padding: 10px 18px;
+    }
+    #addProductModal .modal-footer .btn.btn-light{
+      background: rgba(255,255,255,0.55) !important;
+      border: 1px solid rgba(255,255,255,0.75) !important;
+      color: rgba(0,0,0,0.55) !important;
+    }
+    #addProductModal .modal-footer .btn.btn-danger{
+      border: none !important;
+      background: linear-gradient(135deg, #ff6b6b 0%, #ee5253 100%) !important;
+      box-shadow: 0 10px 25px rgba(255, 107, 107, 0.35) !important;
+    }
+    #addProductModal .btn-close{ filter: saturate(0) opacity(0.6); }
+    #addProductModal .btn-close:active{ transform: scale(0.95); }
 
-        #addProductModal .modal-footer .btn.btn-light{
-          background: rgba(255,255,255,0.55) !important;
-          border: 1px solid rgba(255,255,255,0.75) !important;
-          color: rgba(0,0,0,0.55) !important;
-        }
+    .modal-backdrop.show{ opacity: 0.22; }
 
-        #addProductModal .modal-footer .btn.btn-danger{
-          border: none !important;
-          background: linear-gradient(135deg, #ff6b6b 0%, #ee5253 100%) !important;
-          box-shadow: 0 10px 25px rgba(255, 107, 107, 0.35) !important;
-        }
+    @media (max-width: 576px){
+      #addProductModal .modal-dialog{
+        margin: 12px auto !important;
+        max-width: 94vw !important;
+      }
+      #addProductModal .modal-body{ padding: 18px !important; }
+      #addProductModal .modal-header,
+      #addProductModal .modal-footer{
+        padding-left: 18px !important;
+        padding-right: 18px !important;
+      }
+      #addProductModal .row.g-3 > .col-6{
+        flex: 0 0 100%;
+        max-width: 100%;
+      }
+    }
 
-        /* close 按鈕在玻璃背景上更清楚 */
-        #addProductModal .btn-close{
-          filter: saturate(0) opacity(0.6);
-        }
-        #addProductModal .btn-close:active{
-          transform: scale(0.95);
-        }
+    /* 左下：回 owner（尺寸 = 新增商品 fab-btn，底 = 黃色霧玻璃） */
+      .fab-btn-home{
+        position: fixed;
+        bottom: 25px;
+        left: 25px;
 
-        .modal-backdrop.show{
-          opacity: 0.22; /* 原本比較黑，調淡一點 */
-        }
+        width: 70px;
+        height: 70px;
+        border-radius: 50%;
+        border: 1px solid rgba(255, 255, 255, 0.55);
+        z-index: 1030;
 
-        /* =========================
-          SweetAlert2：分類新增/修改 RWD
-          ========================= */
+        /* ✅ 霧面玻璃底（帶淡黃） */
+        background: rgba(255, 212, 59, 0.22);
+        backdrop-filter: blur(22px) saturate(170%);
+        -webkit-backdrop-filter: blur(22px) saturate(170%);
 
-        /* 讓 popup 在手機不要滿版：變成「卡片寬」 */
-        @media (max-width: 576px){
-          .swal2-container{ padding: 14px !important; } /* 留白 */
-          .swal-glass.swal2-popup{
-            width: min(92vw, 380px) !important;
-            max-width: 92vw !important;
-            padding: 18px 16px 14px !important;
-          }
-        }
+        /* ✅ 黃色光暈陰影（類似你的新增商品陰影強度） */
+        box-shadow:
+          0 10px 25px rgba(255, 255, 255, 0.35),
+          inset 0 1px 0 rgba(255,255,255,0.45);
 
-        /* 你的 Swal 內容區做成 grid，避免兩個 input 滿版並排/太擠 */
-        .swal-form-grid{
-          display: grid;
-          grid-template-columns: 1fr 110px; /* 桌面：名稱寬、排序窄 */
-          gap: 10px;
-          align-items: center;
-          margin-top: 8px;
-        }
+        color: #ffffff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
 
-        /* 手機：改成上下排列，視覺更舒服 */
-        @media (max-width: 576px){
-          .swal-form-grid{
-            grid-template-columns: 1fr;
-          }
-        }
+        /* ✅ icon 看起來跟右下 + 一樣大 */
+        font-size: 2.5rem;
 
-        /* 把 swal2-input 從滿版改成「看起來像玻璃輸入框但不撐爆」 */
-        .swal-glass .swal2-input{
-          width: 100% !important;           /* 在 grid cell 內 100% */
-          max-width: 100% !important;
-          margin: 0 !important;             /* SweetAlert2 預設 margin 會讓視覺怪 */
-          height: 44px !important;
-          font-size: 16px !important;       /* 避免 iOS 自動放大 */
-          padding: 10px 12px !important;
-          border-radius: 14px !important;
-        }
+        transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        text-decoration: none;
+        overflow: hidden;
+      }
 
-        /* 讓「排序」輸入框更像小欄位 */
-        .swal-glass .swal2-input.is-sort{
-          text-align: center;
-          font-weight: 800;
-        }
+      /* 霧面顆粒/高光（跟你 glass-card 風格一致） */
+      .fab-btn-home::before{
+        content:"";
+        position:absolute; inset:0;
+        background:
+          radial-gradient(circle at 20% 10%, rgba(255,255,255,0.35), transparent 55%),
+          radial-gradient(circle at 85% 0%, rgba(255,255,255,0.18), transparent 55%),
+          linear-gradient(180deg, rgba(255,255,255,0.14), rgba(255,255,255,0.06));
+        pointer-events:none;
+      }
 
-        /* =========================
-          新增商品 Modal：手機 RWD 微調
-          ========================= */
-        @media (max-width: 576px){
-          #addProductModal .modal-dialog{
-            margin: 12px auto !important;
-            max-width: 94vw !important;
-          }
+      .fab-btn-home:active{
+        transform: scale(0.9) rotate(-10deg);
+      }
+      .fab-btn-home:hover{
+        transform: translateY(-3px);
+        box-shadow:
+          0 15px 35px rgba(246, 185, 59, 0.45),
+          inset 0 1px 0 rgba(255,255,255,0.50);
+      }
 
-          #addProductModal .modal-body{
-            padding: 18px !important;
-          }
+      /* icon 層級 */
+      .fab-btn-home > *{
+        position: relative;
+        z-index: 1;
+      }
 
-          #addProductModal .modal-header,
-          #addProductModal .modal-footer{
-            padding-left: 18px !important;
-            padding-right: 18px !important;
-          }
-
-          /* 兩欄價格/庫存在手機改成一欄（避免擠） */
-          #addProductModal .row.g-3 > .col-6{
-            flex: 0 0 100%;
-            max-width: 100%;
-          }
-        }
-
-        swal-glass .swal2-html-container{
-          margin: 0 !important;          /* html container 預設也會有 margin */
-          padding: 0 !important;
-        }
-
-        .swal-form-grid{
-          margin-top: 10px !important;
-          padding: 6px 2px !important;   /* 讓內容不要貼邊 */
-          row-gap: 12px !important;      /* 手機上下距離主要靠這個 */
-          column-gap: 10px !important;
-        }
-
-        /* 關鍵：把 swal2-input 自帶的 margin 清掉，不然 gap 看起來會怪 */
-        .swal-form-grid .swal2-input{
-          margin: 0 !important;
-        }
-
-        /* 手機再加大一點上下間距 */
-        @media (max-width: 576px){
-          .swal-form-grid{
-            row-gap: 14px !important;
-          }
-        }
-
-        .swal2-container{
-          z-index: 200000 !important;
-        }
-        .swal2-popup{
-          z-index: 200001 !important;
-        }
-
-    </style>
+  </style>
 </head>
+
 <body>
 
-<div class="sticky-header pt-3 pb-3 px-3">
+  <div class="sticky-header pt-3 pb-3 px-3">
     <div class="row g-2 align-items-end">
-        <div class="col-5">
-            <label class="small text-muted fw-bold ms-1 mb-1">目前分店</label>
-            <select class="form-select shadow-sm" onchange="location.href='?store='+this.value">
+      <div class="col-5">
+        <label class="small text-muted fw-bold ms-1 mb-1">目前分店</label>
+        <select class="form-select shadow-sm" onchange="location.href='?store='+this.value">
+          {% for s in stores %}
+          <option value="{{ s.id }}" {% if s.id == current_store.id %}selected{% endif %}>
+            🏠 {{ s.name }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="col-7">
+        <label class="small text-muted fw-bold ms-1 mb-1">
+          商品系列
+          {% if current_cat_id != 'all' and current_cat_id %}
+          <a href="#" onclick="editCategory('{{ current_cat_id }}')" class="text-secondary ms-1 text-decoration-none">
+            <i class="bi bi-pencil-square"></i>
+          </a>
+          {% endif %}
+        </label>
+        <div class="input-group">
+          <select class="form-select shadow-sm" id="categorySelect"
+                  onchange="location.href='?store={{ current_store.id }}&category='+this.value">
+            <option value="all" {% if current_cat_id == 'all' %}selected{% endif %}>🗂️ 全部商品</option>
+            {% for c in categories %}
+            <option value="{{ c.id }}" id="cat_opt_{{ c.id }}"
+                    data-name="{{ c.name }}"
+                    data-sort="{{ c.sort_order }}"
+                    {% if current_cat_id|stringformat:'s' == c.id|stringformat:'s' %}selected{% endif %}>
+              {{ c.name }}
+            </option>
+            {% endfor %}
+          </select>
+          <button class="btn btn-light border shadow-sm ms-1"
+                  style="border-radius: 12px; background: rgba(255,255,255,0.6);"
+                  onclick="addCategory()" type="button">
+            <i class="bi bi-plus-lg text-primary"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="container mt-3 px-3">
+    <div class="row g-3">
+      {% for p in products %}
+      <div class="col-12 col-md-6">
+        <div class="product-card {% if p.is_active %}active{% else %}inactive{% endif %}">
+          <div class="card-body p-3">
+            <div class="d-flex justify-content-between align-items-start mb-1">
+              <div class="pe-2 flex-grow-1">
+                <div class="category-text" data-name="{{ p.category.name|default:'未分類' }}">
+                  {{ p.category.name|default:"未分類" }}
+                </div>
+
+                <h6 class="fw-bold mb-1 fs-5">{{ p.name }}</h6>
+
+                <div class="price-wrapper mt-1">
+                  <span class="small me-1">$</span>
+                  <input type="number" class="input-price" value="{{ p.price }}"
+                         name="price"
+                         hx-post="{% url 'quick_update_product' p.id %}"
+                         hx-trigger="keyup changed delay:800ms, change"
+                         hx-swap="none"
+                         onchange="showToast()">
+                </div>
+              </div>
+
+              <div class="form-check form-switch m-0">
+                <input class="form-check-input" type="checkbox" role="switch"
+                       {% if p.is_active %}checked{% endif %}
+                       hx-post="{% url 'quick_update_product' p.id %}"
+                       hx-vals='{"is_active": "{% if p.is_active %}false{% else %}true{% endif %}"}'
+                       hx-swap="none"
+                       onclick="toggleCardStyle(this); showToast()">
+              </div>
+            </div>
+
+            <div class="mb-3">
+              <input type="text" class="input-transparent"
+                     name="description"
+                     value="{{ p.description|default:'' }}"
+                     placeholder="點擊輸入商品描述 (自動儲存)..."
+                     hx-post="{% url 'quick_update_product' p.id %}"
+                     hx-trigger="keyup changed delay:800ms, change"
+                     hx-swap="none"
+                     onchange="showToast()">
+            </div>
+
+            <div class="d-flex justify-content-between align-items-center">
+              <span class="text-muted small fw-bold opacity-75">庫存</span>
+              <div class="stock-stepper">
+                <button class="stock-btn text-danger" type="button" onclick="updateStock(this, -1)">
+                  <i class="bi bi-dash"></i>
+                </button>
+                <input type="number" class="input-stock" value="{{ p.stock }}"
+                       name="stock"
+                       hx-post="{% url 'quick_update_product' p.id %}"
+                       hx-trigger="change"
+                       hx-swap="none">
+                <button class="stock-btn text-success" type="button" onclick="updateStock(this, 1)">
+                  <i class="bi bi-plus"></i>
+                </button>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+      {% empty %}
+      <div class="text-center py-5">
+        <p class="text-muted fw-bold" style="text-shadow: 0 1px 2px rgba(255,255,255,0.8);">這裡空空如也 ☁️</p>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- 左下：回 owner -->
+  <a class="fab-btn-home" href="{% url 'owner_dashboard' %}" aria-label="回到 Owner">
+    <i class="bi bi-house-fill"></i>
+  </a>
+
+  <!-- 右下：新增商品 -->
+  <button class="fab-btn" data-bs-toggle="modal" data-bs-target="#addProductModal" type="button" aria-label="新增商品">
+    <i class="bi bi-plus-lg"></i>
+  </button>
+
+  <!-- 新增商品 Modal -->
+  <div class="modal fade" id="addProductModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content shadow-lg">
+
+        <div class="modal-header">
+          <h5 class="modal-title fw-bold">
+            <i class="bi bi-stars text-danger me-1"></i>新增商品
+          </h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+
+        <form action="{% url 'create_product' %}" method="POST">
+          {% csrf_token %}
+
+          <div class="modal-body">
+            <div class="mb-3">
+              <label for="id_store" class="modal-label">所屬分店</label>
+              <select name="store_id" id="id_store" class="glass-input"
+                      hx-get="{% url 'api_get_categories_options' %}"
+                      hx-target="#id_category"
+                      hx-trigger="change">
                 {% for s in stores %}
                 <option value="{{ s.id }}" {% if s.id == current_store.id %}selected{% endif %}>
-                    🏠 {{ s.name }}
+                  🏠 {{ s.name }}
                 </option>
                 {% endfor %}
-            </select>
-        </div>
+              </select>
 
-        <div class="col-7">
-            <label class="small text-muted fw-bold ms-1 mb-1">
-                商品系列
-                {% if current_cat_id != 'all' and current_cat_id %}
-                <a href="#" onclick="editCategory('{{ current_cat_id }}')" class="text-secondary ms-1 text-decoration-none">
-                    <i class="bi bi-pencil-square"></i>
-                </a>
-                {% endif %}
-            </label>
-            <div class="input-group">
-                <select class="form-select shadow-sm" id="categorySelect"
-                        onchange="location.href='?store={{ current_store.id }}&category='+this.value">
-                    <option value="all" {% if current_cat_id == 'all' %}selected{% endif %}>🗂️ 全部商品</option>
-                    {% for c in categories %}
-                    <option value="{{ c.id }}" id="cat_opt_{{ c.id }}"
-                            data-name="{{ c.name }}"
-                            data-sort="{{ c.sort_order }}"
-                            {% if current_cat_id|stringformat:'s' == c.id|stringformat:'s' %}selected{% endif %}>
-                        {{ c.name }}
-                    </option>
-                    {% endfor %}
-                </select>
-                <button class="btn btn-light border shadow-sm ms-1"
-                        style="border-radius: 12px; background: rgba(255,255,255,0.6);"
-                        onclick="addCategory()">
-                    <i class="bi bi-plus-lg text-primary"></i>
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<div class="container mt-3 px-3">
-    <div class="row g-3">
-        {% for p in products %}
-        <div class="col-12 col-md-6">
-            <div class="product-card {% if p.is_active %}active{% else %}inactive{% endif %}">
-                <div class="card-body p-3">
-                    <div class="d-flex justify-content-between align-items-start mb-1">
-                        <div class="pe-2 flex-grow-1">
-                            <div class="category-text" data-name="{{ p.category.name|default:'未分類' }}">
-                                {{ p.category.name|default:"未分類" }}
-                            </div>
-
-                            <h6 class="fw-bold mb-1 fs-5">{{ p.name }}</h6>
-
-                            <div class="price-wrapper mt-1">
-                                <span class="small me-1">$</span>
-                                <input type="number" class="input-price" value="{{ p.price }}"
-                                       name="price"
-                                       hx-post="{% url 'quick_update_product' p.id %}"
-                                       hx-trigger="keyup changed delay:800ms, change"
-                                       hx-swap="none"
-                                       onchange="showToast()">
-                            </div>
-                        </div>
-
-                        <div class="form-check form-switch m-0">
-                            <input class="form-check-input" type="checkbox" role="switch"
-                                   {% if p.is_active %}checked{% endif %}
-                                   hx-post="{% url 'quick_update_product' p.id %}"
-                                   hx-vals='{"is_active": "{% if p.is_active %}false{% else %}true{% endif %}"}'
-                                   hx-swap="none"
-                                   onclick="toggleCardStyle(this); showToast()">
-                        </div>
+              <div class="batch-card glass-card">
+                <div class="form-check form-switch d-flex align-items-center">
+                  <input class="form-check-input me-2" type="checkbox" role="switch" id="batch_create" name="batch_create" value="true">
+                  <div>
+                    <label class="form-check-label fw-bold text-dark mb-0" for="batch_create">
+                      同步建立至【所有分店】
+                    </label>
+                    <div class="small text-muted" style="font-size: 0.75rem;">
+                      自動在其他分店建立相同商品與分類
                     </div>
-
-                    <div class="mb-3">
-                        <input type="text" class="input-transparent"
-                               name="description"
-                               value="{{ p.description|default:'' }}"
-                               placeholder="點擊輸入商品描述 (自動儲存)..."
-                               hx-post="{% url 'quick_update_product' p.id %}"
-                               hx-trigger="keyup changed delay:800ms, change"
-                               hx-swap="none"
-                               onchange="showToast()">
-                    </div>
-
-                    <div class="d-flex justify-content-between align-items-center">
-                        <span class="text-muted small fw-bold opacity-75">庫存</span>
-                        <div class="stock-stepper">
-                            <button class="stock-btn text-danger" type="button" onclick="updateStock(this, -1)">
-                                <i class="bi bi-dash"></i>
-                            </button>
-                            <input type="number" class="input-stock" value="{{ p.stock }}"
-                                   name="stock"
-                                   hx-post="{% url 'quick_update_product' p.id %}"
-                                   hx-trigger="change"
-                                   hx-swap="none">
-                            <button class="stock-btn text-success" type="button" onclick="updateStock(this, 1)">
-                                <i class="bi bi-plus"></i>
-                            </button>
-                        </div>
-                    </div>
+                  </div>
                 </div>
-            </div>
-        </div>
-        {% empty %}
-        <div class="text-center py-5">
-            <p class="text-muted fw-bold" style="text-shadow: 0 1px 2px rgba(255,255,255,0.8);">這裡空空如也 ☁️</p>
-        </div>
-        {% endfor %}
-    </div>
-</div>
-
-<button class="fab-btn" data-bs-toggle="modal" data-bs-target="#addProductModal" type="button">
-    <i class="bi bi-plus-lg"></i>
-</button>
-
-<div class="modal fade" id="addProductModal" tabindex="-1">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content shadow-lg">
-
-            <div class="modal-header">
-                <h5 class="modal-title fw-bold">
-                    <i class="bi bi-stars text-danger me-1"></i>新增商品
-                </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+              </div>
             </div>
 
-            <form action="{% url 'create_product' %}" method="POST">
-                {% csrf_token %}
+            <hr class="border-secondary opacity-10 my-4">
 
-                <div class="modal-body">
-                    <div class="mb-3">
-                        <label for="id_store" class="modal-label">所屬分店</label>
-                        <select name="store_id" id="id_store" class="glass-input"
-                                hx-get="{% url 'api_get_categories_options' %}"
-                                hx-target="#id_category"
-                                hx-trigger="change">
-                            {% for s in stores %}
-                            <option value="{{ s.id }}" {% if s.id == current_store.id %}selected{% endif %}>
-                                🏠 {{ s.name }}
-                            </option>
-                            {% endfor %}
-                        </select>
+            <div class="mb-3">
+              <label for="id_category" class="modal-label">商品分類</label>
+              <select name="category" class="glass-input" id="id_category" required>
+                <option value="" selected>---------</option>
+                {% for c in categories %}
+                <option value="{{ c.id }}">{{ c.name }} ({{ c.store.name }})</option>
+                {% endfor %}
+              </select>
+            </div>
 
-                        <div class="batch-card glass-card">
-                            <div class="form-check form-switch d-flex align-items-center">
-                                <input class="form-check-input me-2" type="checkbox" role="switch" id="batch_create" name="batch_create" value="true">
-                                <div>
-                                    <label class="form-check-label fw-bold text-dark mb-0" for="batch_create">
-                                        同步建立至【所有分店】
-                                    </label>
-                                    <div class="small text-muted" style="font-size: 0.75rem;">
-                                        自動在其他分店建立相同商品與分類
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+            <div class="mb-3">
+              <label for="id_name" class="modal-label">商品名稱</label>
+              <input type="text" name="name" class="glass-input" placeholder="例如：草莓牛奶" required id="id_name">
+            </div>
 
-                    <hr class="border-secondary opacity-10 my-4">
+            <div class="row g-3 mb-3">
+              <div class="col-6">
+                <label for="id_price" class="modal-label">單價(元)</label>
+                <input type="number" name="price" class="glass-input" min="0" required id="id_price">
+              </div>
+              <div class="col-6">
+                <label for="id_stock" class="modal-label">初始庫存</label>
+                <input type="number" name="stock" value="99" class="glass-input" required id="id_stock">
+              </div>
+            </div>
 
-                    <div class="mb-3">
-                        <label for="id_category" class="modal-label">商品分類</label>
-                        <select name="category" class="glass-input" id="id_category" required>
-                            <option value="" selected>---------</option>
-                            {% for c in categories %}
-                            <option value="{{ c.id }}">{{ c.name }} ({{ c.store.name }})</option>
-                            {% endfor %}
-                        </select>
-                    </div>
+            <div class="mb-3">
+              <label for="id_flavor_options" class="modal-label">口味選項 (選填)</label>
+              <input type="text" name="flavor_options" class="glass-input" placeholder="例如：微糖,半糖 (用逗號隔開)" id="id_flavor_options">
+            </div>
 
-                    <div class="mb-3">
-                        <label for="id_name" class="modal-label">商品名稱</label>
-                        <input type="text" name="name" class="glass-input" placeholder="例如：草莓牛奶" required id="id_name">
-                    </div>
+            <div class="mb-3">
+              <label for="id_description" class="modal-label">商品短描述</label>
+              <textarea name="description" rows="2" class="glass-input" placeholder="顯示在名稱下方的說明..." id="id_description"></textarea>
+            </div>
 
-                    <div class="row g-3 mb-3">
-                        <div class="col-6">
-                            <label for="id_price" class="modal-label">單價(元)</label>
-                            <input type="number" name="price" class="glass-input" min="0" required id="id_price">
-                        </div>
-                        <div class="col-6">
-                            <label for="id_stock" class="modal-label">初始庫存</label>
-                            <input type="number" name="stock" value="99" class="glass-input" required id="id_stock">
-                        </div>
-                    </div>
+            <div class="form-check form-switch mb-2">
+              <input type="checkbox" name="is_active" class="form-check-input" role="switch" id="id_is_active" checked>
+              <label class="form-check-label fw-bold text-secondary" for="id_is_active">立即上架販售</label>
+            </div>
 
-                    <div class="mb-3">
-                        <label for="id_flavor_options" class="modal-label">口味選項 (選填)</label>
-                        <input type="text" name="flavor_options" class="glass-input" placeholder="例如：微糖,半糖 (用逗號隔開)" id="id_flavor_options">
-                    </div>
+          </div>
 
-                    <div class="mb-3">
-                        <label for="id_description" class="modal-label">商品短描述</label>
-                        <textarea name="description" rows="2" class="glass-input" placeholder="顯示在名稱下方的說明..." id="id_description"></textarea>
-                    </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-light fw-bold text-muted rounded-pill px-4" data-bs-dismiss="modal">
+              取消
+            </button>
+            <button type="submit" class="btn btn-danger fw-bold px-4 rounded-pill shadow-lg">
+              確認建立
+            </button>
+          </div>
+        </form>
 
-                    <div class="form-check form-switch mb-2">
-                        <input type="checkbox" name="is_active" class="form-check-input" role="switch" id="id_is_active" checked>
-                        <label class="form-check-label fw-bold text-secondary" for="id_is_active">立即上架販售</label>
-                    </div>
-                </div>
-
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-light fw-bold text-muted rounded-pill px-4" data-bs-dismiss="modal">
-                        取消
-                    </button>
-                    <button type="submit" class="btn btn-danger fw-bold px-4 rounded-pill shadow-lg">
-                        確認建立
-                    </button>
-                </div>
-            </form>
-
-        </div>
+      </div>
     </div>
-</div>
+  </div>
 
-<script>
+  <script>
     const colorPalette = ['#ff4757', '#2ecc71', '#3498db', '#f1c40f', '#9b59b6', '#00cec9', '#e17055', '#fd79a8'];
     function hashString(str) { let h=0; for(let i=0;i<str.length;i++) h=str.charCodeAt(i)+((h<<5)-h); return Math.abs(h); }
 
     document.addEventListener("DOMContentLoaded", function() {
-        document.querySelectorAll('.category-text').forEach(el => {
-            el.style.color = colorPalette[hashString(el.dataset.name) % colorPalette.length];
-        });
+      document.querySelectorAll('.category-text').forEach(el => {
+        el.style.color = colorPalette[hashString(el.dataset.name) % colorPalette.length];
+      });
     });
 
     async function addCategory() {
@@ -792,52 +811,50 @@
         .then(r => { if (r.ok) location.reload(); });
     }
 
-
-
     const Toast = Swal.mixin({ toast: true, position: 'top-end', showConfirmButton: false, timer: 1500 });
     function showToast(msg='已儲存') { setTimeout(() => Toast.fire({ icon: 'success', title: msg }), 300); }
 
     function updateStock(btn, delta) {
-        btn.style.transform = "scale(0.8)";
-        setTimeout(() => btn.style.transform = "scale(1)", 100);
+      btn.style.transform = "scale(0.8)";
+      setTimeout(() => btn.style.transform = "scale(1)", 100);
 
-        const input = btn.parentElement.querySelector('input');
-        const card = btn.closest('.product-card');
-        const switchInput = card.querySelector('.form-check-input[role="switch"]');
+      const input = btn.parentElement.querySelector('input');
+      const card = btn.closest('.product-card');
+      const switchInput = card.querySelector('.form-check-input[role="switch"]');
 
-        let newVal = parseInt(input.value) + delta;
-        if(newVal < 0) newVal = 0;
-        input.value = newVal;
+      let newVal = parseInt(input.value) + delta;
+      if(newVal < 0) newVal = 0;
+      input.value = newVal;
 
-        if (newVal === 0) {
-            if (switchInput.checked) {
-                switchInput.checked = false;
-                toggleCardStyle(switchInput);
-                Swal.fire({
-                    toast: true, position: 'top',
-                    icon: 'warning', title: '庫存歸零，已自動下架',
-                    showConfirmButton: false, timer: 2000
-                });
-            }
-        } else {
-            showToast();
+      if (newVal === 0) {
+        if (switchInput.checked) {
+          switchInput.checked = false;
+          toggleCardStyle(switchInput);
+          Swal.fire({
+            toast: true, position: 'top',
+            icon: 'warning', title: '庫存歸零，已自動下架',
+            showConfirmButton: false, timer: 2000
+          });
         }
+      } else {
+        showToast();
+      }
 
-        input.dispatchEvent(new Event('change'));
+      input.dispatchEvent(new Event('change'));
     }
 
     function toggleCardStyle(checkbox) {
-        const card = checkbox.closest('.product-card');
-        if(checkbox.checked) {
-            card.classList.remove('inactive');
-            checkbox.setAttribute('hx-vals', '{"is_active": "false"}');
-        } else {
-            card.classList.add('inactive');
-            checkbox.setAttribute('hx-vals', '{"is_active": "true"}');
-        }
+      const card = checkbox.closest('.product-card');
+      if(checkbox.checked) {
+        card.classList.remove('inactive');
+        checkbox.setAttribute('hx-vals', '{"is_active": "false"}');
+      } else {
+        card.classList.add('inactive');
+        checkbox.setAttribute('hx-vals', '{"is_active": "true"}');
+      }
     }
-</script>
+  </script>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
