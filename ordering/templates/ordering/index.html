@@ -16,7 +16,16 @@
 
     <style>
         :root { --strawberry: #ff4d4d; --bg-pink: #fffafa; }
-        body { background-color: var(--bg-pink); font-family: "Microsoft JhengHei", sans-serif; }
+        body {
+            background-color: var(--bg-pink);
+            font-family: "Microsoft JhengHei", sans-serif;
+            
+            /* 🔥 新增：加入兩個淡淡的漸層光暈背景，讓玻璃有東西可以模糊 */
+            background-image: 
+                radial-gradient(circle at 10% 20%, rgba(255, 77, 77, 0.1) 0%, transparent 40%),
+                radial-gradient(circle at 90% 80%, rgba(255, 193, 7, 0.15) 0%, transparent 40%);
+            background-attachment: fixed; /* 讓背景固定，滾動時更有質感 */
+        }
         .card { border-radius: 18px; border: none; box-shadow: 0 4px 12px rgba(255, 77, 77, 0.1); }
         .btn-strawberry { background-color: var(--strawberry); color: white; border-radius: 12px; font-weight: bold; padding: 12px; }
         
@@ -151,6 +160,95 @@
     /* 商品列樣式微調 */
     .edit-item-row { transition: background-color 0.2s; border-bottom: 1px dashed #eee; }
     .edit-item-row:last-child { border-bottom: none; }
+    /* --- 🍓 霧面玻璃收據卡片 --- */
+    .glass-receipt {
+        /* 核心：半透明背景 + 模糊濾鏡 */
+        background: rgba(255, 255, 255, 0.65);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px); /* 支援 Safari */
+        
+        /* 邊框：使用微漸層或半透明白線，營造玻璃厚度感 */
+        border: 1px solid rgba(255, 255, 255, 0.8);
+        border-radius: 20px;
+        
+        /* 陰影：淡淡的紅色光暈，讓卡片浮起來 */
+        box-shadow: 0 8px 32px 0 rgba(255, 77, 77, 0.15);
+        
+        padding: 25px;
+        margin-top: 1.5rem;
+        position: relative;
+        overflow: hidden;
+    }
+
+    /* 頂部裝飾條 (草莓紅) */
+    .glass-receipt::before {
+        content: '';
+        position: absolute;
+        top: 0; left: 0; right: 0;
+        height: 6px;
+        background: linear-gradient(90deg, #ff9a9e 0%, #ff4d4d 100%);
+    }
+
+    /* 分隔虛線優化 */
+    .receipt-divider {
+        border: 0;
+        border-bottom: 2px dashed rgba(255, 77, 77, 0.2);
+        background: none;
+        margin: 15px 0;
+        position: relative;
+    }
+
+    /* 兩側的半圓缺口 (營造撕票根的感覺) */
+    .receipt-divider::before, .receipt-divider::after {
+        content: '';
+        position: absolute;
+        bottom: -6px;
+        width: 12px;
+        height: 12px;
+        background-color: var(--bg-pink, #fffafa); /* 需對應您的網頁背景色 */
+        border-radius: 50%;
+        box-shadow: inset 2px 2px 5px rgba(0,0,0,0.05);
+    }
+    .receipt-divider::before { left: -30px; }
+    .receipt-divider::after { right: -30px; }
+
+    /* 資訊列優化 */
+    .info-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 0.95rem;
+        color: #555;
+        margin-bottom: 8px;
+    }
+    .info-label {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-weight: bold;
+        color: #888;
+    }
+
+    /* 總金額區塊 */
+    .total-section {
+        background: rgba(255, 77, 77, 0.08);
+        border-radius: 12px;
+        padding: 12px 15px;
+        margin-top: 10px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        color: #d63031;
+    }
+
+    /* 針對 JS 產生的列表內容進行微調 (如果您是用之前的 detail-row class) */
+    #order_details_list .detail-row {
+        border-bottom: 1px dashed rgba(0,0,0,0.05) !important;
+        padding: 8px 0;
+    }
+    #order_details_list .detail-row:last-child {
+        border-bottom: none !important;
+    }
     </style>
 </head>
 <body>
@@ -171,10 +269,10 @@
             <label class="form-label fw-bold">2. 選擇付款方式</label>
             <div class="d-flex gap-2">
                 <input type="radio" class="btn-check" name="paymentMethod" id="payCash" value="cash" checked>
-                <label class="btn btn-outline-danger flex-grow-1 fw-bold py-3" for="payCash">窗口付現</label>
+                <label class="btn btn-outline-danger flex-grow-1 fw-bold py-3" for="payCash">現場結帳(現金)</label>
 
                 <input type="radio" class="btn-check" name="paymentMethod" id="payLine" value="linepay">
-                <label class="btn btn-outline-success flex-grow-1 fw-bold py-3" for="payLine"> LINE Pay</label>
+                <label class="btn btn-outline-success flex-grow-1 fw-bold py-3" for="payLine"> LINE Pay(線上支付)</label>
             </div>
         </div>
 
@@ -185,7 +283,7 @@
             <div class="d-flex justify-content-between h4 mb-3 px-2">
                 <span>合計金額：</span><span id="display_total" class="text-danger fw-bold">$0</span>
             </div>
-            <button class="btn btn-strawberry w-100 btn-lg shadow" onclick="handleOrderConfirm()">確認餐點並送出</button>
+            <button class="btn btn-strawberry w-100 btn-lg shadow" onclick="handleOrderConfirm()">送出訂單</button>
         </div>
     </div>
 
@@ -206,20 +304,39 @@
                 </div>
             </div>
 
-            <div class="bg-light rounded p-3 text-start mt-4">
-                <p class="border-bottom pb-2 fw-bold mb-2">📋 您的訂單細項：</p>
-                <div id="order_details_list" class="mb-3"></div>
-                <div class="d-flex justify-content-between mb-1">
-                    <span>手機末碼：</span><strong id="display_phone" class="text-dark"></strong>
-                </div>
-                <div class="d-flex justify-content-between mb-1">
-                    <span>付款方式：</span><strong id="display_payment" class="text-primary"></strong>
-                </div>
-                <hr class="my-2">
-                <div class="d-flex justify-content-between">
-                    <span>應付金額：</span><strong class="text-danger h4">$<span id="display_final_total"></span></strong>
-                </div>
+            <div class="glass-receipt text-start animate__animated animate__fadeInUp">
+    
+    <div class="text-center mb-3">
+        <h5 class="fw-bold text-danger" style="letter-spacing: 1px;">
+            訂單明細
+        </h5>
+        <small class="text-muted" style="font-size: 0.8rem;">Thank you for your order</small>
+    </div>
+
+    <div id="order_details_list" class="mb-3 px-1">
+        </div>
+
+    <div class="receipt-divider"></div>
+
+        <div class="px-1">
+            <div class="info-row">
+                <span class="info-label">手機末碼</span>
+                <strong id="display_phone" class="text-dark fs-5 font-monospace"></strong>
             </div>
+            <div class="info-row">
+                <span class="info-label">付款方式</span>
+                <strong id="display_payment" class="text-primary"></strong>
+            </div>
+        </div>
+
+        <div class="total-section mt-3">
+            <span class="fw-bold small text-uppercase">總金額</span>
+            <div class="d-flex align-items-baseline">
+                <span class="fs-6 me-1">$</span>
+                <strong class="fs-2" id="display_final_total"></strong>
+            </div>
+        </div>
+    </div>
             <p class="text-muted small mt-4">※ 請勿關閉此頁面，系統將自動更新狀態</p>
         </div>
     </div>
@@ -510,6 +627,8 @@
             const price = parseInt(input.dataset.price);
             const flavorsStr = input.dataset.flavors;
 
+            // 處理口味選擇 (邏輯不變)
+            let finalName = baseName;
             if (flavorsStr && flavorsStr.trim() !== "") {
                 const flavorArray = flavorsStr.split(',');
                 const selectOptions = {};
@@ -530,39 +649,65 @@
                 });
 
                 if (!selectedFlavor) return; 
-
-                const finalName = `${baseName} (${selectedFlavor})`;
-                finalItems.push({ id: input.dataset.id, name: finalName, quantity: q, price: price });
-                tableRowsHtml += `<tr><td class="text-start">${finalName}</td><td>x${q}</td><td class="text-end">$${q * price}</td></tr>`;
-                totalAmount += (q * price);
-
-            } else {
-                finalItems.push({ id: input.dataset.id, name: baseName, quantity: q, price: price });
-                tableRowsHtml += `<tr><td class="text-start">${baseName}</td><td>x${q}</td><td class="text-end">$${q * price}</td></tr>`;
-                totalAmount += (q * price);
+                finalName = `${baseName} (${selectedFlavor})`;
             }
+
+            finalItems.push({ id: input.dataset.id, name: finalName, quantity: q, price: price });
+            totalAmount += (q * price);
+
+            // ✨ 美化重點 1：為每一列加入粉紅虛線和內距，看起來更像明細 ✨
+            tableRowsHtml += `
+                <tr style="border-bottom: 1px dashed rgba(255, 77, 77, 0.2);">
+                    <td class="text-start py-2 text-dark fw-bold" style="font-size: 0.95rem;">${finalName}</td>
+                    <td class="text-center py-2 text-secondary">x${q}</td>
+                    <td class="text-end py-2 fw-bold text-danger">$${q * price}</td>
+                </tr>`;
         }
 
         if (finalItems.length === 0) {
             return Swal.fire({ icon: 'info', title: '購物車空空的', text: '您還沒選擇商品喔！', confirmButtonColor: '#ff4d4d' });
         }
 
+        // ✨ 美化重點 2：重構 SweetAlert 的 HTML，使用粉紅主題色 ✨
         Swal.fire({
-            title: '訂單確認',
+            title: '<span class="text-danger fw-bold">🍓 訂單確認</span>',
             html: `
-                <div class="mb-2 text-start bg-light p-2 rounded border">
-                    <span class="text-muted small">付款方式：</span>
-                    <span class="badge ${paymentMethod==='linepay'?'bg-success':'bg-danger'} fs-6">${paymentLabel}</span>
-                </div>
-                <table class="table table-sm border-top mt-2" style="font-size: 0.85rem;">
-                    <thead><tr class="table-light"><th class="text-start">品名</th><th>數量</th><th class="text-end">小計</th></tr></thead>
-                    <tbody>${tableRowsHtml}</tbody>
-                    <tfoot><tr class="table-warning"><td colspan="2" class="text-end fw-bold">總計金額：</td><td class="text-end fw-bold text-danger">$${totalAmount}</td></tr></tfoot>
-                </table>`,
+                <div class="p-2">
+                    <div class="d-flex justify-content-between align-items-center mb-3 bg-light rounded-pill p-2 px-3 border border-danger border-opacity-10">
+                        <span class="text-secondary small fw-bold">付款方式</span>
+                        <span class="badge ${paymentMethod==='linepay'?'bg-success':'bg-danger'} rounded-pill">${paymentLabel}</span>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table table-borderless align-middle mb-0">
+                            <thead style="background-color: #fff0f0; color: #d63031;">
+                                <tr>
+                                    <th class="text-start ps-3 py-2 rounded-start">品名</th>
+                                    <th class="text-center py-2">數量</th>
+                                    <th class="text-end pe-3 py-2 rounded-end">小計</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${tableRowsHtml}
+                            </tbody>
+                            <tfoot>
+                                <tr><td colspan="3" class="py-1"></td></tr>
+                                <tr style="border-top: 2px solid #ff4d4d; background-color: #fffafa;">
+                                    <td colspan="2" class="text-end fw-bold text-dark pt-3">總金額</td>
+                                    <td class="text-end fw-bold text-danger fs-4 pt-3">$${totalAmount}</td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>`,
             showCancelButton: true,
             confirmButtonColor: paymentMethod==='linepay' ? '#2db400' : '#ff4d4d',
-            confirmButtonText: paymentMethod==='linepay' ? '前往 LINE Pay 付款' : '確定下單',
-            cancelButtonText: '返回修改'
+            confirmButtonText: paymentMethod==='linepay' ? '前往 LINE Pay 付款' : '確認送出',
+            cancelButtonText: '返回修改',
+            width: '400px', // 稍微限制寬度，讓收據看起來更長條
+            customClass: {
+                popup: 'rounded-4 shadow-lg' // 讓彈跳視窗更圓潤
+            }
         }).then((result) => {
             if (result.isConfirmed) {
                 if (paymentMethod === 'linepay') {
@@ -687,17 +832,23 @@
 
         // A. 訂單結束 (結案或取消)
         if (order.status === 'final' || order.status === 'cancelled') {
-            box.innerHTML = order.status === 'final' ? "🍓 祝您用餐愉快！" : "❌ 訂單已被取消";
-            box.className = "status-box bg-dark text-white shadow-sm";
+            box.innerHTML = order.status === 'final' ? "🍓 祝您用餐愉快！" : "訂單已取消，轉回點餐頁面...";
+            // 根據狀態換顏色：取消用黑色/灰色，完成用紅色/深色
+            box.className = order.status === 'final' 
+                ? "status-box bg-dark text-white shadow-sm" 
+                : "status-box bg-secondary text-white shadow-sm";
             
             pickupInfo.classList.add('d-none'); 
             stopAllAlerts();
 
-            // 3秒後自動導回點餐頁
-            if (order.status === 'final' && !window.autoRedirectTimer) {
+            // 🔥 修改處：原本只有 final 會觸發，現在加入 || order.status === 'cancelled'
+            if ((order.status === 'final' || order.status === 'cancelled') && !window.autoRedirectTimer) {
+                console.log("訂單結束，3秒後返回首頁...");
                 window.autoRedirectTimer = setTimeout(() => {
                     window.autoRedirectTimer = null;
-                    resetToOrderForm();
+                    
+                    // 呼叫原本就寫好的重置函式，這會清空 URL 的 oid 並切換回 #orderForm
+                    resetToOrderForm(); 
                 }, 3000);
             }
             return;
@@ -705,7 +856,7 @@
 
         // B. 餐點製作完成 (通知領取)
         if (order.status === 'completed') {
-            box.innerHTML = "✅ 餐點已完成！請取餐";
+            box.innerHTML = "🥹讓您久等了！餐點已完成！麻煩請至窗口取餐";
             box.className = "status-box st-completed";
             pickupInfo.classList.remove('d-none');
             document.getElementById('info_id').innerText = order.id;
@@ -716,7 +867,7 @@
             // 🔥🔥🔥【關鍵修正：強制重置按鈕為紅色可按狀態】🔥🔥🔥
             // 避免上一張訂單點過後，按鈕殘留灰色 disabled 狀態
             arrivedBtn.className = "btn btn-danger w-100 py-3 fw-bold fs-5 shadow-sm mb-2";
-            arrivedBtn.innerText = "已到櫃檯(通知領取)";
+            arrivedBtn.innerText = "🫰通知店家我要取餐";
             arrivedBtn.disabled = false;
             // 🔥🔥🔥 修正結束 🔥🔥🔥
 
@@ -730,7 +881,7 @@
 
         // C. 客人已按通知 (等待店員)
         if (order.status === 'arrived') {
-            box.innerHTML = '🔔 已通知店家您在櫃檯';
+            box.innerHTML = '🔔 已通知店家您要取餐';
             box.className = "status-box bg-info text-white shadow-sm";
             pickupInfo.classList.remove('d-none');
             
@@ -971,7 +1122,7 @@
                     Swal.fire({
                         icon: 'success',
                         title: '完成',
-                        text: '感謝您的使用，祝您用餐愉快！',
+                        text: '感謝您的光臨，祝您用餐愉快！',
                         timer: 2000,
                         showConfirmButton: false
                     }).then(() => {
