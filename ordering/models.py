@@ -12,6 +12,8 @@ class Store(models.Model):
     )
     is_active = models.BooleanField(default=True, verbose_name="是否營業中")
 
+    enable_linepay = models.BooleanField(default=True, verbose_name="啟用 LINE Pay")
+
     def __str__(self):
         return self.name
 
