@@ -425,6 +425,102 @@
         transform: translateX(-50%) scale(1); /* 彈出來 */
         bottom: 120px; /* 微微上浮 */
     }
+
+    /* =========================================
+       7. 👨‍🍳 廚房備餐戰情板 (Kitchen Status Board)
+       ========================================= */
+    #kitchenBoard {
+        position: fixed;
+        left: 15px;
+        bottom: 20px; /* 預設位置 */
+        width: 280px; /* 電腦版寬度 */
+        background: rgba(33, 37, 41, 0.95); /* 深色半透明 */
+        backdrop-filter: blur(8px);
+        color: #fff;
+        border-radius: 12px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+        z-index: 1050; /* 比語音按鈕低，但比列表高 */
+        overflow: hidden;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        border: 1px solid rgba(255,255,255,0.1);
+        font-family: 'Microsoft JhengHei', sans-serif;
+    }
+
+    /* 標題列 */
+    .kb-header {
+        padding: 12px 15px;
+        background: rgba(255,255,255,0.1);
+        cursor: pointer;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        user-select: none;
+    }
+    
+    .kb-title { font-weight: bold; font-size: 1rem; display: flex; align-items: center; gap: 8px; }
+    .kb-badge { background: #ff4757; color: white; padding: 2px 8px; border-radius: 20px; font-size: 0.8rem; font-weight: 800; }
+    .kb-toggle { transition: transform 0.3s; }
+    
+    /* 內容區 */
+    .kb-body {
+        max-height: 300px; /* 電腦版最大高度 */
+        overflow-y: auto;
+        padding: 0;
+        transition: max-height 0.3s ease;
+    }
+
+    /* 收合狀態 (透過 JS 切換 class) */
+    #kitchenBoard.collapsed .kb-body {
+        max-height: 0;
+    }
+    #kitchenBoard.collapsed .kb-toggle {
+        transform: rotate(-90deg);
+    }
+    #kitchenBoard.collapsed {
+        width: auto; /* 收合時變窄，不擋路 */
+        min-width: 160px;
+    }
+
+    /* 列表項目 */
+    .kb-item {
+        padding: 10px 15px;
+        border-bottom: 1px solid rgba(255,255,255,0.1);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 0.95rem;
+    }
+    .kb-item:last-child { border-bottom: none; }
+    
+    /* 數量強調 */
+    .kb-qty { 
+        font-size: 1.2rem; 
+        font-weight: 800; 
+        color: #ffd32a; /* 亮黃色數字 */
+        margin-left: 10px;
+    }
+    .kb-name { opacity: 0.9; }
+
+    /* 空資料狀態 */
+    .kb-empty { padding: 15px; text-align: center; color: rgba(255,255,255,0.5); font-size: 0.9rem; }
+
+    /* --- 📱 手機版 RWD 優化 --- */
+    @media (max-width: 576px) {
+        #kitchenBoard {
+            left: 10px;
+            bottom: 15px;
+            width: calc(100% - 100px); /* 扣除右邊語音按鈕的空間 */
+            max-width: 240px; 
+        }
+        
+        /* 手機版內容高度限制嚴格一點，避免擋住太多 */
+        .kb-body {
+            max-height: 200px; 
+        }
+        
+        .kb-header { padding: 10px 12px; }
+        .kb-title { font-size: 0.9rem; }
+    }
 </style>
 </head>
 
@@ -581,7 +677,18 @@
       </div>
     </div>
   </div>
-
+  <div id="kitchenBoard">
+    <div class="kb-header" onclick="toggleKitchenBoard()">
+        <div class="kb-title">
+            <span>👨‍🍳 製作清單</span>
+            <span id="kbTotalCount" class="kb-badge d-none">0</span>
+        </div>
+        <div class="kb-toggle">▼</div>
+    </div>
+    <div class="kb-body" id="kbContent">
+        <div class="kb-empty">目前無製作中餐點</div>
+    </div>
+  </div>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
   <script>
@@ -956,10 +1063,10 @@
             let targetFilter = null;
             let targetName = "";
             if (cleanText.includes("全部")) { targetFilter = 'all'; targetName = "全部訂單"; }
-            else if (cleanText.includes("新單")) { targetFilter = 'pending'; targetName = "新訂單"; }
+            else if (cleanText.includes("清單")) { targetFilter = 'pending'; targetName = "新訂單"; }
             else if (cleanText.includes("成立")) { targetFilter = 'confirmed'; targetName = "成立訂單"; }
             else if (cleanText.includes("製作")) { targetFilter = 'preparing'; targetName = "製作中訂單"; }
-            else if (cleanText.includes("未取")) { targetFilter = 'uncollected'; targetName = "未取餐訂單"; }
+            else if (cleanText.includes("位置")) { targetFilter = 'uncollected'; targetName = "未取餐訂單"; }
             else if (cleanText.includes("完成")) { targetFilter = 'final'; targetName = "已完成訂單"; }
             else if (cleanText.includes("取消")) { targetFilter = 'cancelled'; targetName = "已取消訂單"; }
 
@@ -1137,89 +1244,102 @@
     }
 
     // ==========================================
-// 載入訂單與紅點動畫邏輯
-// ==========================================
-    function loadOrders() {
-        if (!currentStore) return;
+    // 7. 👨‍🍳 廚房備餐戰情板邏輯 (新功能)
+    // ==========================================
 
-        // 加入 t=時間戳記，防止 API 被瀏覽器快取
-        fetch(`/api/orders/?store=${currentStore}&t=${Date.now()}`)
-            .then(res => res.json())
-            .then(orders => {
-                if (!Array.isArray(orders)) return;
+    // 初始化狀態 (在頁面載入時檢查記憶)
+    // 注意：原本 script 前面可能已經有一個 DOMContentLoaded，
+    // 這裡我們直接加在最後面即可，瀏覽器會依序執行。
+    document.addEventListener('DOMContentLoaded', () => {
+        const isCollapsed = localStorage.getItem('kb_collapsed') === 'true';
+        const kb = document.getElementById('kitchenBoard');
+        if (isCollapsed && kb) {
+            kb.classList.add('collapsed');
+        }
+    });
+    
+    // 計算並渲染戰情板 (僅統計 preparing 狀態)
+    function updateKitchenBoard() {
+        if (!rawOrdersCache) return;
 
-                // --- 1. 語音通知 (維持不動) ---
-                orders.forEach(order => {
-                    if (order.status === 'pending' && !alertedNewOrder.has(order.id)) {
-                        if (!isFirstLoad) speak(`新訂單 ${order.id}號`);
-                        alertedNewOrder.add(order.id);
-                    }
-                    if (order.status === 'arrived' && !alertedArrived.has(order.id)) {
-                        playBell();
-                        setTimeout(() => speak(`${order.id}號 客人已經到櫃檯摟`), 1000);
-                        alertedArrived.add(order.id);
-                    }
-                });
+        // 1. 嚴格篩選：只抓 'preparing'
+        const preparingOrders = rawOrdersCache.filter(o => o.status === 'preparing');
+        
+        // 🐞 開發者工具除錯訊息
+        console.log(`[戰情板] 總單數:${rawOrdersCache.length}, 製作中:${preparingOrders.length}`);
 
-                // --- 2. 紅點計數邏輯 (關鍵修改區) ---
-                let counts = {
-                    pending: 0,
-                    confirmed: 0,
-                    preparing: 0,
-                    uncollected: 0, 
-                    // ❌ 絕對不要包含 cancelled 和 final，否則歸零後紅點不會消失！
-                };
+        // 2. 統計
+        const stats = {};
+        let totalItems = 0;
 
-                orders.forEach(o => {
-                    // 只計算我們定義在 counts 裡面的狀態
-                    if (counts.hasOwnProperty(o.status)) {
-                        counts[o.status]++;
-                    }
-                    // 特殊：未取餐 = 通知中(completed) + 已到櫃(arrived)
-                    if (['completed', 'arrived'].includes(o.status)) {
-                        counts.uncollected++;
-                    }
-                });
+        preparingOrders.forEach(order => {
+            // 防呆：JSON 可能是字串
+            let items = order.items;
+            if (typeof items === 'string') {
+                try { items = JSON.parse(items); } catch(e) { items = []; }
+            }
 
-                // --- 3. 更新紅點 UI 與動畫 ---
-                // 先把所有 badge 隱藏 (防呆)
-                document.querySelectorAll('[id^="badge-"]').forEach(el => el.classList.add('d-none'));
-
-                Object.keys(counts).forEach(key => {
-                    const badge = document.getElementById(`badge-${key}`);
-                    if (badge) {
-                        const newCount = counts[key];
-                        const oldCount = lastCounts[key] || 0;
-
-                        badge.innerText = newCount > 99 ? '99+' : newCount;
-
-                        if (newCount > 0) {
-                            badge.classList.remove('d-none'); // 有數字才顯示
-                            
-                            // 動畫：數字變大時才跳動
-                            if (newCount > oldCount) {
-                                badge.classList.remove('animate__heartBeat');
-                                void badge.offsetWidth; // 觸發重繪
-                                badge.classList.add('animate__heartBeat');
-                            }
-                        }
+            if (items && Array.isArray(items)) {
+                items.forEach(item => {
+                    // 自動補全名稱 (如果訂單沒存名稱，就顯示未命名)
+                    const name = item.name || item.product_name || item.title || '未命名商品';
+                    
+                    // ★ 關鍵修復：強制轉成整數，避免字串 "1"+"1"="11" 的錯誤
+                    const rawQty = item.quantity || item.qty || 0;
+                    const qty = parseInt(rawQty, 10);
+                    
+                    if (!isNaN(qty) && qty > 0) {
+                        if (!stats[name]) stats[name] = 0;
+                        stats[name] += qty;
+                        totalItems += qty;
                     }
                 });
+            }
+        });
 
-                // 紀錄本次數量供下次比對
-                lastCounts = {...counts};
+        // 3. 更新 UI
+        const boardContent = document.getElementById('kbContent');
+        const countBadge = document.getElementById('kbTotalCount');
+        
+        if (totalItems > 0) {
+            countBadge.innerText = totalItems;
+            countBadge.classList.remove('d-none');
+        } else {
+            countBadge.classList.add('d-none');
+        }
 
-                // --- 4. 渲染列表 ---
-                const jsonStr = JSON.stringify(orders);
-                if (jsonStr !== lastOrdersJson) {
-                    lastOrdersJson = jsonStr;
-                    rawOrdersCache = orders;
-                    renderOrders();
-                }
-                isFirstLoad = false;
-            })
-            .catch(err => console.error("載入失敗", err));
+        if (totalItems === 0) {
+            boardContent.innerHTML = `<div class="kb-empty">無製作中餐點<br><small class="opacity-50">請在訂單按「開始製作」<br>狀態必須為【製作中】才會顯示</small></div>`;
+        } else {
+            const sortedItems = Object.entries(stats).sort((a, b) => b[1] - a[1]);
+            let html = '';
+            sortedItems.forEach(([name, qty]) => {
+                html += `
+                    <div class="kb-item">
+                        <span class="kb-name">${name}</span>
+                        <span class="kb-qty">${qty}</span>
+                    </div>
+                `;
+            });
+            boardContent.innerHTML = html;
+        }
     }
+
+    // 切換展開/收合
+    function toggleKitchenBoard() {
+        const board = document.getElementById('kitchenBoard');
+        board.classList.toggle('collapsed');
+        localStorage.setItem('kb_collapsed', board.classList.contains('collapsed'));
+    }
+
+    // 初始化狀態 (在頁面載入時檢查記憶)
+    document.addEventListener('DOMContentLoaded', () => {
+        const isCollapsed = localStorage.getItem('kb_collapsed') === 'true';
+        if (isCollapsed) {
+            const kb = document.getElementById('kitchenBoard');
+            if(kb) kb.classList.add('collapsed');
+        }
+    });
 
     function toggleDetail(id) {
         const d = document.getElementById(`detail-${id}`), a = document.getElementById(`arrow-${id}`);
@@ -1296,12 +1416,14 @@
     // ==========================================
     function loadOrders() {
         if (!currentStore) return;
+
+        // 加入 t=時間戳記，防止 API 被瀏覽器快取
         fetch(`/api/orders/?store=${currentStore}&t=${Date.now()}`)
             .then(res => res.json())
             .then(orders => {
                 if (!Array.isArray(orders)) return;
 
-                // --- 1. 語音通知邏輯 (保持不變) ---
+                // 1. 語音通知
                 orders.forEach(order => {
                     if (order.status === 'pending' && !alertedNewOrder.has(order.id)) {
                         if (!isFirstLoad) speak(`新訂單 ${order.id}號`);
@@ -1318,64 +1440,45 @@
                     }
                 });
 
-                // --- 2. 紅點數字計數邏輯 (修改版：含動畫與移除不需要的Badge) ---
-                let counts = {
-                    // all: 0,       // 移除
-                    pending: 0,
-                    confirmed: 0,
-                    preparing: 0,
-                    uncollected: 0, 
-                    // cancelled: 0, // 移除
-                    final: 0
-                };
-
+                // 2. 紅點計算
+                let counts = { pending: 0, confirmed: 0, preparing: 0, uncollected: 0 };
                 orders.forEach(o => {
-                    if (counts.hasOwnProperty(o.status)) {
-                        counts[o.status]++;
-                    }
-                    // 特殊狀態計數 (未取餐)
-                    if (['completed', 'arrived'].includes(o.status)) {
-                        counts.uncollected++;
-                    }
+                    if (counts.hasOwnProperty(o.status)) counts[o.status]++;
+                    if (['completed', 'arrived'].includes(o.status)) counts.uncollected++;
                 });
 
-                // 更新畫面上的 Badge 並處理動畫
+                // 3. 更新紅點
+                document.querySelectorAll('[id^="badge-"]').forEach(el => el.classList.add('d-none'));
                 Object.keys(counts).forEach(key => {
                     const badge = document.getElementById(`badge-${key}`);
                     if (badge) {
                         const newCount = counts[key];
                         const oldCount = lastCounts[key] || 0;
-                        
-                        // 設定數字
                         badge.innerText = newCount > 99 ? '99+' : newCount;
-
-                        // 顯示/隱藏邏輯
                         if (newCount > 0) {
                             badge.classList.remove('d-none');
-                            
-                            // ★★★ 動畫觸發邏輯 ★★★
-                            // 如果數字變多 (有新單進來)，觸發心跳動畫
                             if (newCount > oldCount) {
-                                badge.classList.remove('animate__heartBeat'); // 先移除以利重置
-                                void badge.offsetWidth; // 觸發 Reflow (關鍵：讓瀏覽器知道要重跑動畫)
+                                badge.classList.remove('animate__heartBeat');
+                                void badge.offsetWidth; 
                                 badge.classList.add('animate__heartBeat');
                             }
-                        } else {
-                            badge.classList.add('d-none');
                         }
                     }
                 });
-                
-                // 更新歷史計數，供下次比對
                 lastCounts = {...counts};
 
-                // --- 3. 資料渲染 (保持不變) ---
+                // 4. 列表渲染 & 戰情板更新
                 const jsonStr = JSON.stringify(orders);
+                rawOrdersCache = orders; // ★ 確保快取最新
+
                 if (jsonStr !== lastOrdersJson) {
                     lastOrdersJson = jsonStr;
-                    rawOrdersCache = orders;
                     renderOrders();
                 }
+                
+                // ★ 每次都呼叫，確保戰情板數字正確 (包含 parseInt 修復)
+                updateKitchenBoard();
+
                 isFirstLoad = false;
             })
             .catch(err => console.error("載入失敗", err));
@@ -1387,7 +1490,7 @@
     function renderOrders() {
         let filtered = rawOrdersCache.slice(); 
 
-        // [A] 搜尋邏輯：搜尋 ID 或 手機末碼
+        // 搜尋
         if (searchQuery) {
             filtered = filtered.filter(o => 
                 o.id.toString().includes(searchQuery) || 
@@ -1395,63 +1498,42 @@
             );
         }
 
-        // [B] 篩選邏輯 (重新規劃)
+        // 篩選
         if (currentFilter !== 'all') {
             switch (currentFilter) {
-                case 'pending':
-                    filtered = filtered.filter(o => o.status === 'pending');
-                    break;
-                case 'confirmed':
-                    filtered = filtered.filter(o => o.status === 'confirmed');
-                    break;
-                case 'preparing':
-                    filtered = filtered.filter(o => o.status === 'preparing');
-                    break;
-                case 'uncollected':
-                    // 包含：製作完成(completed) + 客人已到(arrived)
-                    filtered = filtered.filter(o => ['completed', 'arrived'].includes(o.status));
-                    break;
-                case 'cancelled':
-                    filtered = filtered.filter(o => o.status === 'cancelled');
-                    break;
-                case 'final':
-                    filtered = filtered.filter(o => o.status === 'final');
-                    break;
+                case 'pending': filtered = filtered.filter(o => o.status === 'pending'); break;
+                case 'confirmed': filtered = filtered.filter(o => o.status === 'confirmed'); break;
+                case 'preparing': filtered = filtered.filter(o => o.status === 'preparing'); break;
+                case 'uncollected': filtered = filtered.filter(o => ['completed', 'arrived'].includes(o.status)); break;
+                case 'cancelled': filtered = filtered.filter(o => o.status === 'cancelled'); break;
+                case 'final': filtered = filtered.filter(o => o.status === 'final'); break;
             }
         }
 
-        // [C] 排序：未結案的優先，ID 倒序 (新單在上面)
+        // 排序
         filtered.sort((a, b) => {
             const isAClosed = ['final', 'cancelled'].includes(a.status);
             const isBClosed = ['final', 'cancelled'].includes(b.status);
-            
-            // 如果一個是歷史單，一個是進行中，進行中排前面
             if (isAClosed && !isBClosed) return 1;
             if (!isAClosed && isBClosed) return -1;
-            
-            // 都是進行中或都是歷史單，則比 ID (大到小)
             return b.id - a.id;
         });
 
-        // [D] 分頁計算
+        // 分頁
         const totalItems = filtered.length;
         const totalPages = Math.ceil(totalItems / itemsPerPage) || 1;
         if (currentPage > totalPages) currentPage = 1;
-
         const startIndex = (currentPage - 1) * itemsPerPage;
         const pageItems = filtered.slice(startIndex, startIndex + itemsPerPage);
 
-        // [E] 生成 HTML
         const list = document.getElementById('orderList');
         if (pageItems.length === 0) {
-            list.innerHTML = `<div class="text-center mt-5 text-muted">
-                <h4>📭</h4><p>此分類下沒有訂單</p>
-            </div>`;
+            list.innerHTML = `<div class="text-center mt-5 text-muted"><h4>📭</h4><p>此分類下沒有訂單</p></div>`;
             updatePaginationUI(0, 0);
             return;
         }
 
-        // 取得目前展開的訂單 ID，避免重繪後自動收合
+        // 記憶展開狀態
         const openedIds = [];
         document.querySelectorAll('.detail-content:not(.hide-detail)').forEach(el => {
             openedIds.push(parseInt(el.id.replace('detail-', '')));
@@ -1459,34 +1541,28 @@
 
         let html = '';
         pageItems.forEach(order => {
-            // --- ★ 自動展開核心邏輯 ★ ---
-            
-            // 1. 判斷是否為「客人已到 (arrived)」
-            const isArrived = order.status === 'arrived';
-            
-            // 2. 判斷是否原本就是手動展開的
-            const wasOpened = openedIds.includes(order.id);
+            let shouldExpand = false;
+            // 預設全開的分頁
+            const autoExpandFilters = ['pending', 'confirmed', 'preparing', 'uncollected'];
+            if (autoExpandFilters.includes(currentFilter)) {
+                shouldExpand = true;
+            } else if (currentFilter === 'all' || searchQuery !== '') {
+                 // 在全部或搜尋時，只展開進行中
+                 const activeStatuses = ['pending', 'confirmed', 'preparing', 'completed', 'arrived'];
+                 if (activeStatuses.includes(order.status)) shouldExpand = true;
+            }
+            if (openedIds.includes(order.id)) shouldExpand = true;
 
-            // 3. 決定最終是否展開：如果是「已到」 OR 「手動展開過」，就展開
-            const shouldExpand = isArrived || wasOpened;
-
-            // 4. 設定 CSS Class (展開就不加 hide-detail)
             let detailClass = shouldExpand ? 'detail-content' : 'detail-content hide-detail';
-            
-            // 5. 設定箭頭方向 (展開就旋轉)
             let arrowRotate = shouldExpand ? 'style="transform: rotate(180deg)"' : '';
             
-            // -----------------------------
-
             const isLinePay = order.payment_method === 'linepay';
             const payTag = isLinePay ? `<span class="pay-tag-line">LINE</span>` : `<span class="pay-tag-cash">CASH</span>`;
-            
             const statusTagClass = { 
                 pending: 'tag-pending', confirmed: 'tag-confirmed', preparing: 'tag-preparing', 
                 completed: 'tag-completed', arrived: 'tag-arrived', final: 'tag-final', cancelled: 'tag-cancelled' 
             }[order.status];
 
-            // 取得按鈕 HTML
             let actionBtn = getActionBtnHtml(order);
 
             html += `
@@ -1504,17 +1580,14 @@
                             <span class="arrow" id="arrow-${order.id}" ${arrowRotate}>▼</span>
                         </div>
                     </div>
-
                     <div id="detail-${order.id}" class="${detailClass}">
                         <div class="mb-3">
                             ${(order.items || []).map(i => `<span class="item-badge">${i.name} x ${i.quantity || i.qty}</span>`).join('')}
                         </div>
-
                         <div class="time-box mb-3">
                             <div>🕒 下單：${new Date(order.created_at).toLocaleTimeString()}</div>
                             <div class="mt-2 fw-bold text-danger fs-5">總額：$${order.total}</div>
                         </div>
-
                         <div id="btn-zone-${order.id}">
                             ${actionBtn}
                         </div>
@@ -1522,7 +1595,6 @@
                 </div>
             `;
         });
-
         list.innerHTML = html;
         updatePaginationUI(totalPages, totalItems);
     }
@@ -1978,4 +2050,5 @@
     }
 </script>
 </body>
+
 </html>
