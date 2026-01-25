@@ -432,18 +432,27 @@
     #kitchenBoard {
         position: fixed;
         left: 15px;
-        bottom: 20px; /* 預設位置 */
-        width: 280px; /* 電腦版寬度 */
-        background: rgba(33, 37, 41, 0.95); /* 深色半透明 */
+        bottom: 20px;
+        
+        /* ★ 修改這裡：從 280px 加寬到 350px，讓內容更寬敞 */
+        width: 350px; 
+        
+        background: rgba(33, 37, 41, 0.95);
         backdrop-filter: blur(8px);
         color: #fff;
         border-radius: 12px;
         box-shadow: 0 4px 20px rgba(0,0,0,0.25);
-        z-index: 1050; /* 比語音按鈕低，但比列表高 */
+        z-index: 1050;
         overflow: hidden;
         transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         border: 1px solid rgba(255,255,255,0.1);
         font-family: 'Microsoft JhengHei', sans-serif;
+        
+        /* 讓它根據內容自動長高 (電腦版限制最大 70% 高度) */
+        height: auto;
+        max-height: 70vh;
+        display: flex;
+        flex-direction: column;
     }
 
     /* 標題列 */
@@ -477,8 +486,9 @@
         transform: rotate(-90deg);
     }
     #kitchenBoard.collapsed {
-        width: auto; /* 收合時變窄，不擋路 */
+        width: auto !important; /* 強制覆蓋上面的 350px */
         min-width: 160px;
+        height: auto;
     }
 
     /* 列表項目 */
@@ -504,22 +514,142 @@
     /* 空資料狀態 */
     .kb-empty { padding: 15px; text-align: center; color: rgba(255,255,255,0.5); font-size: 0.9rem; }
 
+    .kb-item {
+        padding: 12px 15px;
+        border-bottom: 1px solid rgba(255,255,255,0.1);
+        display: grid;
+        grid-template-columns: auto 1fr auto; /* 勾選框 | 名稱 | 數量 */
+        align-items: center;
+        gap: 12px;
+        font-size: 1rem;
+        transition: all 0.2s;
+    }
+    .kb-item:last-child { border-bottom: none; }
+
+    /* 選中後的樣式 (變暗 + 刪除線) */
+    .kb-item.checked {
+        opacity: 0.4;
+        background: rgba(0,0,0,0.2);
+    }
+    .kb-item.checked .kb-name {
+        text-decoration: line-through;
+    }
+
+    /* --- ✨ 美化 Checkbox --- */
+    .kb-check-wrapper {
+        position: relative;
+        display: flex;
+        align-items: center;
+        cursor: pointer;
+    }
+    
+    /* 隱藏原生 Checkbox */
+    .kb-check-input {
+        position: absolute;
+        opacity: 0;
+        cursor: pointer;
+        height: 0;
+        width: 0;
+    }
+
+    /* 自訂 Checkbox 外觀 */
+    .kb-checkmark {
+        height: 22px;
+        width: 22px;
+        background-color: rgba(255,255,255,0.1);
+        border: 2px solid rgba(255,255,255,0.4);
+        border-radius: 6px;
+        transition: all 0.2s ease;
+        position: relative;
+    }
+
+    /* 滑鼠移過去 */
+    .kb-check-wrapper:hover .kb-check-input ~ .kb-checkmark {
+        border-color: #ffd32a;
+    }
+
+    /* 選中狀態 */
+    .kb-check-input:checked ~ .kb-checkmark {
+        background-color: #ffd32a; /* 亮黃色背景 */
+        border-color: #ffd32a;
+        transform: scale(1.1);
+    }
+
+    /* 勾勾圖示 (用 CSS 畫) */
+    .kb-check-input:checked ~ .kb-checkmark:after {
+        content: "";
+        position: absolute;
+        left: 6px;
+        top: 2px;
+        width: 6px;
+        height: 12px;
+        border: solid #2d3436; /* 深色勾勾 */
+        border-width: 0 3px 3px 0;
+        transform: rotate(45deg);
+    }
+
+    /* --- 商品名稱與編號 --- */
+    .kb-name { 
+        font-weight: 500; 
+        line-height: 1.4;
+        color: #fff;
+    }
+    .kb-index {
+        color: rgba(255,255,255,0.5);
+        font-size: 0.9em;
+        margin-right: 4px;
+        font-family: monospace; /* 等寬字體讓數字對齊 */
+    }
+
+    /* --- 數量 (保持亮眼) --- */
+    .kb-qty { 
+        font-size: 1.3rem; 
+        font-weight: 800; 
+        color: #ffd32a; 
+        min-width: 30px;
+        text-align: right;
+    }
     /* --- 📱 手機版 RWD 優化 --- */
     @media (max-width: 576px) {
         #kitchenBoard {
+            /* 定位在左下角 */
             left: 10px;
-            bottom: 15px;
-            width: calc(100% - 100px); /* 扣除右邊語音按鈕的空間 */
-            max-width: 240px; 
+            bottom: 30px; /* 與麥克風底部對齊，比較整齊 */
+            
+            /* ★ 關鍵 1：寬度計算，扣除右邊麥克風的空間 (約90px) */
+            /* 這樣就不會蓋住麥克風了 */
+            width: calc(100% - 90px);
+            max-width: 280px; /* 保持您習慣的寬度，不要太寬 */
+            
+            /* ★ 關鍵 2：讓高度自動適應內容 */
+            height: auto;
+            max-height: 75vh; /* 極限高度：不超過螢幕的 75%，避免頂到最上面 */
+            
+            display: flex;
+            flex-direction: column;
+            
+            /* 確保層級比麥克風(2000)低，比列表(1000)高 */
+            z-index: 1050; 
         }
         
-        /* 手機版內容高度限制嚴格一點，避免擋住太多 */
+        /* 內容區：解除高度限制，讓它撐開 */
         .kb-body {
-            max-height: 200px; 
+            max-height: none; 
+            overflow-y: auto; /* 只有當整張卡片真的太高(超過75vh)時才出現捲軸 */
+            flex-grow: 1;
         }
         
+        /* 標題列微調 */
         .kb-header { padding: 10px 12px; }
-        .kb-title { font-size: 0.9rem; }
+        .kb-title { font-size: 0.95rem; }
+        
+        /* 收合模式：縮成一個小膠囊 */
+        #kitchenBoard.collapsed {
+            width: auto;
+            min-width: 140px;
+            /* 收合時不需要佔位 */
+            height: auto; 
+        }
     }
 </style>
 </head>
@@ -706,6 +836,7 @@
     let alertedLinePayPaid = new Set(JSON.parse(localStorage.getItem('alerted_linepay_paid') || '[]'));
     let lastOrdersJson = ''; 
     let allProducts = [], currentEditingOrderId = null, currentEditingItems = [];
+    let kbCheckedState = {};
 
     // ==========================================
     // 2. 語音與音效變數 (核心修復)
@@ -1262,18 +1393,14 @@
     function updateKitchenBoard() {
         if (!rawOrdersCache) return;
 
-        // 1. 嚴格篩選：只抓 'preparing'
+        // 1. 篩選製作中訂單
         const preparingOrders = rawOrdersCache.filter(o => o.status === 'preparing');
         
-        // 🐞 開發者工具除錯訊息
-        console.log(`[戰情板] 總單數:${rawOrdersCache.length}, 製作中:${preparingOrders.length}`);
-
-        // 2. 統計
+        // 2. 統計商品數量
         const stats = {};
         let totalItems = 0;
 
         preparingOrders.forEach(order => {
-            // 防呆：JSON 可能是字串
             let items = order.items;
             if (typeof items === 'string') {
                 try { items = JSON.parse(items); } catch(e) { items = []; }
@@ -1281,10 +1408,7 @@
 
             if (items && Array.isArray(items)) {
                 items.forEach(item => {
-                    // 自動補全名稱 (如果訂單沒存名稱，就顯示未命名)
                     const name = item.name || item.product_name || item.title || '未命名商品';
-                    
-                    // ★ 關鍵修復：強制轉成整數，避免字串 "1"+"1"="11" 的錯誤
                     const rawQty = item.quantity || item.qty || 0;
                     const qty = parseInt(rawQty, 10);
                     
@@ -1301,28 +1425,64 @@
         const boardContent = document.getElementById('kbContent');
         const countBadge = document.getElementById('kbTotalCount');
         
+        // Badge 顯示
         if (totalItems > 0) {
             countBadge.innerText = totalItems;
             countBadge.classList.remove('d-none');
         } else {
             countBadge.classList.add('d-none');
+            // 如果沒東西做，清空打勾紀錄，避免積太多垃圾資料
+            kbCheckedState = {}; 
         }
 
+        // 渲染列表
         if (totalItems === 0) {
-            boardContent.innerHTML = `<div class="kb-empty">無製作中餐點<br><small class="opacity-50">請在訂單按「開始製作」<br>狀態必須為【製作中】才會顯示</small></div>`;
+            boardContent.innerHTML = `<div class="kb-empty">無製作中餐點<br><small class="opacity-50">請在訂單按「開始製作」</small></div>`;
         } else {
+            // 排序：數量多的在上面
             const sortedItems = Object.entries(stats).sort((a, b) => b[1] - a[1]);
+            
             let html = '';
-            sortedItems.forEach(([name, qty]) => {
+            sortedItems.forEach(([name, qty], index) => {
+                // 檢查此商品是否被標記為已讀(打勾)
+                const isChecked = kbCheckedState[name] ? 'checked' : '';
+                const rowClass = kbCheckedState[name] ? 'kb-item checked' : 'kb-item';
+                const num = index + 1; // 編號從 1 開始
+
                 html += `
-                    <div class="kb-item">
-                        <span class="kb-name">${name}</span>
-                        <span class="kb-qty">${qty}</span>
+                    <div class="${rowClass}">
+                        <label class="kb-check-wrapper">
+                            <input type="checkbox" class="kb-check-input" 
+                                   onchange="toggleKbCheck('${name}')" ${isChecked}>
+                            <span class="kb-checkmark"></span>
+                        </label>
+                        <div class="kb-name">
+                            <span class="kb-index">${num}.</span>${name}
+                        </div>
+                        <div class="kb-qty">${qty}</div>
                     </div>
                 `;
             });
             boardContent.innerHTML = html;
         }
+    }
+
+    // 點擊 Checkbox 的處理函式
+    function toggleKbCheck(name) {
+        // 切換狀態 true <-> false
+        if (kbCheckedState[name]) {
+            delete kbCheckedState[name];
+        } else {
+            kbCheckedState[name] = true;
+        }
+        // 重新渲染以套用樣式 (刪除線等)
+        updateKitchenBoard();
+    }
+
+    function toggleKitchenBoard() {
+        const board = document.getElementById('kitchenBoard');
+        board.classList.toggle('collapsed');
+        localStorage.setItem('kb_collapsed', board.classList.contains('collapsed'));
     }
 
     // 切換展開/收合
