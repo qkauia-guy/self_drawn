@@ -374,6 +374,103 @@
           opacity: 0.22; /* 原本比較黑，調淡一點 */
         }
 
+        /* =========================
+          SweetAlert2：分類新增/修改 RWD
+          ========================= */
+
+        /* 讓 popup 在手機不要滿版：變成「卡片寬」 */
+        @media (max-width: 576px){
+          .swal2-container{ padding: 14px !important; } /* 留白 */
+          .swal-glass.swal2-popup{
+            width: min(92vw, 380px) !important;
+            max-width: 92vw !important;
+            padding: 18px 16px 14px !important;
+          }
+        }
+
+        /* 你的 Swal 內容區做成 grid，避免兩個 input 滿版並排/太擠 */
+        .swal-form-grid{
+          display: grid;
+          grid-template-columns: 1fr 110px; /* 桌面：名稱寬、排序窄 */
+          gap: 10px;
+          align-items: center;
+          margin-top: 8px;
+        }
+
+        /* 手機：改成上下排列，視覺更舒服 */
+        @media (max-width: 576px){
+          .swal-form-grid{
+            grid-template-columns: 1fr;
+          }
+        }
+
+        /* 把 swal2-input 從滿版改成「看起來像玻璃輸入框但不撐爆」 */
+        .swal-glass .swal2-input{
+          width: 100% !important;           /* 在 grid cell 內 100% */
+          max-width: 100% !important;
+          margin: 0 !important;             /* SweetAlert2 預設 margin 會讓視覺怪 */
+          height: 44px !important;
+          font-size: 16px !important;       /* 避免 iOS 自動放大 */
+          padding: 10px 12px !important;
+          border-radius: 14px !important;
+        }
+
+        /* 讓「排序」輸入框更像小欄位 */
+        .swal-glass .swal2-input.is-sort{
+          text-align: center;
+          font-weight: 800;
+        }
+
+        /* =========================
+          新增商品 Modal：手機 RWD 微調
+          ========================= */
+        @media (max-width: 576px){
+          #addProductModal .modal-dialog{
+            margin: 12px auto !important;
+            max-width: 94vw !important;
+          }
+
+          #addProductModal .modal-body{
+            padding: 18px !important;
+          }
+
+          #addProductModal .modal-header,
+          #addProductModal .modal-footer{
+            padding-left: 18px !important;
+            padding-right: 18px !important;
+          }
+
+          /* 兩欄價格/庫存在手機改成一欄（避免擠） */
+          #addProductModal .row.g-3 > .col-6{
+            flex: 0 0 100%;
+            max-width: 100%;
+          }
+        }
+
+        swal-glass .swal2-html-container{
+          margin: 0 !important;          /* html container 預設也會有 margin */
+          padding: 0 !important;
+        }
+
+        .swal-form-grid{
+          margin-top: 10px !important;
+          padding: 6px 2px !important;   /* 讓內容不要貼邊 */
+          row-gap: 12px !important;      /* 手機上下距離主要靠這個 */
+          column-gap: 10px !important;
+        }
+
+        /* 關鍵：把 swal2-input 自帶的 margin 清掉，不然 gap 看起來會怪 */
+        .swal-form-grid .swal2-input{
+          margin: 0 !important;
+        }
+
+        /* 手機再加大一點上下間距 */
+        @media (max-width: 576px){
+          .swal-form-grid{
+            row-gap: 14px !important;
+          }
+        }
+
     </style>
 </head>
 <body>
@@ -612,71 +709,83 @@
     });
 
     async function addCategory() {
-        const { value: formValues } = await Swal.fire({
-            title: '新增商品分類',
-            html: `
-              <input id="swal_cat_name" class="swal2-input" placeholder="例如：冬季限定">
-              <input id="swal_cat_sort" type="number" class="swal2-input" placeholder="排序(數字越小越前)" value="0">
-            `,
-            focusConfirm: false,
-            showCancelButton: true,
-            confirmButtonColor: '#ff4757',
-            confirmButtonText: '建立',
-            customClass: { popup: 'swal-glass rounded-4' },
-            preConfirm: () => {
-                const name = document.getElementById('swal_cat_name').value.trim();
-                const sort = document.getElementById('swal_cat_sort').value;
-                if (!name) { Swal.showValidationMessage('請輸入分類名稱'); return false; }
-                return { name, sort_order: parseInt(sort || "0", 10) };
-            }
-        });
+      const { value: formValues } = await Swal.fire({
+        title: '新增商品分類',
+        html: `
+          <div class="swal-form-grid">
+            <input id="swal_cat_name" class="swal2-input" placeholder="例如：冬季限定">
+            <input id="swal_cat_sort" type="number" class="swal2-input is-sort" placeholder="排序" value="0">
+          </div>
+        `,
+        focusConfirm: false,
+        showCancelButton: true,
+        confirmButtonColor: '#ff4757',
+        confirmButtonText: '建立',
+        customClass: {
+          popup: 'swal-glass rounded-4',
+          htmlContainer: 'swal-glass-body'
+        },
+        preConfirm: () => {
+          const name = document.getElementById('swal_cat_name').value.trim();
+          const sort = document.getElementById('swal_cat_sort').value;
+          if (!name) { Swal.showValidationMessage('請輸入分類名稱'); return false; }
+          return { name, sort_order: parseInt(sort || "0", 10) };
+        }
+      });
 
-        if (!formValues) return;
+      if (!formValues) return;
 
-        const fd = new FormData();
-        fd.append('store_id', '{{ current_store.id }}');
-        fd.append('name', formValues.name);
-        fd.append('sort_order', formValues.sort_order);
-        fd.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+      const fd = new FormData();
+      fd.append('store_id', '{{ current_store.id }}');
+      fd.append('name', formValues.name);
+      fd.append('sort_order', formValues.sort_order);
+      fd.append('csrfmiddlewaretoken', '{{ csrf_token }}');
 
-        fetch('{% url "api_create_category" %}', { method: 'POST', body: fd })
-            .then(r => { if (r.ok) location.reload(); });
+      fetch('{% url "api_create_category" %}', { method: 'POST', body: fd })
+        .then(r => { if (r.ok) location.reload(); });
     }
 
     async function editCategory(catId) {
-        const opt = document.getElementById('cat_opt_' + catId);
-        const oldName = opt ? (opt.dataset.name || '') : '';
-        const oldSort = opt ? (opt.dataset.sort || '0') : '0';
+      const opt = document.getElementById('cat_opt_' + catId);
+      const oldName = opt ? (opt.dataset.name || '') : '';
+      const oldSort = opt ? (opt.dataset.sort || '0') : '0';
 
-        const { value: formValues } = await Swal.fire({
-            title: '修改分類',
-            html: `
-              <input id="swal_cat_name" class="swal2-input" placeholder="分類名稱" value="${oldName}">
-              <input id="swal_cat_sort" type="number" class="swal2-input" placeholder="排序(數字越小越前)" value="${oldSort}">
-            `,
-            focusConfirm: false,
-            showCancelButton: true,
-            confirmButtonColor: '#ff4757',
-            confirmButtonText: '儲存',
-            customClass: { popup: 'swal-glass rounded-4' },
-            preConfirm: () => {
-                const name = document.getElementById('swal_cat_name').value.trim();
-                const sort = document.getElementById('swal_cat_sort').value;
-                if (!name) { Swal.showValidationMessage('請輸入分類名稱'); return false; }
-                return { name, sort_order: parseInt(sort || "0", 10) };
-            }
-        });
+      const { value: formValues } = await Swal.fire({
+        title: '修改分類',
+        html: `
+          <div class="swal-form-grid">
+            <input id="swal_cat_name" class="swal2-input" placeholder="分類名稱" value="${oldName}">
+            <input id="swal_cat_sort" type="number" class="swal2-input is-sort" placeholder="排序" value="${oldSort}">
+          </div>
+        `,
+        focusConfirm: false,
+        showCancelButton: true,
+        confirmButtonColor: '#ff4757',
+        confirmButtonText: '儲存',
+        customClass: {
+          popup: 'swal-glass rounded-4',
+          htmlContainer: 'swal-glass-body'
+        },
+        preConfirm: () => {
+          const name = document.getElementById('swal_cat_name').value.trim();
+          const sort = document.getElementById('swal_cat_sort').value;
+          if (!name) { Swal.showValidationMessage('請輸入分類名稱'); return false; }
+          return { name, sort_order: parseInt(sort || "0", 10) };
+        }
+      });
 
-        if (!formValues) return;
+      if (!formValues) return;
 
-        const fd = new FormData();
-        fd.append('name', formValues.name);
-        fd.append('sort_order', formValues.sort_order);
-        fd.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+      const fd = new FormData();
+      fd.append('name', formValues.name);
+      fd.append('sort_order', formValues.sort_order);
+      fd.append('csrfmiddlewaretoken', '{{ csrf_token }}');
 
-        fetch(`/backend/api/category/update/${catId}/`, { method: 'POST', body: fd })
-            .then(r => { if (r.ok) location.reload(); });
+      fetch(`/backend/api/category/update/${catId}/`, { method: 'POST', body: fd })
+        .then(r => { if (r.ok) location.reload(); });
     }
+
+
 
     const Toast = Swal.mixin({ toast: true, position: 'top-end', showConfirmButton: false, timer: 1500 });
     function showToast(msg='已儲存') { setTimeout(() => Toast.fire({ icon: 'success', title: msg }), 300); }
