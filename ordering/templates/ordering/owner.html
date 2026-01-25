@@ -148,6 +148,61 @@
   /* 歷史：選中時為深灰色 */
   .filter-btn[onclick*='history'].active { background-color: #b2bec3 !important; border-color: #b2bec3; color: #2d3436 !important; }
 
+  #navVoiceBtn {
+        /* 電腦版維持小巧 */
+        width: 42px; 
+        height: 42px; 
+        border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 1.2rem; 
+        border: none; 
+        transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        margin-right: 12px;
+        
+        /* 確保電腦版不會亂跑 */
+        position: static; 
+        transform: none;
+    }
+
+    /* --- 2. 手機版強制覆蓋 (變成右下角懸浮 FAB) --- */
+    @media (max-width: 768px) {
+        #navVoiceBtn {
+            position: fixed;        /* 脫離導覽列，固定在螢幕上 */
+            bottom: 30px;           /* 距離底部 */
+            right: 25px;            /* 距離右側 */
+            z-index: 2000;          /* 最上層 */
+            
+            width: 65px;            /* 手機版變大顆，好按 */
+            height: 65px;
+            font-size: 2rem;        /*圖示變大*/
+            
+            box-shadow: 0 6px 20px rgba(0,0,0,0.3) !important;
+            border: 4px solid white; /* 加白框增加對比 */
+            margin-right: 0;        /* 移除 Navbar 的間距 */
+        }
+
+        /* 避免手機版按鈕擋住最下方的訂單 */
+        body { padding-bottom: 100px !important; }
+    }
+
+    /* --- 3. 狀態顏色 (通用) --- */
+    .voice-inactive { 
+        background-color: rgba(255, 255, 255, 0.9); 
+        color: #d63031; 
+    }
+    
+    .voice-active {
+        background-color: #ff4757 !important; 
+        color: white !important;
+        animation: pulse-voice-nav 1.5s infinite;
+    }
+
+    /* --- 4. 呼吸動畫 (通用) --- */
+    @keyframes pulse-voice-nav {
+        0% { box-shadow: 0 0 0 0 rgba(255, 71, 87, 0.7); }
+        70% { box-shadow: 0 0 0 15px rgba(255, 71, 87, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(255, 71, 87, 0); }
+    }
   /* =========================================
    手機版 RWD 優化樣式
    ========================================= */
@@ -244,7 +299,7 @@
       <div class="input-group input-group-sm shadow-sm">
         <span class="input-group-text bg-white border-end-0">🔍</span>
         <input type="tel" id="searchInput" class="form-control border-start-0 ps-0" 
-               placeholder="輸入單號或手機末碼" onkeyup="handleSearch()">
+               placeholder="輸入單號或手機末4碼" onkeyup="handleSearch()">
         <button class="btn btn-outline-secondary bg-white text-muted border-start-0" type="button" onclick="clearSearch()">✕</button>
       </div>
 
@@ -272,14 +327,14 @@
           未取
           <span id="badge-uncollected" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger d-none animate__animated">0</span>
         </button>
-        
-        <button class="btn btn-danger bg-opacity-75 filter-btn position-relative" onclick="setFilter('cancelled')">
-          取消
-        </button>
 
         <button class="btn btn-light border filter-btn position-relative" onclick="setFilter('final')">
           完成
           <span id="badge-final" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger d-none animate__animated">0</span>
+        </button>
+
+        <button class="btn btn-danger bg-opacity-75 filter-btn position-relative" onclick="setFilter('cancelled')">
+          取消
         </button>
       </div>
       </div>
@@ -551,141 +606,244 @@
         }
     }
 
+    // ==========================================
+    // 5. 🎤 語音控制 (無限續命版)
+    // ==========================================
+
+    let ignoreAutoStop = false; //用來忽略 Chrome 的自動斷線
+
     async function startVoiceControl() {
-        if (!('webkitSpeechRecognition' in window)) return Swal.fire("請使用 Chrome");
+        if (!('webkitSpeechRecognition' in window)) return Swal.fire("請使用 Chrome 瀏覽器");
         
+        // 1. 處理音效 Context (只用於播放提示音)
         if (!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)();
         if (audioContext.state === 'suspended') await audioContext.resume();
 
-        // 視覺化
-        try {
-            micStream = await navigator.mediaDevices.getUserMedia({ 
-                audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
-            });
-            micSource = audioContext.createMediaStreamSource(micStream);
-            analyserNode = audioContext.createAnalyser();
-            analyserNode.fftSize = 512;
-            micSource.connect(analyserNode);
-            startVolumeMeter();
-        } catch(e) { console.warn("視覺化失敗", e); }
-
-        initRecognition();
-        try { recognition.start(); } catch(e){}
-
+        // 2. UI 更新
         isVoiceControlling = true;
         const btn = document.getElementById('navVoiceBtn');
         btn.classList.add('voice-active');
         btn.classList.remove('voice-inactive');
         btn.innerHTML = '⏸︎';
-        document.getElementById('volumeContainer').style.opacity = '1';
-        speak("聲控啟動");
+        
+        // 3. 啟動辨識
+        initRecognition();
+        startRecognitionSafe();
+        
+        speak("聲控已啟動");
     }
 
     function stopVoiceControl() {
         isVoiceControlling = false;
         isSpeaking = false;
+        ignoreAutoStop = false; // 停止時取消忽略標記
+
         if (restartTimer) clearTimeout(restartTimer);
 
         const btn = document.getElementById('navVoiceBtn');
         btn.classList.remove('voice-active');
         btn.classList.add('voice-inactive');
         btn.innerHTML = '⚪';
-        document.getElementById('voiceDebug').innerText = "";
-        document.getElementById('volumeContainer').style.opacity = '0';
+        
+        const dbg = document.getElementById('voiceDebug');
+        if(dbg) dbg.innerText = "";
 
         if (recognition) {
-            recognition.onend = null; // 防止觸發重啟
+            recognition.onend = null; // 移除監聽，防止它死灰復燃
             try { recognition.abort(); } catch(e){}
         }
-        stopVolumeMeter();
-        if (micStream) { micStream.getTracks().forEach(t => t.stop()); micStream = null; }
     }
 
-    // ★★★ 3. 辨識初始化 (過濾錯誤) ★★★
+    // 安全啟動函式
+    function startRecognitionSafe() {
+        if (!recognition || !isVoiceControlling) return;
+        try {
+            recognition.start();
+            document.getElementById('voiceDebug').innerText = "🎤 監聽中...";
+        } catch (e) {
+            // 如果已經是用於啟動狀態，忽略錯誤
+            if (e.message.includes('already started')) return;
+            console.log("重啟緩衝中...");
+        }
+    }
+
     function initRecognition() {
         if (!window.webkitSpeechRecognition) return;
         
+        // 清除舊的
         if (recognition) {
              recognition.onend = null;
-             recognition.onerror = null;
+             try { recognition.abort(); } catch(e){}
         }
 
         recognition = new window.webkitSpeechRecognition();
         recognition.lang = 'zh-TW';
-        recognition.continuous = true; 
-        recognition.interimResults = true;
+        
+        // ★★★ 關鍵修改 1：關閉連續模式，改為「一句一結算」 ★★★
+        recognition.continuous = false; 
+        
+        // 仍然開啟即時顯示，讓你看到它在運作
+        recognition.interimResults = true; 
+
+        // --- 診斷代碼保留 ---
+        recognition.onaudiostart = () => console.log("✅ 1. 音訊通道");
+        recognition.onsoundstart = () => console.log("🔊 2. 收到聲音");
+        recognition.onspeechstart = () => console.log("🗣️ 3. 偵測到人聲");
+        // -------------------
 
         recognition.onstart = () => { 
-            isRecognitionActive = true; 
-            const dbg = document.getElementById('voiceDebug');
-            if(dbg) dbg.innerText = "🎤 聆聽中..."; 
+            isRecognitionActive = true;
+            // 只有除錯時才顯示，避免洗版
+            // console.log("開始聆聽...");
         };
         
-        // 斷線自動重連
+        // ★★★ 關鍵修改 2：這裡只要有任何結果，都先印出來看看 ★★★
+        recognition.onresult = (event) => {
+            console.log("📝 4. 收到資料包 (onresult觸發)"); // 確保有進到這裡
+            
+            let finalTranscript = "";
+            let interimTranscript = "";
+
+            for (let i = event.resultIndex; i < event.results.length; i++) {
+                const transcript = event.results[i][0].transcript;
+                if (event.results[i].isFinal) {
+                    finalTranscript += transcript;
+                    console.log("🎯 最終結果:", finalTranscript); // 這裡才是真正辨識出的字
+                    processVoiceCommand(finalTranscript);
+                } else {
+                    interimTranscript += transcript;
+                }
+            }
+            
+            // 更新 UI 讓你知道它有在聽
+            const dbg = document.getElementById('voiceDebug');
+            if(dbg) {
+                if(finalTranscript) dbg.innerText = `✅: ${finalTranscript}`;
+                else if(interimTranscript) dbg.innerText = `👂: ${interimTranscript}`;
+            }
+        };
+
         recognition.onend = () => { 
             isRecognitionActive = false; 
+            // console.log("斷線，準備重連...");
+
+            // ★★★ 關鍵修改 3：Pulse Mode 核心 - 斷線後「秒速」重連 ★★★
             if (isVoiceControlling && !isSpeaking) {
-                scheduleRestart(200);
+                // 這裡稍微加 50ms 延遲讓瀏覽器喘口氣，避免當機
+                setTimeout(() => {
+                    startRecognitionSafe();
+                }, 50);
             }
         };
 
-        recognition.onresult = (event) => {
-            let interim = "";
-            for (let i = event.resultIndex; i < event.results.length; i++) {
-                const transcript = event.results[i][0].transcript.trim();
-                if (event.results[i].isFinal) processVoiceCommand(transcript);
-                else interim += transcript;
-            }
-            if(interim) document.getElementById('voiceDebug').innerText = `👂: ${interim}`;
-        };
-
-        // 錯誤處理：忽略 no-speech 與 aborted
         recognition.onerror = (event) => {
+            // 忽略常見的無聲或重複錯誤
             if (event.error === 'no-speech' || event.error === 'aborted') return;
             
-            console.log('語音例外:', event.error);
-            if (event.error === 'not-allowed') {
-                stopVoiceControl();
-                Swal.fire("麥克風被拒絕", "請檢查瀏覽器設定", "error");
-            } else {
-                scheduleRestart(500);
+            console.warn('報錯:', event.error);
+            if (event.error === 'network') {
+                Swal.fire("網路錯誤", "語音辨識需要連接 Google 伺服器", "error");
             }
         };
     }
 
     function processVoiceCommand(text) {
+        // 1. 防止重複觸發
         if (text === lastFinalText && (Date.now() - lastFinalAt) < 1000) return;
         lastFinalText = text;
         lastFinalAt = Date.now();
-        document.getElementById('voiceDebug').innerText = `✅: ${text}`;
 
-        text = text.replace(/\s/g, "");
-        let orderId = null;
+        console.log(`🤖 正在分析指令: "${text}"`); 
         
-        const numMatch = text.match(/(\d+)/);
-        if (numMatch) orderId = parseInt(numMatch[1]);
-        else {
-            const zhNum = text.match(/[零一二兩三四五六七八九十]+/);
+        // 清理文字
+        const cleanText = text.replace(/[^\u4e00-\u9fa5a-zA-Z0-9]/g, ""); 
+
+        // ==================================================
+        // ★★★ 新增：全域切換指令 (優先權最高) ★★★
+        // ==================================================
+        if (cleanText.includes("切換") || cleanText.includes("顯示") || cleanText.includes("看")) {
+            
+            let targetFilter = null;
+            let targetName = "";
+
+            if (cleanText.includes("全部")) { targetFilter = 'all'; targetName = "全部訂單"; }
+            else if (cleanText.includes("新單") || cleanText.includes("清單")) { targetFilter = 'pending'; targetName = "新訂單"; }
+            else if (cleanText.includes("成立") || cleanText.includes("已付")) { targetFilter = 'confirmed'; targetName = "成立訂單"; }
+            else if (cleanText.includes("製作")) { targetFilter = 'preparing'; targetName = "製作中訂單"; }
+            else if (cleanText.includes("未取") || cleanText.includes("位置")) { targetFilter = 'uncollected'; targetName = "未取餐訂單"; }
+            else if (cleanText.includes("完成") || cleanText.includes("歷史") || cleanText.includes("結案")) { targetFilter = 'final'; targetName = "已完成訂單"; }
+            else if (cleanText.includes("取消")) { targetFilter = 'cancelled'; targetName = "已取消訂單"; }
+
+            if (targetFilter) {
+                console.log(`✅ 觸發動作: 切換至 [${targetName}]`);
+                speak(`切換到 ${targetName}`);
+                
+                // 1. 執行篩選
+                setFilter(targetFilter);
+
+                return; // ★ 切換完就結束，不要再往下找訂單號碼
+            }
+        }
+        // ==================================================
+
+
+        // 2. 解析訂單號碼 (原本的邏輯)
+        let orderId = null;
+        const numMatch = cleanText.match(/(\d+)/);
+        if (numMatch) {
+            orderId = parseInt(numMatch[1]);
+        } else {
+            const zhNum = cleanText.match(/[零一二兩三四五六七八九十]+/);
             if (zhNum) orderId = parseChineseNumber(zhNum[0]);
         }
 
-        if (orderId) {
-            if (text.includes("完成") || text.includes("好了") || text.includes("通知")) {
-                speak(`${orderId}號完成`);
-                updateStatus(orderId, 'completed', true);
-            }
-            else if (text.includes("結案") || text.includes("交付")) {
-                speak(`${orderId}號結案`);
-                updateStatus(orderId, 'final');
-            }
-            else if (text.includes("收錢") || text.includes("收了") || text.includes("確認")) {
-                speak(`${orderId}號已收錢`);
-                updateStatus(orderId, 'confirmed');
-            }
-            else if (text.includes("製作") || text.includes("做")) {
-                speak(`${orderId}號製作中`);
-                updateStatus(orderId, 'preparing');
-            }
+        if (!orderId) {
+            // 如果沒說切換，也沒說號碼，就當作雜音
+            return;
+        }
+
+        console.log(`🔢 識別到訂單號: ${orderId}`);
+
+        // 3. 針對訂單的操作 (搜尋/付款/製作/完成/結案)
+        // ----------------------------------------------------
+        
+        // 【展開/搜尋】
+        if (cleanText.includes("展開") || cleanText.includes("打開") || cleanText.includes("搜尋") || cleanText.includes("查詢") || cleanText.includes("找")) {
+            console.log(`✅ 觸發動作: [搜尋並展開]`);
+            speak(`展開 ${orderId}號`);
+            searchAndExpand(orderId);
+        }
+
+        // 【已付款】
+        else if (cleanText.includes("付款") || cleanText.includes("收錢") || cleanText.includes("已付") || cleanText.includes("收了")) {
+            console.log(`✅ 觸發動作: 設為 [已付款]`);
+            speak(`${orderId}號 已付款`);
+            updateStatus(orderId, 'confirmed');
+        }
+        
+        // 【製作中】
+        else if (cleanText.includes("製作") || cleanText.includes("做") || cleanText.includes("開始")) {
+            console.log(`✅ 觸發動作: 設為 [製作中]`);
+            speak(`${orderId}號 製作中`);
+            updateStatus(orderId, 'preparing');
+        }
+        
+        // 【製作完成/通知】
+        else if (cleanText.includes("完成") || cleanText.includes("好了") || cleanText.includes("通知") || cleanText.includes("做完")) {
+            console.log(`✅ 觸發動作: 設為 [通知取餐]`);
+            speak(`${orderId}號 製作完成`);
+            updateStatus(orderId, 'completed', true);
+        }
+        
+        // 【結案/交付】
+        else if (cleanText.includes("結案") || cleanText.includes("交付") || cleanText.includes("取走") || cleanText.includes("取餐")) {
+            console.log(`✅ 觸發動作: 設為 [結案]`);
+            updateStatus(orderId, 'final');
+        }
+        
+        else {
+            console.log("⚠️ 號碼正確，但沒有符合的動作關鍵字");
+            document.getElementById('voiceDebug').innerText = `❓ 聽不懂動作: ${cleanText}`;
         }
     }
 
@@ -717,6 +875,39 @@
         };
         draw();
     }
+
+    function searchAndExpand(id) {
+        // 1. 強制切換到「全部」頁籤，以免該訂單在其他分類被隱藏
+        currentFilter = 'all';
+        document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
+        // 假設第一個按鈕是「全部」，給它 active
+        const allBtn = document.querySelector('.filter-btn'); 
+        if(allBtn) allBtn.classList.add('active');
+
+        // 2. 設定搜尋關鍵字
+        searchQuery = id.toString();
+        const input = document.getElementById('searchInput');
+        if (input) input.value = searchQuery; // 同步更新搜尋框文字
+
+        // 3. 重新渲染列表 (這時列表只會剩下一張單)
+        renderOrders();
+
+        // 4. 強制展開該訂單的明細
+        // 因為 renderOrders 是同步的，所以 DOM 已經建立好了
+        const detailEl = document.getElementById(`detail-${id}`);
+        const arrowEl = document.getElementById(`arrow-${id}`);
+
+        if (detailEl) {
+            detailEl.classList.remove('hide-detail'); // 移除隱藏 class
+            // 加上高亮動畫，讓使用者知道是這張
+            detailEl.parentElement.classList.add('animate__animated', 'animate__pulse');
+        }
+        
+        if (arrowEl) {
+            arrowEl.style.transform = 'rotate(180deg)'; // 箭頭轉向
+        }
+    }
+
     function stopVolumeMeter() { if (rafId) cancelAnimationFrame(rafId); }
 
     // ==========================================
@@ -853,7 +1044,7 @@
         }).then(res => { 
             if(res.ok) { 
                 loadOrders(); 
-                if(status==='final') speak("訂單已結案"); 
+                if(status==='final') speak(`${id}號，訂單已完成`);
             } 
         });
     }
@@ -1444,12 +1635,18 @@
         currentFilter = filterType;
         currentPage = 1; 
         
+        // 1. 先把所有按鈕的亮燈取消
         document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
-        // 找出點擊的按鈕並加 active，如果有點擊事件觸發源
-        if(event && event.currentTarget) {
-            event.currentTarget.classList.add('active');
+        
+        // 2. 自動找出對應這個 filterType 的按鈕並點亮
+        // 透過尋找 onclick 屬性中包含該關鍵字的按鈕
+        // 例如: setFilter('pending') 會去找 onclick 包含 'pending' 的那顆按鈕
+        const targetBtn = document.querySelector(`.filter-btn[onclick*="'${filterType}'"]`);
+        if (targetBtn) {
+            targetBtn.classList.add('active');
         }
         
+        // 3. 重新渲染列表
         renderOrders();
     }
 
