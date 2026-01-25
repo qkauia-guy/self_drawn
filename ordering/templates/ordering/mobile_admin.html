@@ -23,7 +23,6 @@
             --glass-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.07);
             --glass-blur: 16px;
 
-            /* 更強霧面玻璃（給新增商品卡片用） */
             --frost-bg: rgba(255, 255, 255, 0.22);
             --frost-border: rgba(255, 255, 255, 0.55);
             --frost-blur: 22px;
@@ -31,11 +30,7 @@
         }
 
         body {
-            background: linear-gradient(135deg,
-                #b2dc50 20%,
-                #4ba957 50%,
-                #fff385 100%
-            );
+            background: linear-gradient(135deg, #b2dc50 20%, #4ba957 50%, #fff385 100%);
             min-height: 100vh;
             background-attachment: fixed;
             overflow-x: hidden;
@@ -162,7 +157,6 @@
         .fab-btn:active { transform: scale(0.9) rotate(90deg); }
         .fab-btn:hover { box-shadow: 0 15px 35px rgba(255, 107, 107, 0.5); transform: translateY(-3px); }
 
-        /* Modal 本體玻璃 */
         .modal-content {
             background: rgba(255, 255, 255, 0.8);
             backdrop-filter: blur(25px);
@@ -200,7 +194,6 @@
             outline: none;
         }
 
-        /* ===== 你要加強的：新增商品卡片「同步建立至所有分店」霧面玻璃 ===== */
         .glass-card{
             position: relative;
             border-radius: 18px;
@@ -211,8 +204,6 @@
             box-shadow: var(--frost-shadow);
             overflow: hidden;
         }
-
-        /* 讓霧更「霧面」：加一層顆粒/磨砂感（不吃 backdrop-filter 時也會更像霧面） */
         .glass-card::before{
             content:"";
             position:absolute; inset:0;
@@ -225,8 +216,7 @@
         .glass-card::after{
             content:"";
             position:absolute; inset:0;
-            background-image:
-              radial-gradient(rgba(255,255,255,0.12) 1px, transparent 1px);
+            background-image: radial-gradient(rgba(255,255,255,0.12) 1px, transparent 1px);
             background-size: 3px 3px;
             opacity: .35;
             mix-blend-mode: overlay;
@@ -234,7 +224,6 @@
         }
         .glass-card > *{ position: relative; z-index: 1; }
 
-        /* 你的 batch-card 原本是實心漸層，這裡改成玻璃版本（提高優先權 + 必要時 !important） */
         .modal-body .batch-card.glass-card{
             padding: 16px;
             margin-top: 15px;
@@ -243,13 +232,148 @@
             box-shadow: var(--frost-shadow) !important;
         }
         .modal-body .batch-card.glass-card::before{
-            /* 保留你原本左邊那條綠色，但改成更亮更像玻璃上的光條 */
             content: '';
             position: absolute; left: 0; top: 10px; bottom: 10px; width: 4px;
             border-radius: 10px;
             background: linear-gradient(to bottom, rgba(46,204,113,1), rgba(38,222,129,0.6));
             z-index: 2;
         }
+
+        /* === SweetAlert2 霧面玻璃（新增/修改分類 popup） === */
+        .swal-glass {
+            background: var(--frost-bg) !important;
+            border: 1px solid var(--frost-border) !important;
+            border-radius: 22px !important;
+            box-shadow: var(--frost-shadow) !important;
+            backdrop-filter: blur(var(--frost-blur)) saturate(160%) !important;
+            -webkit-backdrop-filter: blur(var(--frost-blur)) saturate(160%) !important;
+            overflow: hidden;
+        }
+        .swal-glass::before{
+            content:"";
+            position:absolute; inset:0;
+            background:
+              radial-gradient(circle at 20% 10%, rgba(255,255,255,0.35), transparent 55%),
+              radial-gradient(circle at 80% 0%, rgba(255,255,255,0.25), transparent 50%),
+              linear-gradient(180deg, rgba(255,255,255,0.18), rgba(255,255,255,0.06));
+            pointer-events:none;
+        }
+        .swal-glass .swal2-title{
+            color: var(--text-main) !important;
+            font-weight: 900 !important;
+            letter-spacing: .5px;
+        }
+        .swal-glass .swal2-html-container{
+            color: var(--text-sub) !important;
+        }
+        .swal-glass .swal2-input{
+            background: rgba(255,255,255,0.55) !important;
+            border: 1px solid rgba(255,255,255,0.55) !important;
+            border-radius: 14px !important;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.02) !important;
+            color: var(--text-main) !important;
+        }
+        .swal-glass .swal2-input:focus{
+            border-color: var(--primary-color) !important;
+            box-shadow: 0 0 0 4px rgba(255, 107, 107, 0.12) !important;
+        }
+
+        /* === 新增商品 Modal：強化霧面玻璃一致性 === */
+        #addProductModal .modal-dialog {
+          padding: 8px;
+        }
+
+        #addProductModal .modal-content{
+          background: rgba(255,255,255,0.55) !important;
+          border: 1px solid rgba(255,255,255,0.65) !important;
+          border-radius: 30px !important;
+          box-shadow: 0 28px 80px rgba(0,0,0,0.18) !important;
+
+          backdrop-filter: blur(26px) saturate(180%) !important;
+          -webkit-backdrop-filter: blur(26px) saturate(180%) !important;
+
+          overflow: hidden;
+        }
+
+        #addProductModal .modal-content::before{
+          content:"";
+          position:absolute; inset:0;
+          background:
+            radial-gradient(circle at 20% 10%, rgba(255,255,255,0.40), transparent 55%),
+            radial-gradient(circle at 85% 0%, rgba(255,255,255,0.25), transparent 55%),
+            linear-gradient(180deg, rgba(255,255,255,0.18), rgba(255,255,255,0.06));
+          pointer-events:none;
+        }
+
+        #addProductModal .modal-header,
+        #addProductModal .modal-body,
+        #addProductModal .modal-footer{
+          position: relative;
+          z-index: 1;
+        }
+
+        #addProductModal .modal-header{
+          border-bottom: 1px solid rgba(0,0,0,0.06) !important;
+        }
+
+        #addProductModal .modal-footer{
+          border-top: 1px solid rgba(0,0,0,0.06) !important;
+        }
+
+        /* hr 也柔和一點 */
+        #addProductModal hr{
+          border-color: rgba(0,0,0,0.10) !important;
+        }
+
+        /* Modal 內輸入框更霧面、邊框更細緻 */
+        #addProductModal .glass-input{
+          background: rgba(255,255,255,0.55) !important;
+          border: 1px solid rgba(255,255,255,0.60) !important;
+          border-radius: 14px !important;
+          box-shadow: inset 0 2px 6px rgba(0,0,0,0.03) !important;
+        }
+
+        #addProductModal .glass-input:focus{
+          background: rgba(255,255,255,0.85) !important;
+          border-color: rgba(255, 107, 107, 0.75) !important;
+          box-shadow: 0 0 0 4px rgba(255, 107, 107, 0.12) !important;
+        }
+
+        /* 讓 checkbox switch 周圍也更一致 */
+        #addProductModal .form-check-input{
+          box-shadow: none !important;
+        }
+
+        /* Footer 按鈕一致化（取消：玻璃、確認：品牌漸層） */
+        #addProductModal .modal-footer .btn{
+          border-radius: 999px !important;
+          padding: 10px 18px;
+        }
+
+        #addProductModal .modal-footer .btn.btn-light{
+          background: rgba(255,255,255,0.55) !important;
+          border: 1px solid rgba(255,255,255,0.75) !important;
+          color: rgba(0,0,0,0.55) !important;
+        }
+
+        #addProductModal .modal-footer .btn.btn-danger{
+          border: none !important;
+          background: linear-gradient(135deg, #ff6b6b 0%, #ee5253 100%) !important;
+          box-shadow: 0 10px 25px rgba(255, 107, 107, 0.35) !important;
+        }
+
+        /* close 按鈕在玻璃背景上更清楚 */
+        #addProductModal .btn-close{
+          filter: saturate(0) opacity(0.6);
+        }
+        #addProductModal .btn-close:active{
+          transform: scale(0.95);
+        }
+
+        .modal-backdrop.show{
+          opacity: 0.22; /* 原本比較黑，調淡一點 */
+        }
+
     </style>
 </head>
 <body>
@@ -281,13 +405,17 @@
                         onchange="location.href='?store={{ current_store.id }}&category='+this.value">
                     <option value="all" {% if current_cat_id == 'all' %}selected{% endif %}>🗂️ 全部商品</option>
                     {% for c in categories %}
-                    <option value="{{ c.id }}" id="cat_opt_{{ c.id }}" data-name="{{ c.name }}"
+                    <option value="{{ c.id }}" id="cat_opt_{{ c.id }}"
+                            data-name="{{ c.name }}"
+                            data-sort="{{ c.sort_order }}"
                             {% if current_cat_id|stringformat:'s' == c.id|stringformat:'s' %}selected{% endif %}>
                         {{ c.name }}
                     </option>
                     {% endfor %}
                 </select>
-                <button class="btn btn-light border shadow-sm ms-1" style="border-radius: 12px; background: rgba(255,255,255,0.6);" onclick="addCategory()">
+                <button class="btn btn-light border shadow-sm ms-1"
+                        style="border-radius: 12px; background: rgba(255,255,255,0.6);"
+                        onclick="addCategory()">
                     <i class="bi bi-plus-lg text-primary"></i>
                 </button>
             </div>
@@ -344,7 +472,7 @@
                     <div class="d-flex justify-content-between align-items-center">
                         <span class="text-muted small fw-bold opacity-75">庫存</span>
                         <div class="stock-stepper">
-                            <button class="stock-btn text-danger" onclick="updateStock(this, -1)">
+                            <button class="stock-btn text-danger" type="button" onclick="updateStock(this, -1)">
                                 <i class="bi bi-dash"></i>
                             </button>
                             <input type="number" class="input-stock" value="{{ p.stock }}"
@@ -352,7 +480,7 @@
                                    hx-post="{% url 'quick_update_product' p.id %}"
                                    hx-trigger="change"
                                    hx-swap="none">
-                            <button class="stock-btn text-success" onclick="updateStock(this, 1)">
+                            <button class="stock-btn text-success" type="button" onclick="updateStock(this, 1)">
                                 <i class="bi bi-plus"></i>
                             </button>
                         </div>
@@ -368,7 +496,7 @@
     </div>
 </div>
 
-<button class="fab-btn" data-bs-toggle="modal" data-bs-target="#addProductModal">
+<button class="fab-btn" data-bs-toggle="modal" data-bs-target="#addProductModal" type="button">
     <i class="bi bi-plus-lg"></i>
 </button>
 
@@ -400,7 +528,6 @@
                             {% endfor %}
                         </select>
 
-                        <!-- ✅ 這裡：加上 glass-card -->
                         <div class="batch-card glass-card">
                             <div class="form-check form-switch d-flex align-items-center">
                                 <input class="form-check-input me-2" type="checkbox" role="switch" id="batch_create" name="batch_create" value="true">
@@ -436,9 +563,7 @@
                     <div class="row g-3 mb-3">
                         <div class="col-6">
                             <label for="id_price" class="modal-label">單價(元)</label>
-                            <div class="input-group">
-                                <input type="number" name="price" class="glass-input" min="0" required id="id_price">
-                            </div>
+                            <input type="number" name="price" class="glass-input" min="0" required id="id_price">
                         </div>
                         <div class="col-6">
                             <label for="id_stock" class="modal-label">初始庫存</label>
@@ -460,7 +585,6 @@
                         <input type="checkbox" name="is_active" class="form-check-input" role="switch" id="id_is_active" checked>
                         <label class="form-check-label fw-bold text-secondary" for="id_is_active">立即上架販售</label>
                     </div>
-
                 </div>
 
                 <div class="modal-footer">
@@ -488,35 +612,70 @@
     });
 
     async function addCategory() {
-        const { value: catName } = await Swal.fire({
-            title: '新增商品分類', input: 'text', inputPlaceholder: '例如：冬季限定',
-            showCancelButton: true, confirmButtonColor: '#ff4757', confirmButtonText: '建立',
-            customClass: { popup: 'rounded-4' }
+        const { value: formValues } = await Swal.fire({
+            title: '新增商品分類',
+            html: `
+              <input id="swal_cat_name" class="swal2-input" placeholder="例如：冬季限定">
+              <input id="swal_cat_sort" type="number" class="swal2-input" placeholder="排序(數字越小越前)" value="0">
+            `,
+            focusConfirm: false,
+            showCancelButton: true,
+            confirmButtonColor: '#ff4757',
+            confirmButtonText: '建立',
+            customClass: { popup: 'swal-glass rounded-4' },
+            preConfirm: () => {
+                const name = document.getElementById('swal_cat_name').value.trim();
+                const sort = document.getElementById('swal_cat_sort').value;
+                if (!name) { Swal.showValidationMessage('請輸入分類名稱'); return false; }
+                return { name, sort_order: parseInt(sort || "0", 10) };
+            }
         });
-        if (catName) {
-            const fd = new FormData();
-            fd.append('store_id', '{{ current_store.id }}');
-            fd.append('name', catName);
-            fd.append('csrfmiddlewaretoken', '{{ csrf_token }}');
-            fetch('{% url "api_create_category" %}', { method: 'POST', body: fd })
-              .then(r => { if(r.ok) location.reload(); });
-        }
+
+        if (!formValues) return;
+
+        const fd = new FormData();
+        fd.append('store_id', '{{ current_store.id }}');
+        fd.append('name', formValues.name);
+        fd.append('sort_order', formValues.sort_order);
+        fd.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+
+        fetch('{% url "api_create_category" %}', { method: 'POST', body: fd })
+            .then(r => { if (r.ok) location.reload(); });
     }
 
     async function editCategory(catId) {
         const opt = document.getElementById('cat_opt_' + catId);
-        const { value: newName } = await Swal.fire({
-            title: '修改分類名稱', input: 'text', inputValue: opt ? opt.dataset.name : '',
-            showCancelButton: true, confirmButtonColor: '#ff4757', confirmButtonText: '儲存',
-            customClass: { popup: 'rounded-4' }
+        const oldName = opt ? (opt.dataset.name || '') : '';
+        const oldSort = opt ? (opt.dataset.sort || '0') : '0';
+
+        const { value: formValues } = await Swal.fire({
+            title: '修改分類',
+            html: `
+              <input id="swal_cat_name" class="swal2-input" placeholder="分類名稱" value="${oldName}">
+              <input id="swal_cat_sort" type="number" class="swal2-input" placeholder="排序(數字越小越前)" value="${oldSort}">
+            `,
+            focusConfirm: false,
+            showCancelButton: true,
+            confirmButtonColor: '#ff4757',
+            confirmButtonText: '儲存',
+            customClass: { popup: 'swal-glass rounded-4' },
+            preConfirm: () => {
+                const name = document.getElementById('swal_cat_name').value.trim();
+                const sort = document.getElementById('swal_cat_sort').value;
+                if (!name) { Swal.showValidationMessage('請輸入分類名稱'); return false; }
+                return { name, sort_order: parseInt(sort || "0", 10) };
+            }
         });
-        if (newName) {
-            const fd = new FormData();
-            fd.append('name', newName);
-            fd.append('csrfmiddlewaretoken', '{{ csrf_token }}');
-            fetch(`/backend/api/category/update/${catId}/`, { method: 'POST', body: fd })
-              .then(r => { if(r.ok) location.reload(); });
-        }
+
+        if (!formValues) return;
+
+        const fd = new FormData();
+        fd.append('name', formValues.name);
+        fd.append('sort_order', formValues.sort_order);
+        fd.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+
+        fetch(`/backend/api/category/update/${catId}/`, { method: 'POST', body: fd })
+            .then(r => { if (r.ok) location.reload(); });
     }
 
     const Toast = Swal.mixin({ toast: true, position: 'top-end', showConfirmButton: false, timer: 1500 });

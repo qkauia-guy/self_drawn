@@ -842,45 +842,113 @@ def create_product(request):
     return redirect(f"/backend/?store={current_store_id}")
 
 
+def _to_int(val, default=None):
+    try:
+        if val is None or val == "":
+            return default
+        return int(val)
+    except (TypeError, ValueError):
+        return default
+
+
+def _render_category_options(store_id):
+    options_html = '<option value="">---------</option>'
+    if not store_id:
+        return options_html
+
+    categories = Category.objects.filter(store_id=store_id, is_active=True).order_by(
+        "sort_order", "id"
+    )
+    for cat in categories:
+        options_html += (
+            f'<option value="{cat.id}">{cat.name} ({cat.store.name})</option>'
+        )
+    return options_html
+
+
 @require_POST
 def api_create_category(request):
-    """新增分類"""
+    """新增分類（支援 sort_order；未提供則自動排到最後）"""
     store_id = request.POST.get("store_id")
-    name = request.POST.get("name")
+    name = (request.POST.get("name") or "").strip()
+    sort_order = _to_int(request.POST.get("sort_order"), default=None)
+
+    if not store_id:
+        return JsonResponse(
+            {"status": "error", "error": "missing_store_id"}, status=400
+        )
+    if not name:
+        return JsonResponse({"status": "error", "error": "missing_name"}, status=400)
+
     store = get_object_or_404(Store, id=store_id)
 
-    # 簡單產生 slug (實際專案建議用更嚴謹的方式)
+    # 產生 slug：你原本用 uuid 方式 OK
     import uuid
 
     slug = f"cat_{uuid.uuid4().hex[:8]}"
 
-    Category.objects.create(store=store, name=name, slug=slug, sort_order=99)
-    return JsonResponse({"status": "ok"})
+    with transaction.atomic():
+        # 若沒傳 sort_order，就取目前該分店最大 sort_order + 1
+        if sort_order is None:
+            current_max = (
+                Category.objects.filter(store=store).aggregate(Max("sort_order"))[
+                    "sort_order__max"
+                ]
+                or 0
+            )
+            sort_order = current_max + 1
+
+        Category.objects.create(
+            store=store,
+            name=name,
+            slug=slug,
+            sort_order=sort_order,
+            is_active=True,
+        )
+
+    # 回傳給你：可選擇直接 reload 或直接更新 select options
+    return JsonResponse(
+        {
+            "status": "ok",
+            "options_html": _render_category_options(store.id),
+        }
+    )
 
 
 @require_POST
 def api_update_category(request, pk):
-    """修改分類名稱"""
+    """修改分類（名稱/排序）"""
     cat = get_object_or_404(Category, pk=pk)
+
     new_name = request.POST.get("name")
-    if new_name:
-        cat.name = new_name
-        cat.save()
-    return JsonResponse({"status": "ok"})
+    new_sort = _to_int(request.POST.get("sort_order"), default=None)
+
+    changed_fields = []
+
+    if new_name is not None:
+        new_name = new_name.strip()
+        if not new_name:
+            return JsonResponse({"status": "error", "error": "empty_name"}, status=400)
+        if new_name != cat.name:
+            cat.name = new_name
+            changed_fields.append("name")
+
+    if new_sort is not None and new_sort != cat.sort_order:
+        cat.sort_order = new_sort
+        changed_fields.append("sort_order")
+
+    if changed_fields:
+        cat.save(update_fields=changed_fields)
+
+    return JsonResponse(
+        {
+            "status": "ok",
+            "options_html": _render_category_options(cat.store_id),
+        }
+    )
 
 
 def api_get_categories_options(request):
+    """給 modal 裡的 category 下拉選單用（依 sort_order 排序）"""
     store_id = request.GET.get("store_id")
-
-    # 預設選項
-    options_html = '<option value="">---------</option>'
-
-    if store_id:
-        # 抓取該分店的分類
-        categories = Category.objects.filter(store_id=store_id).order_by("sort_order")
-        for cat in categories:
-            options_html += (
-                f'<option value="{cat.id}">{cat.name} ({cat.store.name})</option>'
-            )
-
-    return HttpResponse(options_html)
+    return HttpResponse(_render_category_options(store_id))
