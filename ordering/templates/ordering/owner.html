@@ -90,8 +90,8 @@
     @media (max-width: 768px) {
         #navVoiceBtn {
             position: fixed;
-            bottom: 30px; /* 距離底部 */
-            right: 25px;  /* 距離右側 */
+            bottom: 90px; /* 距離底部 */
+            right: 15px;  /* 距離右側 */
             z-index: 2000; /* 確保浮在最上層 */
             
             width: 65px;
@@ -612,23 +612,26 @@
     /* --- 📱 手機版 RWD 優化 --- */
     @media (max-width: 576px) {
         #kitchenBoard {
-            /* 定位在左下角 */
+            /* 1. 改為滿版寬度 (左右各留 10px 間距，視覺比較舒適) */
             left: 10px;
-            bottom: 30px; /* 與麥克風底部對齊，比較整齊 */
+            right: 10px; /* 設定右邊距離，強迫拉寬 */
+            width: auto; /* 讓 left 和 right 決定寬度 */
             
-            /* ★ 關鍵 1：寬度計算，扣除右邊麥克風的空間 (約90px) */
-            /* 這樣就不會蓋住麥克風了 */
-            width: calc(100% - 90px);
-            max-width: 280px; /* 保持您習慣的寬度，不要太寬 */
-            
-            /* ★ 關鍵 2：讓高度自動適應內容 */
+            /* 或者你可以直接用這行：
+            width: calc(100% - 20px); 
+            */
+
+            /* 2. 關鍵：解除原本的寬度限制 */
+            max-width: none; 
+
+            /* 3. 高度與定位設定 */
+            bottom: 30px; 
             height: auto;
-            max-height: 75vh; /* 極限高度：不超過螢幕的 75%，避免頂到最上面 */
+            max-height: 75vh;
             
+            /* 4. 排版設定 */
             display: flex;
             flex-direction: column;
-            
-            /* 確保層級比麥克風(2000)低，比列表(1000)高 */
             z-index: 1050; 
         }
         
@@ -1477,12 +1480,6 @@
         }
         // 重新渲染以套用樣式 (刪除線等)
         updateKitchenBoard();
-    }
-
-    function toggleKitchenBoard() {
-        const board = document.getElementById('kitchenBoard');
-        board.classList.toggle('collapsed');
-        localStorage.setItem('kb_collapsed', board.classList.contains('collapsed'));
     }
 
     // 切換展開/收合
