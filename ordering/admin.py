@@ -7,8 +7,9 @@ from django_json_widget.widgets import JSONEditorWidget
 
 @admin.register(Store)
 class StoreAdmin(admin.ModelAdmin):
-    list_display = ("name", "slug", "is_active")
-    list_editable = ("is_active",)
+    list_display = ("name", "slug", "is_active", "enable_linepay")
+    list_editable = ("is_active", "enable_linepay")
+    list_display_links = ("name",)
     prepopulated_fields = {"slug": ("name",)}
 
 
