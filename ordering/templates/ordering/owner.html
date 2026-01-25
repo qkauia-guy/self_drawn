@@ -8,272 +8,375 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
-  <style>
+<style>
     /* =========================================
-       您的原始 UI 樣式 (完全保留)
+       1. 全域與基礎設定
        ========================================= */
-    body { background-color: #f0f2f5; font-family: "Microsoft JhengHei", sans-serif; padding-bottom: 50px; }
-    .navbar { background-color: #d63031 !important; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-
-    #audio-unlocker{
-      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-      background: rgba(214, 48, 49, 0.95); z-index: 9999;
-      display: flex; flex-direction: column; align-items: center; justify-content: center; color: white;
+    body { 
+        background-color: #f0f2f5; 
+        font-family: "Microsoft JhengHei", sans-serif; 
+        /* 為了避免手機版懸浮按鈕擋住最後一張單，底部留白加大 */
+        padding-bottom: 100px; 
     }
-
-    .store-selector-nav{
-      background: rgba(255,255,255,0.1);
-      border: 1px solid rgba(255,255,255,0.3);
-      color: white; border-radius: 8px; padding: 2px 10px; font-weight: bold;
-    }
-
-    .btn-voice-nav{
-      width: 42px; height: 42px; border-radius: 50%;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 1.2rem; border: none; transition: all 0.3s ease; margin-right: 12px;
-    }
-    .voice-inactive{ background-color: rgba(255, 255, 255, 0.9); color: #d63031; }
-    .voice-active{
-      background-color: #ff4757 !important; color: white !important;
-      box-shadow: 0 0 0 0 rgba(255, 71, 87, 0.7);
-      animation: pulse-voice-nav 1.5s infinite;
-    }
-    @keyframes pulse-voice-nav{
-      0% { box-shadow: 0 0 0 0 rgba(255, 71, 87, 0.7); }
-      70% { box-shadow: 0 0 0 8px rgba(255, 71, 87, 0); }
-      100% { box-shadow: 0 0 0 0 rgba(255, 71, 87, 0); }
-    }
-
-    .order-card{
-      border: none; border-radius: 12px; margin-bottom: 12px;
-      overflow: hidden; border-left: 8px solid #ccc;
-      transition: transform 0.12s ease, box-shadow 0.12s ease;
-      background: white;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.06);
-    }
-    .order-card:hover{ transform: translateY(-1px); box-shadow: 0 6px 14px rgba(0,0,0,0.08); }
-
-    .status-pending{ border-left-color: #636e72; }
-    .status-confirmed{ border-left-color: #0984e3; }
-    .status-preparing{ border-left-color: #fdcb6e; }
-    .status-completed{ border-left-color: #00b894; }
-    .status-arrived{ border-left-color: #d63031; animation: pulse-red-border 1s infinite; }
-    .status-final{ border-left-color: #2ecc71; opacity: 0.65; }
-    .status-cancelled{ border-left-color: #b2bec3; opacity: 0.65; }
-
-    @keyframes pulse-red-border{
-      0% { border-left-width: 8px; } 50% { border-left-width: 14px; } 100% { border-left-width: 8px; }
-    }
-
-    .card-header-clickable{
-      padding: 14px 14px; cursor: pointer;
-      display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 10px; user-select: none;
-    }
-    .order-head-left{ display: flex; align-items: center; gap: 8px; min-width: 0; flex-wrap: nowrap; width: 100%; }
     
-    @media (min-width: 992px){ .order-head-left > *{ flex: 1 1 0; display: inline-flex; justify-content: center; min-width: 0; } }
-    @media (max-width: 991.98px){ .order-head-left > *{ flex: 0 0 auto; } }
-
-    /* 您的藥丸樣式 */
-    .order-pill{
-      display: inline-flex; align-items: center; justify-content: center; height: 32px; padding: 0 10px;
-      border-radius: 10px; font-weight: 800; font-size: 0.95rem; line-height: 1; white-space: nowrap;
-    }
-    .pill-phone{ background: #ffecec; color: #d63031; border: 1px solid rgba(214,48,49,0.25); }
-    .pill-id{ background: #f7f7f7; color: #2d3436; border: 1px solid rgba(0,0,0,0.08); }
-
-    /* 您的付款標籤 */
-    .pay-tag-line, .pay-tag-cash{
-      display: inline-flex; align-items: center; justify-content: center; width: 64px; height: 32px;
-      padding: 0 10px; border-radius: 10px; font-weight: 800; font-size: 0.85rem; line-height: 1; white-space: nowrap;
-    }
-    .pay-tag-line{ background-color: #06c755; color: #fff; border: 1px solid rgba(0,0,0,0.08); }
-    .pay-tag-cash{ background-color: #ffcccc; color: #d63031; border: 1px solid rgba(214,48,49,0.18); }
-
-    /* 您的狀態標籤 */
-    .status-tag{
-      display: inline-flex; align-items: center; justify-content: center; height: 32px; padding: 0 12px;
-      border-radius: 10px; font-weight: 900; font-size: 0.85rem; white-space: nowrap;
-    }
-    .tag-pending{ background: #ecf0f1; color: #2d3436; border: 1px solid rgba(0,0,0,0.08); }
-    .tag-confirmed{ background: #dbeafe; color: #1d4ed8; border: 1px solid rgba(29,78,216,0.2); }
-    .tag-preparing{ background: #fff3cd; color: #7a5a00; border: 1px solid rgba(122,90,0,0.18); }
-    .tag-completed{ background: #d1fae5; color: #047857; border: 1px solid rgba(4,120,87,0.18); }
-    .tag-arrived{ background: #ffecec; color: #d63031; border: 1px solid rgba(214,48,49,0.25); }
-    .tag-final{ background: #e5e7eb; color: #111827; border: 1px solid rgba(17,24,39,0.12); }
-    .tag-cancelled{ background: #f1f5f9; color: #64748b; border: 1px solid rgba(100,116,139,0.18); }
-
-    .arrow{
-      width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center;
-      border-radius: 8px; background: #f3f4f6; color: #374151; border: 1px solid rgba(0,0,0,0.06);
-    }
-    .detail-content{ padding: 15px; border-top: 1px solid #eee; display: block; }
-    .hide-detail{ display: none; }
-    .btn-action{ border-radius: 12px; padding: 15px; font-weight: bold; width: 100%; font-size: 1.2rem; margin-bottom: 8px; }
-    .item-badge{
-      background: #fff5f5; border: 1px solid #ffcccc; color: #d63031; padding: 6px 10px;
-      border-radius: 8px; margin: 3px; display: inline-block; font-size: 1rem; font-weight: bold;
-    }
-    .time-box{
-      font-size: 0.85rem; color: #7f8c8d; background: #f9f9f9; padding: 10px; border-radius: 8px; border: 1px solid rgba(0,0,0,0.04);
-    }
-    .btn-final{ background-color: #2d3436; color: white; border: none; }
-    .btn-final:hover{ background-color: #000000 !important; color: white !important; }
-    .qty-controls button{ width: 40px; height: 40px; border-radius: 50%; font-weight: bold; }
-    #voiceDebug{ font-size: 0.85rem; min-height: 20px; color: #d63031; font-weight: bold; text-align: center; }
-    #audio-unlocker select { background-color: white; color: #333; border: none; cursor: pointer; }
-    #audio-unlocker .store-box { backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
-    /* === 新增與修改樣式 === */
-  .input-group:focus-within { box-shadow: 0 4px 12px rgba(0,0,0,0.1) !important; transition: 0.3s; }
-
-  .filter-btn { white-space: nowrap; border: 1px solid transparent; transition: all 0.2s; opacity: 0.65; }
-  .filter-btn:hover { transform: translateY(-2px); opacity: 0.9; }
-
-  /* 選中狀態：不透明度變為 1，並加上邊框 */
-  .filter-btn.active { 
-      opacity: 1; 
-      box-shadow: 0 4px 10px rgba(0,0,0,0.15); 
-      border: 2px solid #fff;
-      transform: scale(1.05);
-  }
-
-  /* 個別按鈕的選中顏色強化 */
-  .filter-btn[onclick*='pending'].active { background-color: #636e72 !important; border-color: #636e72; }
-  .filter-btn[onclick*='confirmed'].active { background-color: #0d6efd !important; border-color: #0d6efd; }
-  .filter-btn[onclick*='preparing'].active { background-color: #ffc107 !important; border-color: #ffc107; color: black !important; }
-
-  /* 未取餐：選中時為鮮豔綠色 */
-  .filter-btn[onclick*='uncollected'].active { background-color: #00b894 !important; border-color: #00b894; }
-
-  /* 歷史：選中時為深灰色 */
-  .filter-btn[onclick*='history'].active { background-color: #b2bec3 !important; border-color: #b2bec3; color: #2d3436 !important; }
-
-  #navVoiceBtn {
-        /* 電腦版維持小巧 */
-        width: 42px; 
-        height: 42px; 
-        border-radius: 50%;
-        display: flex; align-items: center; justify-content: center;
-        font-size: 1.2rem; 
-        border: none; 
-        transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-        margin-right: 12px;
-        
-        /* 確保電腦版不會亂跑 */
-        position: static; 
-        transform: none;
+    /* 導覽列 */
+    .navbar { 
+        background-color: #d63031 !important; 
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1); 
     }
 
-    /* --- 2. 手機版強制覆蓋 (變成右下角懸浮 FAB) --- */
-    @media (max-width: 768px) {
+    .store-selector-nav {
+        background: rgba(255,255,255,0.1);
+        border: 1px solid rgba(255,255,255,0.3);
+        color: white; 
+        border-radius: 8px; 
+        padding: 2px 10px; 
+        font-weight: bold;
+    }
+
+    /* =========================================
+       2. ✨ 聲控按鈕 (桌面/手機 RWD 整合版)
+       ========================================= */
+    #navVoiceBtn {
+        border: none;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+        cursor: pointer;
+        outline: none !important;
+    }
+
+    /* SVG 圖示通用設定 */
+    #navVoiceBtn svg {
+        width: 24px;
+        height: 24px;
+        transition: transform 0.3s ease;
+    }
+
+    /* 輔助類別：隱藏圖示用 */
+    .d-none { display: none !important; }
+
+    /* --- 💻 電腦版樣式 (嵌在 Navbar 內) --- */
+    @media (min-width: 769px) {
         #navVoiceBtn {
-            position: fixed;        /* 脫離導覽列，固定在螢幕上 */
-            bottom: 30px;           /* 距離底部 */
-            right: 25px;            /* 距離右側 */
-            z-index: 2000;          /* 最上層 */
-            
-            width: 65px;            /* 手機版變大顆，好按 */
-            height: 65px;
-            font-size: 2rem;        /*圖示變大*/
-            
-            box-shadow: 0 6px 20px rgba(0,0,0,0.3) !important;
-            border: 4px solid white; /* 加白框增加對比 */
-            margin-right: 0;        /* 移除 Navbar 的間距 */
+            width: 40px;
+            height: 40px;
+            border-radius: 12px;
+            margin-right: 15px;
+            background: rgba(255, 255, 255, 0.15);
+            color: white;
+            position: static;
+            transform: none;
+            box-shadow: none;
+        }
+        
+        #navVoiceBtn:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-2px);
         }
 
-        /* 避免手機版按鈕擋住最下方的訂單 */
-        body { padding-bottom: 100px !important; }
+        /* 電腦版啟動狀態 */
+        #navVoiceBtn.voice-active {
+            background: white !important;
+            color: #d63031 !important;
+            box-shadow: 0 0 15px rgba(255, 255, 255, 0.6);
+        }
     }
 
-    /* --- 3. 狀態顏色 (通用) --- */
-    .voice-inactive { 
-        background-color: rgba(255, 255, 255, 0.9); 
-        color: #d63031; 
+    /* --- 📱 手機版樣式 (右下角懸浮 FAB) --- */
+    @media (max-width: 768px) {
+        #navVoiceBtn {
+            position: fixed;
+            bottom: 30px; /* 距離底部 */
+            right: 25px;  /* 距離右側 */
+            z-index: 2000; /* 確保浮在最上層 */
+            
+            width: 65px;
+            height: 65px;
+            border-radius: 50%; /* 圓形 */
+            
+            /* 強烈的陰影讓它浮起來 */
+            box-shadow: 0 8px 20px rgba(214, 48, 49, 0.3);
+        }
+
+        /* 加大圖示讓手指好點 */
+        #navVoiceBtn svg {
+            width: 32px;
+            height: 32px;
+        }
+    }
+
+    /* --- 🎨 按鈕狀態顏色與動畫 --- */
+
+    /* 狀態：待機 (Inactive) */
+    .voice-inactive {
+        background-color: #ffffff !important;
+        color: #d63031 !important;
+        border: 1px solid rgba(0,0,0,0.05);
+    }
+    /* 手機版按下去的微互動 */
+    @media (max-width: 768px) {
+        .voice-inactive:active { transform: scale(0.95); }
+    }
+
+    /* 狀態：啟動 (Active) */
+    .voice-active {
+        background-color: #ff4757 !important;
+        color: #ffffff !important;
+        box-shadow: 0 10px 30px rgba(255, 71, 87, 0.5) !important;
+        animation: float-pulse 2s infinite; /* 呼吸動畫 */
+    }
+
+    /* 啟動時圖示稍微放大 */
+    .voice-active svg { transform: scale(1.1); }
+
+    /* 精緻的呼吸動畫 Keyframes */
+    @keyframes float-pulse {
+        0% { box-shadow: 0 0 0 0 rgba(255, 71, 87, 0.7); transform: scale(1); }
+        50% { box-shadow: 0 0 0 15px rgba(255, 71, 87, 0); transform: scale(1.05); }
+        100% { box-shadow: 0 0 0 0 rgba(255, 71, 87, 0); transform: scale(1); }
+    }
+
+    /* =========================================
+       3. 訂單卡片與列表樣式
+       ========================================= */
+    .order-card {
+        border: none; 
+        border-radius: 12px; 
+        margin-bottom: 12px;
+        overflow: hidden; 
+        border-left: 8px solid #ccc; /* 預設左邊條顏色 */
+        transition: transform 0.12s ease, box-shadow 0.12s ease;
+        background: white;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.06);
+    }
+    .order-card:hover { transform: translateY(-1px); box-shadow: 0 6px 14px rgba(0,0,0,0.08); }
+
+    /* 狀態對應的左邊條顏色 */
+    .status-pending { border-left-color: #636e72; }
+    .status-confirmed { border-left-color: #0984e3; }
+    .status-preparing { border-left-color: #fdcb6e; }
+    .status-completed { border-left-color: #00b894; }
+    .status-arrived { border-left-color: #d63031; animation: pulse-red-border 1s infinite; }
+    .status-final { border-left-color: #2ecc71; opacity: 0.65; }
+    .status-cancelled { border-left-color: #b2bec3; opacity: 0.65; }
+
+    @keyframes pulse-red-border {
+        0% { border-left-width: 8px; } 50% { border-left-width: 14px; } 100% { border-left-width: 8px; }
+    }
+
+    /* 卡片頭部排版 */
+    .card-header-clickable {
+        padding: 14px 14px; 
+        cursor: pointer;
+        display: grid; 
+        grid-template-columns: 1fr auto; 
+        align-items: center; 
+        gap: 10px; 
+        user-select: none;
+    }
+    .order-head-left { display: flex; align-items: center; gap: 8px; min-width: 0; flex-wrap: nowrap; width: 100%; }
+
+    /* RWD 卡片頭部調整 */
+    @media (min-width: 992px) { .order-head-left > * { flex: 1 1 0; display: inline-flex; justify-content: center; min-width: 0; } }
+    @media (max-width: 991.98px) { .order-head-left > * { flex: 0 0 auto; } }
+    @media (max-width: 576px) {
+        .order-head-left { flex-wrap: wrap; gap: 5px; } /* 手機允許換行 */
+    }
+
+    /* =========================================
+       4. 標籤 (Pills/Tags) 樣式
+       ========================================= */
+    /* 手機號碼與 ID 丸子 */
+    .order-pill {
+        display: inline-flex; align-items: center; justify-content: center; height: 32px; padding: 0 10px;
+        border-radius: 10px; font-weight: 800; font-size: 0.95rem; line-height: 1; white-space: nowrap;
+    }
+    .pill-phone { background: #ffecec; color: #d63031; border: 1px solid rgba(214,48,49,0.25); }
+    .pill-id { background: #f7f7f7; color: #2d3436; border: 1px solid rgba(0,0,0,0.08); }
+
+    /* 付款方式標籤 */
+    .pay-tag-line, .pay-tag-cash {
+        display: inline-flex; align-items: center; justify-content: center; width: 64px; height: 32px;
+        padding: 0 10px; border-radius: 10px; font-weight: 800; font-size: 0.85rem; line-height: 1; white-space: nowrap;
+    }
+    .pay-tag-line { background-color: #06c755; color: #fff; border: 1px solid rgba(0,0,0,0.08); }
+    .pay-tag-cash { background-color: #ffcccc; color: #d63031; border: 1px solid rgba(214,48,49,0.18); }
+
+    /* 狀態文字標籤 */
+    .status-tag {
+        display: inline-flex; align-items: center; justify-content: center; height: 32px; padding: 0 12px;
+        border-radius: 10px; font-weight: 900; font-size: 0.85rem; white-space: nowrap;
+    }
+    .tag-pending { background: #ecf0f1; color: #2d3436; border: 1px solid rgba(0,0,0,0.08); }
+    .tag-confirmed { background: #dbeafe; color: #1d4ed8; border: 1px solid rgba(29,78,216,0.2); }
+    .tag-preparing { background: #fff3cd; color: #7a5a00; border: 1px solid rgba(122,90,0,0.18); }
+    .tag-completed { background: #d1fae5; color: #047857; border: 1px solid rgba(4,120,87,0.18); }
+    .tag-arrived { background: #ffecec; color: #d63031; border: 1px solid rgba(214,48,49,0.25); }
+    .tag-final { background: #e5e7eb; color: #111827; border: 1px solid rgba(17,24,39,0.12); }
+    .tag-cancelled { background: #f1f5f9; color: #64748b; border: 1px solid rgba(100,116,139,0.18); }
+
+    /* 卡片內容細項 */
+    .arrow {
+        width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center;
+        border-radius: 8px; background: #f3f4f6; color: #374151; border: 1px solid rgba(0,0,0,0.06);
+    }
+    .detail-content { padding: 15px; border-top: 1px solid #eee; display: block; }
+    .hide-detail { display: none; }
+    
+    .item-badge {
+        background: #fff5f5; border: 1px solid #ffcccc; color: #d63031; padding: 6px 10px;
+        border-radius: 8px; margin: 3px; display: inline-block; font-size: 1rem; font-weight: bold;
+    }
+    .time-box {
+        font-size: 0.85rem; color: #7f8c8d; background: #f9f9f9; padding: 10px; border-radius: 8px; border: 1px solid rgba(0,0,0,0.04);
+    }
+    .btn-action { border-radius: 12px; padding: 15px; font-weight: bold; width: 100%; font-size: 1.2rem; margin-bottom: 8px; }
+
+    /* =========================================
+       5. 篩選與控制區塊 (Mobile Optimized)
+       ========================================= */
+    .sticky-controls {
+        position: sticky;
+        top: 56px; /* Bootstrap Navbar height */
+        z-index: 990;
+        background-color: rgba(240, 242, 245, 0.95);
+        backdrop-filter: blur(5px);
+        border-bottom: 1px solid rgba(0,0,0,0.05);
+        padding-top: 10px;
+        margin-top: -16px;
+    }
+
+    .input-group:focus-within { box-shadow: 0 4px 12px rgba(0,0,0,0.1) !important; transition: 0.3s; }
+
+    /* 橫向捲動容器 */
+    #filterContainer {
+        display: flex;
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        gap: 8px;
+        padding: 10px 5px;
+        -webkit-overflow-scrolling: touch;
+        cursor: grab;
+    }
+    /* 隱藏捲軸 */
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+    /* 篩選按鈕 */
+    .filter-btn { 
+        white-space: nowrap; 
+        border: 1px solid transparent; 
+        transition: all 0.2s; 
+        opacity: 0.65; 
+        flex: 0 0 auto; 
+        border-radius: 50rem !important;
+        font-size: 0.95rem;
+    }
+    .filter-btn:hover { transform: translateY(-2px); opacity: 0.9; }
+    
+    /* 篩選按鈕選中狀態 */
+    .filter-btn.active { 
+        opacity: 1; 
+        box-shadow: 0 4px 10px rgba(0,0,0,0.15); 
+        border: 2px solid #fff;
+        transform: scale(1.05);
     }
     
-    .voice-active {
-        background-color: #ff4757 !important; 
-        color: white !important;
-        animation: pulse-voice-nav 1.5s infinite;
+    /* 個別按鈕選中顏色 */
+    .filter-btn[onclick*='pending'].active { background-color: #636e72 !important; border-color: #636e72; }
+    .filter-btn[onclick*='confirmed'].active { background-color: #0d6efd !important; border-color: #0d6efd; }
+    .filter-btn[onclick*='preparing'].active { background-color: #ffc107 !important; border-color: #ffc107; color: black !important; }
+    .filter-btn[onclick*='uncollected'].active { background-color: #00b894 !important; border-color: #00b894; }
+    .filter-btn[onclick*='history'].active { background-color: #b2bec3 !important; border-color: #b2bec3; color: #2d3436 !important; }
+    .filter-btn[onclick*='cancelled'].active { background-color: #d63031 !important; border-color: #d63031; color: white !important; }
+
+    /* =========================================
+       6. 彈窗與其他雜項
+       ========================================= */
+    /* 語音解鎖畫面 */
+    #audio-unlocker {
+        position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(214, 48, 49, 0.95); z-index: 9999;
+        display: flex; flex-direction: column; align-items: center; justify-content: center; color: white;
+    }
+    #audio-unlocker .store-box { backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+    #audio-unlocker select { background-color: white; color: #333; border: none; cursor: pointer; }
+
+    /* 語音除錯文字 */
+    #voiceDebug { font-size: 0.85rem; min-height: 20px; color: #d63031; font-weight: bold; text-align: center; }
+
+    /* 手機版微調 */
+    @media (max-width: 576px) {
+        .order-pill, .pay-tag-line, .pay-tag-cash, .status-tag {
+            height: 28px; font-size: 0.8rem; padding: 0 8px;
+        }
+        .item-badge { font-size: 0.9rem; }
+        .btn-action { padding: 12px; font-size: 1.1rem; }
     }
 
-    /* --- 4. 呼吸動畫 (通用) --- */
-    @keyframes pulse-voice-nav {
-        0% { box-shadow: 0 0 0 0 rgba(255, 71, 87, 0.7); }
-        70% { box-shadow: 0 0 0 15px rgba(255, 71, 87, 0); }
-        100% { box-shadow: 0 0 0 0 rgba(255, 71, 87, 0); }
+    /* =========================================
+       ✨ 現代化懸浮搜尋欄 (膠囊樣式)
+       ========================================= */
+    .modern-search-bar {
+        border-radius: 50rem; /* 極大圓角，變成膠囊狀 */
+        background: white;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.08); /* 柔和的陰影 */
+        border: 1px solid rgba(0,0,0,0.05); /* 極淡的邊框 */
+        padding: 5px 5px; /* 內部留白 */
+        transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+        overflow: hidden;
     }
-  /* =========================================
-   手機版 RWD 優化樣式
-   ========================================= */
 
-  /* 1. 隱藏橫向卷軸但保留滑動功能 */
-  .no-scrollbar::-webkit-scrollbar {
-    display: none;
-  }
-  .no-scrollbar {
-    -ms-overflow-style: none;  /* IE and Edge */
-    scrollbar-width: none;  /* Firefox */
-  }
-
-  /* 2. 篩選容器樣式：強迫不換行、橫向排列 */
-  #filterContainer {
-    display: flex;
-    flex-wrap: nowrap;     /* 禁止換行 */
-    overflow-x: auto;      /* 允許橫向捲動 */
-    gap: 8px;              /* 按鈕間距 */
-    padding: 10px 5px;     /* 上下內距 */
-    -webkit-overflow-scrolling: touch; /* 讓 iOS 滑動更順暢 */
-    cursor: grab;
-  }
-
-  /* 3. 手機版按鈕微調 */
-  .filter-btn {
-    flex: 0 0 auto;       /* 防止按鈕被壓縮變形 */
-    border-radius: 50rem !important; /* 保持圓角 */
-    font-size: 0.95rem;
-  }
-
-  .filter-btn[onclick*='cancelled'].active { 
-    background-color: #d63031 !important; 
-    border-color: #d63031; 
-    color: white !important;
-    opacity: 1;
-  }
-
-  /* 4. 控制區塊黏性置頂 (Sticky) - 讓搜尋和篩選跟著跑 */
-  .sticky-controls {
-    position: sticky;
-    top: 56px; /* 根據您的 Navbar 高度調整，Bootstrap Navbar 預設約 56px */
-    z-index: 990;
-    background-color: rgba(240, 242, 245, 0.95); /* 與背景色相同但微透明 */
-    backdrop-filter: blur(5px); /* 毛玻璃效果 */
-    border-bottom: 1px solid rgba(0,0,0,0.05);
-    padding-top: 10px;
-    margin-top: -16px; /* 修正原本 container 的 margin */
-  }
-
-  /* 5. 調整手機版卡片內容 */
-  @media (max-width: 576px) {
-    .order-head-left {
-      flex-wrap: wrap; /* 手機上標籤太多時允許換行 */
-      gap: 5px;
+    /* 當輸入框被點擊時的特效 */
+    .modern-search-bar:focus-within {
+        box-shadow: 0 8px 25px rgba(214, 48, 49, 0.15); /* 紅色光暈 */
+        transform: translateY(-2px); /* 微微浮起 */
+        border-color: rgba(214, 48, 49, 0.3);
     }
-    .order-pill, .pay-tag-line, .pay-tag-cash, .status-tag {
-      height: 28px;      /* 稍微縮小高度 */
-      font-size: 0.8rem; /* 字體縮小 */
-      padding: 0 8px;
+
+    /* 1. 左側圖示區 */
+    .modern-search-bar .input-group-text {
+        background: transparent;
+        border: none;
+        padding-left: 15px;
+        padding-right: 10px;
     }
-    .item-badge {
-      font-size: 0.9rem;
+
+    /* 2. 中間輸入框 */
+    .modern-search-bar .form-control {
+        border: none;
+        background: transparent;
+        box-shadow: none !important; /* 移除 Bootstrap 預設藍框 */
+        font-weight: bold;
+        color: #2d3436;
+        padding-left: 0; /* 讓文字緊貼圖示 */
+        letter-spacing: 0.5px;
     }
-    /* 讓操作按鈕在手機上更好按 */
-    .btn-action {
-      padding: 12px;
-      font-size: 1.1rem;
+    
+    /* 修改 placeholder 顏色 */
+    .modern-search-bar .form-control::placeholder {
+        color: #b2bec3;
+        font-weight: normal;
+        font-size: 0.9rem;
     }
-  }
-  </style>
+
+    /* 3. 右側清除按鈕 */
+    .modern-search-bar .btn-clear {
+        border: none;
+        background: transparent;
+        color: #b2bec3;
+        font-weight: bold;
+        padding-right: 15px;
+        border-radius: 50%;
+        transition: color 0.2s;
+    }
+    
+    .modern-search-bar .btn-clear:hover {
+        color: #d63031; /* 滑鼠移過去變紅色 */
+    }
+</style>
 </head>
 
 <body>
@@ -286,7 +389,16 @@
           <option value="neipu">內埔年街</option>
         </select>
       </div>
-      <button id="navVoiceBtn" class="btn btn-voice-nav voice-inactive shadow-sm" onclick="toggleVoiceControl()">⚪</button>
+      <button id="navVoiceBtn" class="btn btn-voice-nav voice-inactive" onclick="toggleVoiceControl()">
+        <svg id="icon-mic" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
+            <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
+        </svg>
+        <svg id="icon-wave" class="d-none" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+            <rect x="6" y="4" width="4" height="16" rx="2"/>
+            <rect x="14" y="4" width="4" height="16" rx="2"/>
+        </svg>
+      </button>
       <button class="navbar-toggler" type="button" data-bs-toggle="offcanvas" data-bs-target="#offcanvasMenu">
         <span class="navbar-toggler-icon"></span>
       </button>
@@ -296,11 +408,17 @@
   <div class="sticky-controls pb-2 mb-3">
     <div class="container">
       
-      <div class="input-group input-group-sm shadow-sm">
-        <span class="input-group-text bg-white border-end-0">🔍</span>
-        <input type="tel" id="searchInput" class="form-control border-start-0 ps-0" 
-               placeholder="輸入單號或手機末4碼" onkeyup="handleSearch()">
-        <button class="btn btn-outline-secondary bg-white text-muted border-start-0" type="button" onclick="clearSearch()">✕</button>
+      <div class="input-group input-group-sm modern-search-bar">
+          <span class="input-group-text">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="#999" viewBox="0 0 16 16">
+                  <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z"/>
+              </svg>
+          </span>
+          
+          <input type="tel" id="searchInput" class="form-control" 
+                placeholder="輸入單號或手機末4碼" onkeyup="handleSearch()">
+                
+          <button class="btn btn-clear" type="button" onclick="clearSearch()">✕</button>
       </div>
 
       <div id="filterContainer" class="no-scrollbar">
@@ -624,7 +742,10 @@
         const btn = document.getElementById('navVoiceBtn');
         btn.classList.add('voice-active');
         btn.classList.remove('voice-inactive');
-        btn.innerHTML = '⏸︎';
+        
+        // ★★★ 新增：切換 SVG 圖示 ★★★
+        document.getElementById('icon-mic').classList.add('d-none'); // 隱藏麥克風
+        document.getElementById('icon-wave').classList.remove('d-none'); // 顯示波形(暫停鈕)
         
         // 3. 啟動辨識
         initRecognition();
@@ -643,7 +764,8 @@
         const btn = document.getElementById('navVoiceBtn');
         btn.classList.remove('voice-active');
         btn.classList.add('voice-inactive');
-        btn.innerHTML = '⚪';
+        document.getElementById('icon-mic').classList.remove('d-none'); // 顯示麥克風
+        document.getElementById('icon-wave').classList.add('d-none'); // 隱藏波形
         
         const dbg = document.getElementById('voiceDebug');
         if(dbg) dbg.innerText = "";
@@ -1635,18 +1757,24 @@
         currentFilter = filterType;
         currentPage = 1; 
         
-        // 1. 先把所有按鈕的亮燈取消
+        // ★★★ 關鍵修正：切換分類時，強制清空搜尋關鍵字 ★★★
+        searchQuery = ''; // 清空記憶體中的關鍵字
+        const searchInput = document.getElementById('searchInput');
+        if (searchInput) {
+            searchInput.value = ''; // 清空畫面上輸入框的字
+        }
+        // ------------------------------------------------
+
+        // 1. 重置按鈕亮燈狀態
         document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
         
-        // 2. 自動找出對應這個 filterType 的按鈕並點亮
-        // 透過尋找 onclick 屬性中包含該關鍵字的按鈕
-        // 例如: setFilter('pending') 會去找 onclick 包含 'pending' 的那顆按鈕
+        // 2. 點亮對應按鈕
         const targetBtn = document.querySelector(`.filter-btn[onclick*="'${filterType}'"]`);
         if (targetBtn) {
             targetBtn.classList.add('active');
         }
         
-        // 3. 重新渲染列表
+        // 3. 重新渲染
         renderOrders();
     }
 
