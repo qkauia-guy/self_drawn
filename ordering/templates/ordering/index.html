@@ -279,8 +279,10 @@
                 <input type="radio" class="btn-check" name="paymentMethod" id="payCash" value="cash" checked>
                 <label class="btn btn-outline-danger flex-grow-1 fw-bold py-3" for="payCash">現金</label>
 
+                {% if store.enable_linepay %}
                 <input type="radio" class="btn-check" name="paymentMethod" id="payLine" value="linepay">
-                <label class="btn btn-outline-success flex-grow-1 fw-bold py-3" for="payLine"> LINE Pay</label>
+                <label class="btn btn-outline-success flex-grow-1 fw-bold py-3" for="payLine">LINE Pay</label>
+                {% endif %}
             </div>
         </div>
 
