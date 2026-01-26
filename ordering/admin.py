@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.utils.html import format_html
 from django.db import models
-from .models import Product, Order, Store, Category  # ✅ 記得引入 Category
+from .models import Product, Order, Store, Category  # ✅ 確保引入 Category
 from django_json_widget.widgets import JSONEditorWidget
 
 
@@ -104,6 +104,10 @@ class OrderAdmin(admin.ModelAdmin):
     )
     list_display_links = ("display_id",)
     list_editable = ("status",)
+
+    # 🔥 關鍵新增：搜尋欄位
+    search_fields = ("id", "phone_tail", "linepay_transaction_id")
+
     list_filter = ("store", "status", "payment_method", "created_at")
     ordering = ("-id",)
 
@@ -163,9 +167,10 @@ class OrderAdmin(admin.ModelAdmin):
             "arrived": "#d63031",  # 深紅 (客人在櫃檯)
             "final": "#636e72",  # 灰 (結案)
             "cancelled": "#2d3436",  # 黑 (取消)
+            "archived": "#b2bec3",  # 淡灰 (歸檔)
         }
         # 兼容原本的 CHOICES 顯示
-        status_dict = dict(obj.STATUS_CHOICES)
+        status_dict = dict(obj.STATUS_CHOICES) if hasattr(obj, "STATUS_CHOICES") else {}
         status_text = status_dict.get(obj.status, obj.status)
 
         return format_html(

@@ -162,16 +162,28 @@ class OrderViewSet(viewsets.ModelViewSet):
     serializer_class = OrderSerializer
 
     def get_queryset(self):
-        store_slug = self.request.query_params.get("store")
+        # 1. 取得基本 QuerySet
         qs = Order.objects.all()
 
+        # 2. 分店過濾 (必須)
+        store_slug = self.request.query_params.get("store")
         if store_slug:
             qs = qs.filter(store__slug=store_slug)
 
-        # 這樣「營業結束」後，這些單就不會出現在 iPad/電腦 畫面上
+        from django.db.models import Q
+
+        active_statuses = ["pending", "confirmed", "preparing", "completed", "arrived"]
+
+        now = timezone.now()
+        today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+
+        # 過濾邏輯：(建立時間是今天) OR (狀態是未結案)
+        qs = qs.filter(Q(created_at__gte=today_start) | Q(status__in=active_statuses))
+
+        # 雙重保險：絕對不顯示已歸檔的單 (雖然上面邏輯應該已經排除了)
         qs = qs.exclude(status="archived")
 
-        return qs
+        return qs.order_by("-id")
 
     def get_permissions(self):
         if self.action in ["latest", "create", "line_confirm", "line_cancel"]:
