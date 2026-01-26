@@ -1058,7 +1058,7 @@
                 setTimeout(() => {
                     initRecognition(); 
                     startRecognitionSafe();
-                }, 400); // 這裡維持 0.8~1秒冷卻，確保麥克風能搶到通道
+                }, 100); // 這裡維持 0.8~1秒冷卻，確保麥克風能搶到通道
             };
             
             audio.onerror = function() {
