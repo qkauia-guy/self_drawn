@@ -323,11 +323,10 @@
               
               <div class="form-check form-switch m-0 ms-3 d-flex align-items-center p-0" style="min-height: auto;">
                 <input class="form-check-input" type="checkbox" role="switch"
-                      {% if p.is_active %}checked{% endif %}
-                      hx-post="{% url 'quick_update_product' p.id %}"
-                      hx-vals='js:{"is_active": event.target.checked}'
-                      hx-swap="none"
-                      onclick="toggleRowStyle(this, 'row_{{ p.id }}')">
+                  {% if p.is_active %}checked{% endif %}
+                  hx-post="{% url 'quick_update_product' p.id %}"
+                  hx-swap="none"
+                  onclick="toggleRowStyle(this, 'row_{{ p.id }}')">
               </div>
 
             </div>
@@ -369,7 +368,14 @@
   <script>
     // 1. CSRF 設定
     document.body.addEventListener('htmx:configRequest', (event) => {
+      // A. 設定 CSRF Token
       event.detail.headers['X-CSRFToken'] = '{{ csrf_token }}';
+
+      // 這是解決 SweetAlert 導致 event 遺失的關鍵
+      if (event.detail.elt.classList.contains('form-check-input')) {
+        // 直接讀取該元素的 checked 屬性，而不是依賴點擊事件
+        event.detail.parameters['is_active'] = event.detail.elt.checked;
+      }
     });
 
     // 2. 核心邏輯：攔截送出，顯示確認視窗 (包含表單與開關)
