@@ -851,6 +851,7 @@
     let restartTimer = null; // 重啟計時器
     let lastFinalText = "", lastFinalAt = 0;
     let micStream = null, micSource = null, analyserNode = null, rafId = null;
+    let uiClearTimer = null;
 
     // 🛑 防止語音物件被回收
     const utteranceStorage = [];
@@ -1110,8 +1111,8 @@
         
         // ★★★ 關鍵修改 2：這裡只要有任何結果，都先印出來看看 ★★★
         recognition.onresult = (event) => {
-            console.log("📝 4. 收到資料包 (onresult觸發)"); // 確保有進到這裡
-            
+            // console.log("📝 收到資料包"); 
+
             let finalTranscript = "";
             let interimTranscript = "";
 
@@ -1119,18 +1120,66 @@
                 const transcript = event.results[i][0].transcript;
                 if (event.results[i].isFinal) {
                     finalTranscript += transcript;
-                    console.log("🎯 最終結果:", finalTranscript); // 這裡才是真正辨識出的字
-                    processVoiceCommand(finalTranscript);
                 } else {
                     interimTranscript += transcript;
                 }
             }
-            
-            // 更新 UI 讓你知道它有在聽
+
+            // --- 1. UI 顯示邏輯 (修復 Vivo 字幕閃退問題) ---
             const dbg = document.getElementById('voiceDebug');
-            if(dbg) {
-                if(finalTranscript) dbg.innerText = `✅: ${finalTranscript}`;
-                else if(interimTranscript) dbg.innerText = `👂: ${interimTranscript}`;
+            if (dbg) {
+                // 只有當「真的有字」時才更新 UI，避免重啟瞬間的空字串把字幕洗掉
+                if (finalTranscript.trim().length > 0 || interimTranscript.trim().length > 0) {
+                    
+                    // 使用者正在講話，取消原本的消失倒數
+                    if (uiClearTimer) clearTimeout(uiClearTimer);
+
+                    if (finalTranscript) {
+                        dbg.innerText = `✅: ${finalTranscript}`;
+                        // 講完話後，讓字停留 3 秒再消失 (Visual Persistence)
+                        uiClearTimer = setTimeout(() => {
+                            const currentText = dbg.innerText;
+                            // 再次檢查，確保沒有蓋掉使用者講的新話
+                            if(currentText.includes(finalTranscript)) {
+                                dbg.innerText = "";
+                            }
+                        }, 3000); 
+                    } else {
+                        dbg.innerText = `👂: ${interimTranscript}`;
+                    }
+                }
+            }
+
+            // --- 2. 指令執行邏輯 (修復 Vivo 反應慢的問題) ---
+            
+            // A. 如果是最終結果，當然要執行
+            if (finalTranscript.length > 0) {
+                console.log("🎯 最終結果:", finalTranscript);
+                processVoiceCommand(finalTranscript);
+            } 
+            // B. ★★★ Turbo Mode (搶先觸發) ★★★
+            // 如果還沒 Final，但 Interim 已經包含關鍵字，不等了，直接執行！
+            else if (interimTranscript.length > 0) {
+                
+                // 定義強關鍵字：只要聽到這些，不用等講完，直接觸發
+                const keywords = [
+                    "展開", "收合", "關閉", "打開", "搜尋", 
+                    "付款", "收錢", "製作", "完成", "好了", "通知", "結案", "取消",
+                    "切換", "顯示", "新單", "全部"
+                ];
+
+                // 檢查是否包含關鍵字
+                const hitKeyword = keywords.some(k => interimTranscript.includes(k));
+                
+                // 檢查是否包含完整的「數字+號」 (例如：105號)
+                // Vivo 有時候會把 "105" 和 "號" 分開，所以這裡用正則稍微寬鬆一點
+                const hasOrderNumber = /(\d+|[零一二三四五六七八九十]+)\s*號/.test(interimTranscript);
+
+                // 如果「有關鍵字」或是「有完整的單號指令」，就搶先執行
+                if (hitKeyword || hasOrderNumber) {
+                    console.log("🚀 搶先觸發 (Turbo):", interimTranscript);
+                    processVoiceCommand(interimTranscript);
+                }
             }
         };
 
@@ -1240,7 +1289,7 @@
         }
 
         // 【狀態操作】(付款/製作/完成/結案...維持原樣)
-        else if (cleanText.includes("付款") || cleanText.includes("收錢")) {
+        else if (cleanText.includes("成立") || cleanText.includes("收錢")) {
             speak(`${orderId}號 已付款`);
             updateStatus(orderId, 'confirmed');
         }
@@ -1252,7 +1301,7 @@
             speak(`${orderId}號 製作完成`);
             updateStatus(orderId, 'completed', true);
         }
-        else if (cleanText.includes("結案") || cleanText.includes("交付")) {
+        else if (cleanText.includes("謝謝") || cleanText.includes("交付")) {
             updateStatus(orderId, 'final');
         }
     }
