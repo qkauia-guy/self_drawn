@@ -975,39 +975,49 @@
 
     // ★★★ 2. 語音合成 (講話時暫停辨識) ★★★
     function speak(text) {
-        // 1. 說話時暫停辨識，避免聽到自己
+        // 1. 說話前，先暫停辨識 (避免聽到自己的回音)
         if (isVoiceControlling && recognition) {
-            isSpeaking = true;
-            try { recognition.abort(); } catch(e){}
+            isSpeaking = true; // 標記為正在說話
+            try { 
+                recognition.abort(); // 切斷麥克風
+            } catch(e) {
+                console.log("切斷麥克風失敗 (可能已停止)");
+            }
         }
 
-        // 2. 判斷是否為 iOS (iPhone/iPad)
+        // 2. 判斷是否為 iOS
         const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
                      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
+        // --- 設定保險絲：如果 6 秒後還沒恢復 (例如音檔載入失敗)，強制重啟麥克風 ---
+        const safetyTimer = setTimeout(() => {
+            if (isSpeaking) {
+                console.warn("⚠️ 語音播放超時，強制恢復麥克風");
+                isSpeaking = false;
+                scheduleRestart(100);
+            }
+        }, 6000);
+
         if (isIOS) {
-            // ====================================
-            // 🍎 iOS 專用模式：使用內建 Siri 引擎
-            // ====================================
-            // iOS 的內建語音非常穩定，且不會像 MP3 那樣容易被 Autoplay 阻擋
-            window.speechSynthesis.cancel(); // 先閉嘴
-            
+            // === 🍎 iOS 模式 (維持不變) ===
+            window.speechSynthesis.cancel();
             const u = new SpeechSynthesisUtterance(text);
             u.lang = 'zh-TW';
             u.rate = 1.1; 
             u.volume = 1.0;
 
-            // 嘗試指定台灣語音 (Siri)
             const voices = window.speechSynthesis.getVoices();
             const zhVoice = voices.find(v => v.lang === 'zh-TW');
             if (zhVoice) u.voice = zhVoice;
 
             u.onend = function() {
+                clearTimeout(safetyTimer); // 清除保險絲
                 isSpeaking = false;
-                scheduleRestart(200);
+                scheduleRestart(200); // iOS 切換很快，200ms 夠了
             };
             
             u.onerror = function() {
+                clearTimeout(safetyTimer);
                 isSpeaking = false;
                 scheduleRestart(200);
             };
@@ -1015,29 +1025,27 @@
             window.speechSynthesis.speak(u);
 
         } else {
-            // ====================================
-            // 🤖 Android/Vivo 專用模式：使用 Google MP3 密技
-            // ====================================
-            // 因為陸版 Android 內建引擎常殘廢，改用網路 MP3 最保險
+            // === 🤖 Android/Vivo 模式 (增加緩衝時間) ===
             
-            // 移除舊的 audio 元素 (如果有的話)
+            // 移除舊的 audio 元素
             const oldAudio = document.getElementById('tts-audio');
             if (oldAudio) oldAudio.remove();
 
             const url = `https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=zh-TW&q=${encodeURIComponent(text)}`;
             const audio = new Audio(url);
-            audio.id = 'tts-audio'; // 給個 ID 方便管理
+            audio.id = 'tts-audio';
             audio.playbackRate = 1.1;
 
             const playPromise = audio.play();
 
             if (playPromise !== undefined) {
                 playPromise.then(_ => {
-                    // 播放成功
+                    // 播放開始，一切正常
                 })
                 .catch(error => {
                     console.error("Android 播放失敗:", error);
-                    // 可能是瀏覽器擋自動播放，嘗試用內建的補救 (死馬當活馬醫)
+                    clearTimeout(safetyTimer);
+                    // 嘗試用系統內建補救
                     try {
                         let fallbackU = new SpeechSynthesisUtterance(text);
                         fallbackU.lang = 'zh-TW';
@@ -1045,19 +1053,26 @@
                     } catch(e) {}
                     
                     isSpeaking = false;
-                    scheduleRestart(200);
+                    scheduleRestart(500); // 失敗時也多等一下
                 });
             }
 
             audio.onended = function() {
                 this.remove(); 
+                clearTimeout(safetyTimer); // 清除保險絲
+                
                 isSpeaking = false;
-                scheduleRestart(200);
+                
+                // ★★★ 關鍵修改：Android 播放完畢後，多等 500ms 再開麥克風 ★★★
+                // 這是為了讓 Vivo 的音訊通道完全釋放，避免「搶麥」導致麥克風失效
+                console.log("🔊 播放結束，冷卻 500ms 後重啟麥克風...");
+                scheduleRestart(500); 
             };
             
             audio.onerror = function() {
+                clearTimeout(safetyTimer);
                 isSpeaking = false;
-                scheduleRestart(200);
+                scheduleRestart(500);
             };
         }
     }
