@@ -776,7 +776,7 @@
     <h2 class="mb-4 animate__animated animate__fadeInDown">🍓 一把葫管理系統</h2>
     <div class="store-box mb-4 p-4 shadow-lg" style="background: rgba(255,255,255,0.1); border-radius: 20px; border: 1px solid rgba(255,255,255,0.2); width: 90%; max-width: 400px;">
         <p class="mb-3">選擇管理店鋪</p>
-        <select id="initStoreSelector" class="form-select form-select-lg mb-4" style="border-radius: 12px; font-weight: bold;">
+        <select id="initStoreSelector" class="form-select form-select-lg mb-4" style="border-radius: 12px; font-weight: bold; background-color: #fff !important; color: #000 !important;">
             <option value="" disabled selected>載入中...</option>
         </select>
         <button onclick="unlockAudio()" id="startBtn" class="btn btn-light btn-lg fw-bold w-100 py-3 shadow" style="border-radius: 15px; color: #d63031;">
@@ -1058,7 +1058,7 @@
                 setTimeout(() => {
                     initRecognition(); 
                     startRecognitionSafe();
-                }, 800); // 這裡維持 0.8~1秒冷卻，確保麥克風能搶到通道
+                }, 400); // 這裡維持 0.8~1秒冷卻，確保麥克風能搶到通道
             };
             
             audio.onerror = function() {
