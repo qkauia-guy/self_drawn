@@ -975,34 +975,53 @@
 
     // ★★★ 2. 語音合成 (講話時暫停辨識) ★★★
     function speak(text) {
-        if (!('speechSynthesis' in window)) return;
-        
-        // 說話時暫停辨識，避免聽到自己
+        // 1. 說話時暫停辨識，避免聽到自己 (維持原本邏輯)
         if (isVoiceControlling && recognition) {
             isSpeaking = true;
             try { recognition.abort(); } catch(e){}
         }
 
-        window.speechSynthesis.cancel();
-        const u = new SpeechSynthesisUtterance(text);
-        u.lang = 'zh-TW';
-        u.rate = 1.1; 
-        
-        const voices = window.speechSynthesis.getVoices();
-        const zhVoice = voices.find(v => v.lang === 'zh-TW') || voices.find(v => v.lang.includes('zh'));
-        if (zhVoice) u.voice = zhVoice;
+        // 2. 建立 Google 翻譯的語音網址 (這是免費的公開接口)
+        // client=tw-ob 是 Google 專用的公開參數
+        const url = `https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=zh-TW&q=${encodeURIComponent(text)}`;
 
-        utteranceStorage.push(u);
-        u.onend = function() {
-            const index = utteranceStorage.indexOf(u);
-            if (index > -1) utteranceStorage.splice(index, 1);
+        // 3. 建立音頻播放器
+        const audio = new Audio(url);
+        
+        // 4. 設定播放速率 (Google API 不支援直接調速，但可以透過 playbackRate 微調)
+        audio.playbackRate = 1.1; 
+
+        // 5. 播放
+        const playPromise = audio.play();
+
+        if (playPromise !== undefined) {
+            playPromise.then(_ => {
+                // 播放開始
+            })
+            .catch(error => {
+                console.error("播放失敗:", error);
+                // 如果失敗(通常是瀏覽器擋自動播放)，還是要恢復聆聽，不然會卡死
+                isSpeaking = false;
+                scheduleRestart(200);
+            });
+        }
+
+        // 6. 播放完畢後的處理 (恢復監聽)
+        audio.onended = function() {
+            // 為了防止這個 audio 物件佔用記憶體，設為 null
+            this.remove(); 
             
-            // 說完話後恢復辨識
             isSpeaking = false;
-            // 呼叫重啟函式 (這裡就是您原本報錯的地方)
+            // 恢復語音辨識
             scheduleRestart(200);
         };
-        window.speechSynthesis.speak(u);
+        
+        // 7. 錯誤處理
+        audio.onerror = function() {
+            console.error("語音載入失敗");
+            isSpeaking = false;
+            scheduleRestart(200);
+        };
     }
 
     async function toggleVoiceControl() {
