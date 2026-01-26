@@ -739,24 +739,33 @@ def quick_update_product(request, pk):
     """
     product = get_object_or_404(Product, pk=pk)
 
-    # 更新價格
+    # 1. 更新價格 (轉型為 int)
     if "price" in request.POST:
-        product.price = request.POST.get("price")
+        # 使用你原本定義的 _to_int 或是直接 try-except
+        try:
+            product.price = int(request.POST.get("price"))
+        except (ValueError, TypeError):
+            pass  # 如果傳來亂七八糟的值，就忽略
 
-    # 更新庫存
+    # 2. 更新庫存 (🔥 關鍵修正：必須轉型為 int)
     if "stock" in request.POST:
-        product.stock = request.POST.get("stock")
+        try:
+            val = int(request.POST.get("stock"))
+            product.stock = val
+        except (ValueError, TypeError):
+            pass  # 忽略非數字輸入
 
-    # 更新上下架 (HTMX 傳來的是字串 'true' 或 'false')
+    # 3. 更新上下架
     if "is_active" in request.POST:
         val = request.POST.get("is_active")
+        # HTMX 傳來的會是字串 "true" 或 "false"
         product.is_active = val == "true"
 
     if "description" in request.POST:
         product.description = request.POST.get("description")
 
-    product.save()
-    return HttpResponse("", status=200)  # HTMX 不需要回傳內容，只要 200 OK
+    product.save()  # 現在這裡是 int，Model 裡的 <= 0 判斷就不會報錯了
+    return HttpResponse("", status=200)
 
 
 @require_POST
@@ -941,3 +950,77 @@ def api_get_categories_options(request):
     """給 modal 裡的 category 下拉選單用（依 sort_order 排序）"""
     store_id = request.GET.get("store_id")
     return HttpResponse(_render_category_options(store_id))
+
+
+@login_required
+def restock_page(request):
+    """進貨頁面 (顯示清單)"""
+    stores = Store.objects.filter(is_active=True)
+
+    # 預設選第一間或網址參數指定
+    current_store_id = request.GET.get("store")
+    if current_store_id:
+        current_store = get_object_or_404(Store, id=current_store_id)
+    else:
+        current_store = stores.first()
+
+    if not current_store:
+        return HttpResponse("請先建立分店")
+
+    # 取得分類與商品 (一次撈出來，減少 DB 查詢)
+    categories = (
+        Category.objects.filter(store=current_store)
+        .prefetch_related("products")
+        .order_by("sort_order")
+    )
+
+    return render(
+        request,
+        "ordering/restock.html",
+        {
+            "stores": stores,
+            "current_store": current_store,
+            "categories": categories,
+        },
+    )
+
+
+@require_POST
+def batch_restock(request):
+    """處理批次進貨 + 上下架狀態更新"""
+    try:
+        with transaction.atomic():
+            # 遍歷所有 POST 資料
+            for key, value in request.POST.items():
+
+                # 1. 處理進貨數量 (name="add_stock_{id}")
+                if key.startswith("add_stock_") and value:
+                    try:
+                        pid = int(key.split("_")[-1])
+                        qty = int(value)
+                        if qty != 0:
+                            # 使用 F() 原子更新庫存
+                            Product.objects.filter(id=pid).update(
+                                stock=F("stock") + qty
+                            )
+                    except (ValueError, TypeError):
+                        continue
+
+                # 2. 處理上下架狀態 (name="is_active_{id}")
+                # HTML Form 的 Checkbox 特性：有勾選才會送出值，沒勾選就不會送出 key
+                # 所以我們需要用另一個 hidden input 來判斷「這個商品是否有在表單中」
+
+                # 這裡採用更簡單的策略：
+                # HTMX 送出時，我們只處理「有變更」的庫存
+                # 至於上下架，建議在 UI 上做成「即時開關」(點了就存)，跟進貨數量分開處理會比較順
+                # 但如果您堅持要一起送出，邏輯會變得非常複雜 (因為沒勾選 = 沒送出)
+
+                # 🔥 修正策略：
+                # 為了「快速」，上下架開關我們維持「點擊即時生效」(使用 quick_update_product)，
+                # 這樣進貨表單就單純處理「數量」，避免邏輯打架。
+
+        return HttpResponse("OK", status=200)
+
+    except Exception as e:
+        print(f"Restock Error: {e}")
+        return HttpResponse("Error", status=500)

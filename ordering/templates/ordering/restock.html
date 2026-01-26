@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  {% load static %}
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>快速進貨 - {{ current_store.name }}</title>
+  
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+  <link rel="icon" href="{% static 'images/favicon7.png' %}" type="image/png">
+  <script src="https://unpkg.com/htmx.org@1.9.6"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+  <style>
+    :root {
+      --primary-color: #ff6b6b;       /* 品牌紅 */
+      --accent-green: #10b981;        /* 進貨綠 */
+      --bg-color: #f3f4f6;            /* 背景灰 */
+      --card-bg: #ffffff;
+      --text-main: #1f2937;
+      --text-sub: #6b7280;
+      --border-color: #f0f0f0;
+      
+      /* 玻璃擬態參數 */
+      --glass-bg: rgba(255, 255, 255, 0.85);
+      --glass-blur: 12px;
+    }
+
+    body {
+      background-color: var(--bg-color);
+      color: var(--text-main);
+      padding-bottom: 100px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    }
+
+    /* === 核心容器 === */
+    .main-container {
+      max-width: 800px;
+      margin: 0 auto;
+      background-color: var(--card-bg);
+      min-height: 100vh;
+      box-shadow: 0 0 20px rgba(0,0,0,0.03);
+      position: relative;
+    }
+
+    /* === 頂部導覽列 === */
+    .sticky-top-bar {
+      position: sticky; top: 0; z-index: 1020;
+      background: var(--glass-bg);
+      backdrop-filter: blur(var(--glass-blur));
+      -webkit-backdrop-filter: blur(var(--glass-blur));
+      border-bottom: 1px solid rgba(0,0,0,0.05);
+      padding: 16px 20px;
+    }
+
+    .store-select {
+      border: 1px solid #e5e7eb;
+      background-color: rgba(255,255,255,0.8);
+      border-radius: 20px;
+      padding: 4px 12px;
+      font-size: 0.95rem;
+      color: var(--text-main);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .store-select:hover {
+      border-color: var(--primary-color);
+      background-color: #fff;
+    }
+
+    /* === 分類標題 === */
+    .category-header {
+      background-color: #f9fafb;
+      color: var(--text-sub);
+      font-weight: 700;
+      font-size: 0.85rem;
+      padding: 10px 20px;
+      letter-spacing: 0.5px;
+      position: sticky;
+      top: 68px;
+      z-index: 1010;
+      border-bottom: 1px solid var(--border-color);
+      border-top: 1px solid var(--border-color);
+      display: flex;
+      align-items: center;
+    }
+    .category-header::before {
+      content: '';
+      display: inline-block;
+      width: 6px; height: 6px;
+      background-color: var(--primary-color);
+      border-radius: 50%;
+      margin-right: 8px;
+    }
+
+    /* === 商品列表優化 === */
+    .product-item {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border-color);
+      background: var(--card-bg);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      transition: background-color 0.2s;
+    }
+    
+    @media (hover: hover) {
+      .product-item:hover {
+        background-color: #f8fafc;
+      }
+    }
+
+    /* 下架樣式 */
+    .product-item.inactive {
+      background-color: #fcfcfc;
+      opacity: 0.7;
+    }
+    .product-item.inactive .prod-name {
+      color: #9ca3af;
+      text-decoration: line-through;
+    }
+
+    /* 資訊區 */
+    .prod-info { flex: 1; padding-right: 15px; min-width: 0; }
+    
+    .prod-name {
+      font-weight: 600;
+      font-size: 1.05rem;
+      color: var(--text-main);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* 庫存徽章基礎樣式 */
+    .stock-badge {
+      font-size: 0.9rem;
+      background-color: #eff6ff; /* 預設藍底 */
+      color: #c2c649;            /* 預設藍字 */
+      padding: 4px 10px;
+      border-radius: 20px;       /* 圓角大一點比較好看 */
+      font-weight: 700;
+      display: inline-flex;
+      align-items: center;
+      margin-top: 2px;
+      transition: all 0.3s ease;
+      border: 1px solid transparent;
+    }
+
+    /* === [新增] 低庫存警示動畫 === */
+    @keyframes pulse-red {
+      0% {
+        box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4);
+      }
+      70% {
+        box-shadow: 0 0 0 6px rgba(239, 68, 68, 0);
+      }
+      100% {
+        box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+      }
+    }
+
+    /* 低庫存狀態 class */
+    .stock-warning {
+      background-color: #fef2f2 !important; /* 紅底 */
+      color: #ef4444 !important;            /* 紅字 */
+      border-color: #fca5a5 !important;     /* 紅框 */
+      animation: pulse-red 2s infinite;     /* 套用動畫 */
+    }
+
+    
+    /* 開關 Switch */
+    .form-switch .form-check-input {
+      width: 2.9em;      
+      height: 1.6em;   
+      margin-left: 0; 
+      cursor: pointer;
+      background-color: #e5e7eb;
+      border-color: #e5e7eb;
+      border: 0;
+      background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='%23fff'/%3e%3c/svg%3e");
+      background-position: left center;
+    }
+    .form-switch .form-check-input:checked {
+      background-color: var(--primary-color);
+      background-position: right center;
+    }
+
+    /* === 輸入框優化 === */
+    .restock-input-group {
+      width: 100px;
+      flex-shrink: 0;
+      position: relative;
+    }
+    
+    .restock-input {
+      text-align: center;
+      font-size: 1.2rem;
+      font-weight: 700;
+      color: var(--accent-green);
+      border: 2px solid transparent;
+      background-color: #cee4da;
+      border-radius: 12px;
+      padding: 8px 0;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .restock-input:focus {
+      background-color: #fff;
+      border-color: var(--accent-green);
+      box-shadow: 0 4px 12px rgba(16, 185, 129, 0.15);
+      transform: translateY(-2px);
+      outline: none;
+    }
+    
+    .restock-input::placeholder {
+      color: #4cd495;
+      font-size: 0.9rem;
+      font-weight: normal;
+    }
+
+    /* === 底部按鈕區 === */
+    .bottom-bar {
+      position: fixed; 
+      bottom: 0; left: 0; right: 0;
+      z-index: 1030;
+      pointer-events: none;
+      display: flex;
+      justify-content: center;
+    }
+
+    .bottom-bar-content {
+      pointer-events: auto;
+      width: 100%;
+      max-width: 800px;
+      background: var(--glass-bg);
+      backdrop-filter: blur(var(--glass-blur));
+      -webkit-backdrop-filter: blur(var(--glass-blur));
+      border-top: 1px solid rgba(0,0,0,0.05);
+      padding: 16px 20px;
+      display: flex;
+      gap: 12px;
+      box-shadow: 0 -4px 20px rgba(0,0,0,0.05);
+    }
+
+    .btn-submit {
+      background: linear-gradient(135deg, var(--accent-green), #059669);
+      border: none;
+      color: white;
+      border-radius: 12px;
+      font-size: 1rem;
+      letter-spacing: 0.5px;
+      transition: transform 0.1s;
+    }
+    .btn-submit:active { transform: scale(0.98); }
+
+    .btn-home {
+      border-radius: 12px;
+      background-color: #fff;
+      border: 1px solid #e5e7eb;
+      color: var(--text-sub);
+    }
+
+    @media (max-width: 768px) {
+      .form-switch .form-check-input {
+        width: 2.4em;
+        height: 1.3em;
+      }
+      .stock-badge {
+        font-size: 0.75rem;
+        padding: 3px 8px;
+      }
+    }
+    
+  </style>
+</head>
+<body>
+
+  <div class="main-container">
+
+    <div class="sticky-top-bar">
+      <div class="d-flex align-items-center justify-content-between">
+        <h5 class="m-0 fw-bold text-dark" style="font-size: 1.1rem;">
+          <i class="bi bi-box-seam-fill me-2 text-danger"></i>快速進貨
+        </h5>
+        <select class="form-select form-select-sm w-auto fw-bold store-select shadow-sm" 
+                onchange="location.href='?store='+this.value">
+          {% for s in stores %}
+          <option value="{{ s.id }}" {% if s.id == current_store.id %}selected{% endif %}>
+            {{ s.name }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+
+    <form id="restockForm" 
+          hx-post="{% url 'batch_restock' %}" 
+          hx-trigger="submit"
+          hx-swap="none">
+      
+      {% csrf_token %}
+
+      {% for cat in categories %}
+      <div class="category-header">
+        {{ cat.name }}
+      </div>
+
+      <div class="list-group list-group-flush">
+        {% for p in cat.products.all %}
+        <div class="product-item {% if not p.is_active %}inactive{% endif %}" id="row_{{ p.id }}">
+          
+          <div class="prod-info">
+            <div class="prod-name">{{ p.name }}</div>
+            
+            <div class="d-flex align-items-center mt-2">
+              
+              <span class="stock-badge {% if p.stock < 10 %}stock-warning{% endif %}" id="badge_{{ p.id }}">
+                <i class="bi bi-exclamation-circle-fill me-1 {% if p.stock >= 10 %}d-none{% endif %}" id="warn_icon_{{ p.id }}"></i>
+                現貨: <span id="stock_display_{{ p.id }}" class="ms-1">{{ p.stock }}</span>
+              </span>
+              
+              <div class="form-check form-switch m-0 ms-3 d-flex align-items-center p-0" style="min-height: auto;">
+                <input class="form-check-input" type="checkbox" role="switch"
+                      {% if p.is_active %}checked{% endif %}
+                      hx-post="{% url 'quick_update_product' p.id %}"
+                      hx-vals='js:{"is_active": event.target.checked}'
+                      hx-swap="none"
+                      onclick="toggleRowStyle(this, 'row_{{ p.id }}')">
+              </div>
+
+            </div>
+          </div>
+
+          <div class="restock-input-group">
+            <input type="number" inputmode="numeric" 
+                   class="form-control restock-input" 
+                   name="add_stock_{{ p.id }}" 
+                   placeholder="+0">
+          </div>
+
+        </div>
+        {% endfor %}
+      </div>
+      {% empty %}
+        <div class="text-center py-5 text-muted">
+            <i class="bi bi-inbox fs-1 opacity-25"></i>
+            <p class="mt-2 small">無商品資料</p>
+        </div>
+      {% endfor %}
+
+      <div style="height: 100px;"></div>
+
+      <div class="bottom-bar">
+        <div class="bottom-bar-content">
+            <a href="{% url 'owner_dashboard' %}" class="btn btn-home shadow-sm d-flex align-items-center justify-content-center" style="width: 50px;">
+              <i class="bi bi-house-door-fill fs-5"></i>
+            </a>
+            <button type="submit" class="btn btn-submit flex-grow-1 fw-bold shadow-lg" id="submitBtn">
+              <i class="bi bi-check-circle-fill me-2"></i>確認進貨
+            </button>
+        </div>
+      </div>
+
+    </form>
+  </div> 
+
+  <script>
+    // 1. CSRF 設定
+    document.body.addEventListener('htmx:configRequest', (event) => {
+      event.detail.headers['X-CSRFToken'] = '{{ csrf_token }}';
+    });
+
+    // 2. 核心邏輯：攔截送出，顯示確認視窗 (包含表單與開關)
+    document.body.addEventListener('htmx:confirm', (evt) => {
+      
+      // === 情況 A: 針對「上下架開關」的確認 ===
+      if (evt.target.classList.contains('form-check-input') && evt.target.getAttribute('role') === 'switch') {
+        evt.preventDefault(); // 暫停送出
+
+        const checkbox = evt.target;
+        const isTurningOn = checkbox.checked; // 這次操作是想變成「開啟」還是「關閉」
+        const actionText = isTurningOn ? '上架' : '下架';
+        const rowId = checkbox.getAttribute('onclick').match(/'([^']+)'/)[1]; // 從 onclick 字串抓 row ID
+        
+        Swal.fire({
+          title: `確定要${actionText}嗎？`,
+          text: isTurningOn ? "商品將會顯示在前台供顧客點選" : "商品將暫時隱藏，顧客無法看見",
+          icon: 'warning',
+          showCancelButton: true,
+          confirmButtonText: `確認${actionText}`,
+          cancelButtonText: '取消',
+          confirmButtonColor: isTurningOn ? '#10b981' : '#ef4444', // 上架綠色，下架紅色
+          cancelButtonColor: '#d1d5db',
+          reverseButtons: true,
+          customClass: {
+            popup: 'rounded-4'
+          }
+        }).then((result) => {
+          if (result.isConfirmed) {
+            // 確認：繼續送出 HTMX 請求
+            evt.detail.issueRequest(true); 
+          } else {
+            // 取消：把開關撥回去，並還原樣式
+            checkbox.checked = !isTurningOn;
+            toggleRowStyle(checkbox, rowId); // 呼叫樣式切換函式來還原外觀
+          }
+        });
+
+      } 
+      // === 情況 B: 針對「確認進貨表單」的確認 ===
+      else if (evt.target.id === 'restockForm') {
+        evt.preventDefault(); // 暫停送出
+
+        const inputs = document.querySelectorAll('.restock-input');
+        let confirmListHtml = '';
+        let hasItem = false;
+
+        inputs.forEach(input => {
+          const val = parseInt(input.value);
+          if (val && !isNaN(val) && val > 0) {
+            hasItem = true;
+            const row = input.closest('.product-item');
+            const name = row.querySelector('.prod-name').innerText;
+            
+            confirmListHtml += `
+              <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+                <span class="text-start text-truncate me-2" style="max-width: 200px;">${name}</span>
+                <span class="badge bg-success rounded-pill">+${val}</span>
+              </li>
+            `;
+          }
+        });
+
+        if (!hasItem) {
+          Swal.fire({
+            icon: 'warning',
+            title: '未輸入數量',
+            text: '請至少輸入一項商品的進貨數量',
+            confirmButtonColor: '#6b7280'
+          });
+          return;
+        }
+
+        Swal.fire({
+          title: '確認進貨清單',
+          html: `
+            <div class="text-start mb-2 text-muted small">請確認以下項目無誤：</div>
+            <ul class="list-group list-group-flush text-start" style="max-height: 200px; overflow-y: auto;">
+              ${confirmListHtml}
+            </ul>
+          `,
+          icon: 'question',
+          showCancelButton: true,
+          confirmButtonText: '確認送出',
+          cancelButtonText: '再檢查一下',
+          confirmButtonColor: '#10b981',
+          cancelButtonColor: '#d1d5db',
+          reverseButtons: true,
+          customClass: {
+            popup: 'rounded-4'
+          }
+        }).then((result) => {
+          if (result.isConfirmed) {
+            evt.detail.issueRequest(true); 
+          }
+        });
+      }
+    });
+
+    // 3. 請求完成後的處理
+    document.body.addEventListener('htmx:afterRequest', (evt) => {
+      
+      // 進貨表單成功
+      if (evt.target.id === 'restockForm' && evt.detail.successful) {
+        Swal.fire({
+          icon: 'success',
+          title: '進貨完成',
+          html: '<span class="text-muted">庫存數量已更新</span>',
+          timer: 1500,
+          showConfirmButton: false,
+          customClass: { popup: 'rounded-4 shadow-lg border-0' }
+        });
+
+        const inputs = document.querySelectorAll('.restock-input');
+        inputs.forEach(input => {
+          const val = parseInt(input.value);
+          if (val && !isNaN(val)) {
+            const pid = input.name.split('_').pop();
+            const displayEl = document.getElementById(`stock_display_${pid}`);
+            const badgeEl = document.getElementById(`badge_${pid}`);
+            const warnIcon = document.getElementById(`warn_icon_${pid}`);
+            
+            if (displayEl && badgeEl) {
+              const currentStock = parseInt(displayEl.innerText);
+              const newStock = currentStock + val;
+              displayEl.innerText = newStock;
+              
+              if (newStock >= 10) {
+                badgeEl.classList.remove('stock-warning');
+                if(warnIcon) warnIcon.classList.add('d-none');
+                badgeEl.classList.add('bg-success', 'text-white');
+                setTimeout(() => { badgeEl.classList.remove('bg-success', 'text-white'); }, 1000);
+              } else {
+                badgeEl.classList.add('stock-warning');
+                if(warnIcon) warnIcon.classList.remove('d-none');
+              }
+            }
+          }
+          input.value = '';
+        });
+        if (document.activeElement) document.activeElement.blur();
+      }
+      
+      // 上下架開關成功 (雖然 HTMX 不會回傳內容，但可以用來顯示一個小提示)
+      else if (evt.target.classList.contains('form-check-input') && evt.detail.successful) {
+         // 可選：如果您希望切換後也有一個小提示，可以在這裡加 Swal
+         // 但通常開關切換視覺反饋就足夠了，這裡保持空白即可
+      }
+
+      // 錯誤處理
+      else if (evt.detail.failed) {
+         Swal.fire({
+             icon: 'error',
+             title: '更新失敗',
+             text: '請檢查網路連線',
+             confirmButtonColor: '#ff6b6b'
+         });
+         // 如果是開關失敗，要把開關撥回去 (這裡比較進階，通常網路錯誤 User 再按一次就好)
+      }
+    });
+
+    // 4. 樣式切換函式
+    function toggleRowStyle(checkbox, rowId) {
+      const row = document.getElementById(rowId);
+      if (checkbox.checked) {
+        row.classList.remove('inactive');
+      } else {
+        row.classList.add('inactive');
+      }
+    }
+</script>
+
+</body>
+</html>

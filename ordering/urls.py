@@ -48,8 +48,9 @@ urlpatterns = [
         name="api_get_categories_options",
     ),
     # ==========================================
-    # ... (原有的其他頁面) ...
     path("status/<slug:store_slug>/", views.order_status_board, name="status_board"),
     path("about/", views.about, name="about"),
     path("<slug:store_slug>/", views.index, name="index"),
+    path("backend/restock/", views.restock_page, name="restock_page"),
+    path("backend/api/batch_restock/", views.batch_restock, name="batch_restock"),
 ]
