@@ -1230,11 +1230,11 @@
         console.log(`🤖 指令: "${text}"`); 
         const cleanText = text.replace(/[^\u4e00-\u9fa5a-zA-Z0-9]/g, ""); 
 
-        // --------------------------------------------------
-        // ★★★ 第一層：優先判斷「全部」操作 (不需要訂單號) ★★★
-        // --------------------------------------------------
+        // ==================================================
+        // ★★★ 第一層：全域操作 (不需要訂單號碼) ★★★
+        // ==================================================
         
-        // 【全部收合/關閉】
+        // 1. 【全部收合/關閉】
         if (cleanText.includes("全部") && (cleanText.includes("收合") || cleanText.includes("收起來") || cleanText.includes("關閉") || cleanText.includes("縮"))) {
             console.log(`✅ 觸發: 全部收合`);
             speak("已收合所有訂單");
@@ -1242,7 +1242,7 @@
             return;
         }
 
-        // 【全部展開/打開】
+        // 2. 【全部展開/打開】
         if (cleanText.includes("全部") && (cleanText.includes("展開") || cleanText.includes("打開") || cleanText.includes("顯示"))) {
             console.log(`✅ 觸發: 全部展開`);
             speak("展開所有訂單");
@@ -1250,10 +1250,27 @@
             return;
         }
 
-        // 【切換分頁】(原本的邏輯)
+        // 3. 【新增：控制製作清單 (戰情板)】(★ 移到這裡才對！)
+        if (cleanText.includes("看板") || cleanText.includes("清單") || cleanText.includes("廚房")) {
+            const kb = document.getElementById('kitchenBoard');
+            
+            if (cleanText.includes("打開") || cleanText.includes("展開") || cleanText.includes("顯示") || cleanText.includes("叫出")) {
+                console.log("✅ 觸發: 打開製作清單");
+                if (kb) kb.classList.remove('collapsed'); 
+                speak("製作清單已展開");
+                return;
+            }
+            
+            if (cleanText.includes("關閉") || cleanText.includes("收合") || cleanText.includes("收起") || cleanText.includes("隱藏")) {
+                console.log("✅ 觸發: 收合製作清單");
+                if (kb) kb.classList.add('collapsed'); 
+                speak("已收起");
+                return;
+            }
+        }
+
+        // 4. 【切換分頁】
         if (cleanText.includes("切換") || cleanText.includes("顯示") || cleanText.includes("看")) {
-            // ... (維持您原本的切換邏輯，這裡省略以節省篇幅) ...
-            // 如果您需要這段，請保留上一版給您的切換代碼
             let targetFilter = null;
             let targetName = "";
             if (cleanText.includes("全部")) { targetFilter = 'all'; targetName = "全部訂單"; }
@@ -1271,9 +1288,9 @@
             }
         }
 
-        // --------------------------------------------------
-        // ★★★ 第二層：針對「特定號碼」操作 ★★★
-        // --------------------------------------------------
+        // ==================================================
+        // ★★★ 第二層：針對「特定號碼」操作 (必須有數字) ★★★
+        // ==================================================
         
         let orderId = null;
         const numMatch = cleanText.match(/(\d+)/);
@@ -1283,37 +1300,37 @@
             if (zhNum) orderId = parseChineseNumber(zhNum[0]);
         }
 
+        // ★ 這裡會擋下沒有數字的指令，所以「看板操作」不能放這下面
         if (!orderId) return;
 
         console.log(`🔢 訂單號: ${orderId}`);
 
-        // 【單獨收合】(★ 新增)
+        // 【單獨收合】
         if (cleanText.includes("收合") || cleanText.includes("關閉") || cleanText.includes("縮") || cleanText.includes("關起來")) {
             console.log(`✅ 觸發: 收合 ${orderId}號`);
-            // 不用語音回饋，直接收起來比較順暢，或者簡單回個 "好"
             collapseSingleOrder(orderId);
         }
 
-        // 【單獨展開】(您原本的功能)
+        // 【單獨展開】
         else if (cleanText.includes("展開") || cleanText.includes("打開") || cleanText.includes("搜尋") || cleanText.includes("找")) {
             speak(`展開 ${orderId}號`);
             searchAndExpand(orderId);
         }
 
-        // 【狀態操作】(付款/製作/完成/結案...維持原樣)
-        else if (cleanText.includes("成立") || cleanText.includes("收錢")) {
-            speak(`${orderId}號 已付款`);
+        // 【狀態操作】
+        else if (cleanText.includes("成立") || cleanText.includes("收錢") || cleanText.includes("付款")) {
+            speak(`${orderId} 已付`); // 改短一點加速
             updateStatus(orderId, 'confirmed');
         }
         else if (cleanText.includes("製作") || cleanText.includes("做")) {
-            speak(`${orderId}號 製作中`);
+            speak(`${orderId} 製作中`); // 改短一點加速
             updateStatus(orderId, 'preparing');
         }
         else if (cleanText.includes("完成") || cleanText.includes("好了") || cleanText.includes("通知")) {
-            speak(`${orderId}號 製作完成`);
+            speak(`${orderId} 完成`); // 改短一點加速
             updateStatus(orderId, 'completed', true);
         }
-        else if (cleanText.includes("謝謝") || cleanText.includes("交付")) {
+        else if (cleanText.includes("謝謝") || cleanText.includes("交付") || cleanText.includes("結案")) {
             updateStatus(orderId, 'final');
         }
     }
