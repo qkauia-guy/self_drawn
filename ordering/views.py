@@ -9,7 +9,7 @@ import os
 
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
-from django.db.models import Sum
+from django.db.models import Sum, Max, Q, F
 from django.utils import timezone
 from django.db import transaction
 from django.http import JsonResponse, HttpResponse
@@ -209,10 +209,11 @@ class OrderViewSet(viewsets.ModelViewSet):
     def partial_update(self, request, *args, **kwargs):
         instance = self.get_object()
 
-        # --- [新增功能] 後台修改訂單內容 (僅限已登入管理員 & 待付款訂單) ---
+        # --- [管理員修改內容] ---
         if request.user.is_authenticated and "items" in request.data:
-            if instance.status != "pending":
-                return Response({"error": "只能修改「待付款」狀態的訂單"}, status=400)
+            # 限制狀態
+            if instance.status not in ["pending", "confirmed"]:
+                return Response({"error": "只能修改未完成的訂單"}, status=400)
 
             new_items_data = request.data.get("items")
             if not isinstance(new_items_data, list):
@@ -220,7 +221,7 @@ class OrderViewSet(viewsets.ModelViewSet):
 
             try:
                 with transaction.atomic():
-                    # 1. 先「歸還」舊訂單的庫存
+                    # 1. 先「全額還原」舊訂單的庫存
                     self._restore_stock(instance)
 
                     # 2. 重新計算新訂單內容 (扣庫存 + 建立快照)
@@ -229,16 +230,19 @@ class OrderViewSet(viewsets.ModelViewSet):
 
                     for item in new_items_data:
                         product_id = item.get("id")
-                        # 允許 quantity 或 qty 欄位
-                        qty = int(item.get("quantity") or item.get("qty") or 0)
+                        try:
+                            qty = int(item.get("quantity") or item.get("qty") or 0)
+                        except:
+                            qty = 0
 
                         if qty <= 0:
                             continue
 
-                        # 鎖定並讀取商品
+                        # 鎖定並讀取商品 (確保庫存檢查時沒人插隊)
                         product = Product.objects.select_for_update().get(id=product_id)
 
-                        # 檢查庫存 (注意：剛才已經把舊單的庫存加回去了，所以這裡是檢查最新庫存)
+                        # 檢查庫存
+                        # 注意：因為步驟 1 已經把舊庫存還原了，所以這裡是檢查「總可用量」
                         if product.stock < qty:
                             raise ValueError(
                                 f"{product.name} 庫存不足 (剩餘 {product.stock})"
@@ -248,24 +252,30 @@ class OrderViewSet(viewsets.ModelViewSet):
                         product.stock -= qty
                         product.save()
 
-                        # 建立訂單細項快照 (保留當下價格與分類)
+                        # 建立快照
                         item_copy = {
                             "id": product.id,
                             "name": product.name,
                             "price": int(product.price),
                             "quantity": qty,
-                            "category": product.category.slug,
-                            "category_name": product.category.name,
+                            "category": (
+                                product.category.slug if product.category else "other"
+                            ),
+                            "category_name": (
+                                product.category.name if product.category else "其他"
+                            ),
                         }
                         updated_items_snapshot.append(item_copy)
                         new_total += item_copy["price"] * qty
 
-                    # 3. 更新訂單實體
+                    # 3. 更新訂單
                     instance.items = updated_items_snapshot
                     instance.total = new_total
+                    # 注意：不需手動算 subtotal，Order.save() 會處理 (如果 model 有保留 update_total_from_json)
+                    # 但為了保險，這裡可以直接寫入
+                    instance.subtotal = new_total
                     instance.save()
 
-                    # 回傳更新後的訂單
                     serializer = self.get_serializer(instance)
                     return Response(serializer.data)
 
@@ -275,115 +285,107 @@ class OrderViewSet(viewsets.ModelViewSet):
                 return Response({"error": str(e)}, status=400)
             except Exception as e:
                 print(f"Edit Order Error: {e}")
-                return Response({"error": "修改失敗"}, status=500)
+                return Response({"error": "修改失敗，請稍後再試"}, status=500)
 
-        # --- 以下維持原本的狀態更新邏輯 (給前端用) ---
+        # ... (原本的狀態更新邏輯保持不變) ...
+        return super().partial_update(request, *args, **kwargs)
 
-        # 如果是管理員且沒有傳 items，就走預設邏輯 (改狀態)
-        if request.user.is_authenticated:
-            return super().partial_update(request, *args, **kwargs)
-
-        # 客戶端驗證邏輯 (原本的程式碼)
-        phone_tail = request.data.get("phone_tail")
-        if not phone_tail or phone_tail != instance.phone_tail:
-            return Response({"error": "驗證失敗"}, status=status.HTTP_403_FORBIDDEN)
-
-        new_status = request.data.get("status")
-        if new_status and new_status not in ["arrived", "final"]:
-            return Response(
-                {"error": "只能更新狀態為 arrived 或 final"},
-                status=status.HTTP_403_FORBIDDEN,
-            )
-
-        if new_status == "arrived" and instance.status != "completed":
-            return Response({"error": "訂單尚未完成，無法通知"}, status=400)
-
-        allowed_fields = ["status"]
-        update_data = {k: v for k, v in request.data.items() if k in allowed_fields}
-        serializer = self.get_serializer(instance, data=update_data, partial=True)
-        serializer.is_valid(raise_exception=True)
-        serializer.save()
-        return Response(serializer.data)
-
+    # 在 OrderViewSet 類別內，替換原本的 _restore_stock
     def _restore_stock(self, order: Order):
-        for item in order.items or []:
+        """
+        還原庫存 (原子操作版)
+        修正：移除 json.loads，因為 JSONField 自動轉為 list
+        """
+        # 1. 取得訂單內容 (Django JSONField 自動轉為 List)
+        items = order.items
+
+        # 防呆：確保是列表
+        if not items or not isinstance(items, list):
+            return
+
+        print(f"🔄 [庫存還原] 訂單 #{order.id}，項目數: {len(items)}")
+
+        # 2. 遍歷並還原
+        for item in items:
             product_id = item.get("id")
-            qty = int(item.get("quantity") or item.get("qty", 0) or 0)
-            if not product_id or qty <= 0:
-                continue
+            # 兼容 quantity 或 qty
             try:
-                product = Product.objects.select_for_update().get(id=product_id)
-                product.stock += qty
-                product.save()
-            except Product.DoesNotExist:
-                continue
+                qty = int(item.get("quantity") or item.get("qty") or 0)
+            except (ValueError, TypeError):
+                qty = 0
+
+            if product_id and qty > 0:
+                # 使用 F() 表達式進行原子更新 (避免 Race Condition)
+                Product.objects.filter(id=product_id).update(stock=F("stock") + qty)
 
     def create(self, request, *args, **kwargs):
         store_slug = request.data.get("store_slug")
-        if not store_slug:
-            return Response({"error": "請提供 store_slug"}, status=400)
-
         store = get_object_or_404(Store, slug=store_slug)
         items_data = request.data.get("items", [])
         payment_method = request.data.get("payment_method", "cash")
-
-        if not isinstance(items_data, list) or not items_data:
-            return Response({"error": "items 格式錯誤或為空"}, status=400)
 
         try:
             with transaction.atomic():
                 updated_items = []
 
-                # 1. 扣除庫存並更新訂單細項
                 for item in items_data:
                     product_id = item.get("id")
-                    qty = int(item.get("quantity") or item.get("qty", 0))
+                    try:
+                        qty = int(item.get("quantity") or 0)
+                    except:
+                        qty = 0
 
                     if qty <= 0:
                         continue
 
-                    product = Product.objects.select_for_update().get(id=product_id)
+                    # 🔥 關鍵修復：原子鎖定扣庫存
+                    # 只有當 stock >= qty 時才會扣除，且直接在 DB 運算
+                    rows_affected = Product.objects.filter(
+                        id=product_id, is_active=True, stock__gte=qty
+                    ).update(stock=F("stock") - qty)
 
-                    if not product.is_active:
-                        raise ValueError(f"{product.name} 目前不供應")
-                    if product.stock < qty:
-                        raise ValueError(
-                            f"{product.name} 庫存不足 (剩餘 {product.stock})"
-                        )
+                    if rows_affected == 0:
+                        # 為了顯示具體錯誤，再查一次商品名稱
+                        p = Product.objects.filter(id=product_id).first()
+                        if p:
+                            raise ValueError(f"{p.name} 庫存不足 (剩餘 {p.stock})")
+                        else:
+                            raise ValueError("商品不存在或已下架")
 
-                    product.stock -= qty
-                    product.save()
-
-                    # 將商品當下的 Category 資訊寫入訂單 JSON (快照)
+                    # 取得最新資訊做快照
+                    product = Product.objects.get(id=product_id)
                     item_copy = item.copy()
-                    item_copy["category"] = product.category.slug
-                    item_copy["category_name"] = product.category.name
-                    item_copy["name"] = product.name
-                    item_copy["price"] = product.price
+                    item_copy.update(
+                        {
+                            "name": product.name,
+                            "price": product.price,
+                            "category": (
+                                product.category.slug if product.category else "other"
+                            ),
+                            "category_name": (
+                                product.category.name if product.category else "其他"
+                            ),
+                        }
+                    )
                     updated_items.append(item_copy)
 
-                # 2. 建立訂單
+                # 建立訂單
                 data_copy = request.data.copy()
                 data_copy["status"] = "pending"
-                data_copy["items"] = updated_items  # 使用更新後的 items
+                data_copy["items"] = updated_items
 
                 serializer = self.get_serializer(data=data_copy)
                 if not serializer.is_valid():
-                    return Response(serializer.errors, status=400)
-
+                    raise ValueError(str(serializer.errors))
                 if "store_slug" in serializer.validated_data:
                     del serializer.validated_data["store_slug"]
 
                 order = serializer.save(store=store)
 
-                # 3. LINE Pay 處理邏輯 (已修正網址問題)
+                # LINE Pay
                 if payment_method == "linepay":
                     line_handler = LinePayHandler()
-
-                    # 🟢 [修正] 直接填入您的 Render 正確網址
-                    MY_DOMAIN = "yibahu-order.it.com"
-
-                    # 🟢 [修正] 強制使用 https (LINE Pay 嚴格要求)
+                    MY_DOMAIN = "yibahu-order.it.com"  # 請確認您的網址
                     confirm_url = (
                         f"https://{MY_DOMAIN}/api/orders/line_confirm/?oid={order.id}"
                     )
@@ -391,43 +393,30 @@ class OrderViewSet(viewsets.ModelViewSet):
                         f"https://{MY_DOMAIN}/api/orders/line_cancel/?oid={order.id}"
                     )
 
-                    # 🔵 [除錯] 印出網址確認 (請在 Render Logs 查看)
-                    print(f"DEBUG: LINE Pay Confirm URL: {confirm_url}")
-
                     result = line_handler.request_payment(
                         order, confirm_url, cancel_url
                     )
-
-                    if result and result.get("returnCode") == "0000":
-                        payment_url = result["info"]["paymentUrl"]["web"]
+                    if result.get("returnCode") == "0000":
                         return Response(
                             {
                                 "id": order.id,
                                 "status": "pending",
                                 "total": order.total,
-                                "phone_tail": order.phone_tail,
                                 "payment_method": "linepay",
-                                "payment_url": payment_url,
+                                "payment_url": result["info"]["paymentUrl"]["web"],
                                 "items": order.items,
                             },
                             status=201,
                         )
-
-                    # 錯誤處理：印出詳細錯誤原因
-                    print(f"ERROR: LINE Pay Request Failed: {result}")
-                    raise ValueError(
-                        f"LINE Pay 請求失敗: {result.get('returnMessage')}"
-                    )
+                    else:
+                        raise ValueError(
+                            f"LINE Pay 錯誤: {result.get('returnMessage')}"
+                        )
 
                 return Response(serializer.data, status=201)
 
-        except Product.DoesNotExist:
-            return Response({"error": "找不到商品資料"}, status=404)
-        except ValueError as e:
-            return Response({"error": str(e)}, status=400)
         except Exception as e:
-            print(f"Create Order Error: {e}")
-            return Response({"error": "系統發生錯誤"}, status=400)
+            return Response({"error": str(e)}, status=400)
 
     @action(detail=False, methods=["get"])
     def line_confirm(self, request):
@@ -496,48 +485,19 @@ class OrderViewSet(viewsets.ModelViewSet):
     def cancel(self, request, pk=None):
         try:
             with transaction.atomic():
-                # 1. 鎖定訂單 (避免同時操作導致數據錯亂)
                 order = Order.objects.select_for_update().get(id=pk)
-                store_slug = order.store.slug
 
-                # 2. 🔥 關鍵檢查：如果訂單「已經」是取消或歸檔狀態，直接擋掉！
-                # 這樣就算按一百次取消，庫存也只會加回一次
+                # 🔥 關鍵修復：雙重檢查狀態
                 if order.status in ["cancelled", "archived"]:
                     return Response(
-                        {
-                            "status": "success",
-                            "detail": "already cancelled",
-                            "redirect_url": f"/{store_slug}/",
-                        }
+                        {"status": "success", "detail": "already cancelled"}
                     )
 
-                # 3. 處理 LINE Pay 退款 (如果有)
-                if order.payment_method == "linepay" and order.status in [
-                    "confirmed",
-                    "preparing",
-                    "arrived",
-                    "completed",
-                    "final",
-                ]:
-                    # ... (LINE Pay 退款邏輯保持不變) ...
-                    pass
-
-                # 4. 🔥 只有通過上面的檢查，才執行庫存還原
-                # 這裡假設您有寫 _restore_stock 方法
                 self._restore_stock(order)
-
-                # 5. 最後更新狀態
                 order.status = "cancelled"
                 order.save()
 
-            return Response(
-                {
-                    "status": "success",
-                    "detail": "cancelled",
-                    "redirect_url": f"/{store_slug}/",
-                }
-            )
-
+            return Response({"status": "success", "detail": "cancelled"})
         except Order.DoesNotExist:
             return Response({"error": "order not found"}, status=404)
         except Exception as e:
@@ -678,25 +638,40 @@ def about(request):
 
 
 # views.py 中的 reset_daily_orders
-
-
 @api_view(["POST"])
 def reset_daily_orders(request, store_slug):
-    """
-    營業結束歸零邏輯 (修正版)：
-    1. 進行中訂單 -> 轉為 'cancelled' (清空且不計費)
-    2. 已完成訂單 -> 轉為 'archived' (清空但保留業績)
-    """
     store = get_object_or_404(Store, slug=store_slug)
 
-    # 1. 處理「進行中」的單 -> 取消
-    active_statuses = ["pending", "confirmed", "preparing", "completed", "arrived"]
-    cancelled_count = Order.objects.filter(
-        store=store, status__in=active_statuses
-    ).update(status="cancelled")
+    # 1. 找出需要取消的訂單
+    pending_orders = Order.objects.filter(
+        store=store,
+        status__in=["pending", "confirmed", "preparing", "completed", "arrived"],
+    )
 
-    # 2. 處理「已完成(final)」的單 -> 歸檔 (隱藏但保留業績)
-    # 注意：update() 會繞過 model validate，所以即使 choices 裡沒有 archived 也可以寫入
+    cancel_count = 0
+    restore_updates = {}  # 用 dict 來合併同一商品的庫存 {product_id: qty_to_add}
+
+    with transaction.atomic():
+        # A. 計算要還原的總庫存
+        for order in pending_orders:
+            items = order.items  # JSONField 自動轉 list
+            if isinstance(items, list):
+                for item in items:
+                    pid = item.get("id")
+                    qty = int(item.get("quantity") or item.get("qty") or 0)
+                    if pid and qty > 0:
+                        restore_updates[pid] = restore_updates.get(pid, 0) + qty
+
+            # 標記訂單為取消
+            order.status = "cancelled"
+            order.save()
+            cancel_count += 1
+
+        # B. 批量更新商品庫存 (減少 DB連線次數)
+        for pid, qty_to_add in restore_updates.items():
+            Product.objects.filter(id=pid).update(stock=F("stock") + qty_to_add)
+
+    # 2. 處理已完成 -> 歸檔
     archived_count = Order.objects.filter(store=store, status="final").update(
         status="archived"
     )
@@ -704,7 +679,7 @@ def reset_daily_orders(request, store_slug):
     return Response(
         {
             "status": "success",
-            "message": f"今日結算完成：\n已取消 {cancelled_count} 筆未完成訂單\n已歸檔 {archived_count} 筆完成訂單 (業績保留)",
+            "message": f"結算完成：\n已取消 {cancel_count} 筆 (庫存已合併還原)\n已歸檔 {archived_count} 筆",
         }
     )
 

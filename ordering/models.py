@@ -1,8 +1,10 @@
 from django.db import models
 from django.utils import timezone
-from django.db import transaction
 
 
+# ==========================================
+# 1. 門市 (Store)
+# ==========================================
 class Store(models.Model):
     """分店資訊"""
 
@@ -11,17 +13,19 @@ class Store(models.Model):
         unique=True, verbose_name="網址辨識碼", help_text="例如：main 或 branch1"
     )
     is_active = models.BooleanField(default=True, verbose_name="是否營業中")
-
     enable_linepay = models.BooleanField(default=True, verbose_name="啟用 LINE Pay")
-
-    def __str__(self):
-        return self.name
 
     class Meta:
         verbose_name = "分店"
         verbose_name_plural = "分店管理"
 
+    def __str__(self):
+        return self.name
 
+
+# ==========================================
+# 2. 分類 (Category)
+# ==========================================
 class Category(models.Model):
     """商品分類"""
 
@@ -46,12 +50,16 @@ class Category(models.Model):
         verbose_name = "商品分類"
         verbose_name_plural = "分類管理"
         ordering = ["sort_order"]
+        # 關鍵修正：確保同一間店內的 slug 不重複，但不同店可以使用相同的 slug (如 'drink')
         unique_together = ["store", "slug"]
 
     def __str__(self):
-        return f"{self.name}"
+        return f"[{self.store.name}] {self.name}"
 
 
+# ==========================================
+# 3. 商品 (Product)
+# ==========================================
 class Product(models.Model):
     """商品資訊"""
 
@@ -61,7 +69,6 @@ class Product(models.Model):
         related_name="products",
         verbose_name="所屬分店",
     )
-
     category = models.ForeignKey(
         Category,
         on_delete=models.PROTECT,
@@ -70,20 +77,17 @@ class Product(models.Model):
         null=True,
         blank=True,
     )
-
     name = models.CharField(max_length=50, verbose_name="商品名稱")
     price = models.PositiveIntegerField(verbose_name="單價(元)")
     description = models.CharField(
         max_length=100, blank=True, verbose_name="短描述(如：口味二選一)"
     )
-
     flavor_options = models.CharField(
         max_length=200,
         blank=True,
         verbose_name="口味選項",
         help_text="請用逗號隔開。例：紅豆,花生,芝麻",
     )
-
     stock = models.IntegerField(default=99, verbose_name="剩餘庫存")
     is_active = models.BooleanField(default=True, verbose_name="是否供應")
 
@@ -94,34 +98,27 @@ class Product(models.Model):
 
     def __str__(self):
         cat_name = self.category.name if self.category else "未分類"
-        return f"[{cat_name}] {self.name}"
+        return f"[{self.store.name}] {self.name}"
 
     @property
     def is_sold_out(self):
+        """前端判斷顯示用：是否售完或下架"""
         return not self.is_active or self.stock <= 0
 
-    # 🔥🔥🔥 重點修改：覆寫 save 方法 🔥🔥🔥
-    def save(self, *args, **kwargs):
-        # 邏輯：只要庫存 <= 0，強制將 is_active 設為 False (下架)
-        if self.stock <= 0:
-            self.is_active = False
 
-        # 備註：通常"不建議"寫「庫存>0 自動上架」，
-        # 因為有時候店員補庫存只是先輸入，但還沒準備好要賣。
-
-        # 執行原本的儲存動作
-        super().save(*args, **kwargs)
-
-
+# ==========================================
+# 4. 訂單 (Order)
+# ==========================================
 class Order(models.Model):
     STATUS_CHOICES = [
-        ("pending", "訂單確認中"),
-        ("confirmed", "訂單已成立"),
+        ("pending", "訂單確認中"),  # 剛建立 / 待付款
+        ("confirmed", "訂單已成立"),  # 已付款 / 店家已接單
         ("preparing", "訂單製作中"),
-        ("completed", "訂單完成"),
-        ("arrived", "客人已到櫃檯"),
-        ("final", "交易結案"),
+        ("completed", "訂單完成"),  # 製作完成
+        ("arrived", "客人已到櫃檯"),  # 用於叫號通知
+        ("final", "交易結案"),  # 雙方銀貨兩訖
         ("cancelled", "已取消"),
+        ("archived", "已歸檔"),  # 隔日結算後的歷史資料
     ]
 
     PAYMENT_CHOICES = [
@@ -132,18 +129,18 @@ class Order(models.Model):
     store = models.ForeignKey(
         Store, on_delete=models.CASCADE, related_name="orders", verbose_name="所屬分店"
     )
-    phone_tail = models.CharField(
-        max_length=10, verbose_name="手機後4碼"
-    )  # 加大長度避免錯誤
+    phone_tail = models.CharField(max_length=10, verbose_name="手機後4碼")
     payment_method = models.CharField(
         max_length=10, choices=PAYMENT_CHOICES, default="cash", verbose_name="付款方式"
     )
 
+    # 訂單內容 (Snapshot)
     items = models.JSONField(default=list, verbose_name="訂單內容")
+
     subtotal = models.PositiveIntegerField(default=0, verbose_name="小計")
     total = models.PositiveIntegerField(default=0, verbose_name="總額")
 
-    # LINE Pay 相關
+    # LINE Pay 相關欄位
     linepay_transaction_id = models.CharField(
         max_length=100, blank=True, null=True, verbose_name="LINE Pay 交易號"
     )
@@ -168,42 +165,37 @@ class Order(models.Model):
         ordering = ["-created_at"]
 
     def __str__(self):
-        return f"[{self.store.name}] 訂單 #{self.id} - {self.phone_tail}"
+        return f"[{self.store.name}] #{self.id} ({self.get_status_display()})"
 
     def update_total_from_json(self):
-        """從 JSONField 重新計算總額"""
+        """
+        從 items JSON 欄位重新計算 subtotal 與 total。
+        僅做數值計算，不涉及資料庫寫入或庫存變更。
+        """
         new_total = 0
-        if self.items:
+        if self.items and isinstance(self.items, list):
             for item in self.items:
-                price = int(item.get("price", 0))
-                qty = int(item.get("quantity", 0))
-                new_total += price * qty
+                try:
+                    price = int(item.get("price", 0))
+                    # 兼容 quantity 或 qty 鍵名
+                    qty = int(item.get("quantity") or item.get("qty") or 0)
+                    new_total += price * qty
+                except (ValueError, TypeError):
+                    continue
         self.subtotal = new_total
         self.total = new_total
 
-    def restore_stock(self):
-        """取消訂單時歸還庫存"""
-        with transaction.atomic():
-            if self.items:
-                for item in self.items:
-                    product_id = item.get("id")
-                    qty = int(item.get("quantity", 0))
-                    if product_id:
-                        Product.objects.filter(id=product_id).update(
-                            stock=models.F("stock") + qty
-                        )
-
     def save(self, *args, **kwargs):
+        """
+        覆寫 save 方法：
+        1. 自動計算總金額 (確保資料一致性)。
+        2. 自動填寫完成時間。
+        注意：這裡已移除所有「庫存還原」邏輯，避免與 ViewSet 衝突。
+        """
+        # 1. 計算金額
         self.update_total_from_json()
 
-        if self.pk:
-            try:
-                old_order = Order.objects.get(pk=self.pk)
-                if old_order.status != "cancelled" and self.status == "cancelled":
-                    self.restore_stock()
-            except Order.DoesNotExist:
-                pass
-
+        # 2. 若狀態變為完成/結案，且沒有時間戳記，則自動填入
         if self.status in ["completed", "final"] and not self.completed_at:
             self.completed_at = timezone.now()
 
