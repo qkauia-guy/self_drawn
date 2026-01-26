@@ -161,6 +161,8 @@ class ProductViewSet(viewsets.ReadOnlyModelViewSet):
 class OrderViewSet(viewsets.ModelViewSet):
     serializer_class = OrderSerializer
 
+    throttle_classes = []
+
     def get_queryset(self):
         # 1. 取得基本 QuerySet
         qs = Order.objects.all()

@@ -5,7 +5,6 @@
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 
-  <!-- iOS/iPad：加到主畫面時比較接近全螢幕 -->
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="叫號看板">
@@ -20,7 +19,10 @@
       --bg-color: #121212;
       --card-bg: #1e1e1e;
       --ready-color: #4caf50;
+      /* 稍微調低透明度，配合毛玻璃 */
+      --ready-glow: rgba(76, 175, 80, 0.4);
       --preparing-color: #ff9800;
+      --preparing-glow: rgba(255, 152, 0, 0.4);
       --text-main: #ffffff;
       --vh: 1vh;
     }
@@ -29,10 +31,24 @@
       margin: 0; padding: 0;
       height: 100%;
       background-color: var(--bg-color);
+      /* 加入一點點漸層背景，讓毛玻璃效果更明顯 */
+      background-image: radial-gradient(circle at 50% 50%, #1a1a1a 0%, #000000 100%);
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       overflow: hidden;
       overscroll-behavior: none;
       -webkit-overflow-scrolling: touch;
+      transition: background-color 0.3s;
+    }
+
+    /* 螢幕閃爍動畫 */
+    @keyframes screen-flash {
+      0% { box-shadow: inset 0 0 0 0 rgba(255, 255, 255, 0); }
+      50% { box-shadow: inset 0 0 150px 50px rgba(255, 255, 255, 0.5); }
+      100% { box-shadow: inset 0 0 0 0 rgba(255, 255, 255, 0); }
+    }
+
+    .flashing {
+      animation: screen-flash 0.6s ease-in-out 3;
     }
 
     .container{
@@ -42,6 +58,8 @@
       height: calc(var(--vh) * 100);
       padding: 20px;
       box-sizing: border-box;
+      position: relative;
+      z-index: 1;
     }
 
     #audio-unlock-overlay{
@@ -79,6 +97,7 @@
       font-size: 2.5rem;
       margin: 0;
       letter-spacing: 5px;
+      text-shadow: 0 2px 4px rgba(0,0,0,0.5);
     }
 
     .store-badge{
@@ -98,7 +117,8 @@
 
     .column{
       flex: 1;
-      background-color: var(--card-bg);
+      /* 讓底板稍微深色一點，襯托上面的毛玻璃數字 */
+      background-color: rgba(30, 30, 30, 0.6);
       border-radius: 20px;
       display: flex;
       flex-direction: column;
@@ -112,62 +132,93 @@
       padding: 15px;
       margin: 0;
       color: var(--text-main);
-      border-bottom: 3px solid #333;
+      border-bottom: 2px solid rgba(255, 255, 255, 0.1);
     }
 
     .ready h2{
-      background-color: rgba(76, 175, 80, 0.2);
+      background-color: rgba(76, 175, 80, 0.15); /* 降低透明度 */
       color: var(--ready-color);
+      text-shadow: none;
     }
 
     .preparing h2{
-      background-color: rgba(255, 152, 0, 0.2);
+      background-color: rgba(255, 152, 0, 0.15);
       color: var(--preparing-color);
+      text-shadow: none;
     }
 
     .number-list{
       flex: 1;
       display: grid;
       grid-template-columns: repeat(2, 1fr);
-      grid-auto-rows: min-content;
+      grid-template-rows: repeat(4, 1fr);
       gap: 15px;
       padding: 20px;
       overflow: hidden;
       align-content: start;
     }
 
+    /* ▼▼▼ 毛玻璃數字框設定 ▼▼▼ */
     .order-number{
-      background: #2a2a2a;
+      /* 1. 霧面模糊效果 (核心) */
+      backdrop-filter: blur(12px); 
+      -webkit-backdrop-filter: blur(12px); /* 相容 Safari */
+      
+      /* 2. 半透明背景 (這是基底，不用太深) */
+      background: rgba(255, 255, 255, 0.05);
+      
+      /* 3. 玻璃邊框感 */
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+      
       color: var(--text-main);
       font-size: 4.5rem;
       font-weight: 900;
       text-align: center;
       padding: 25px 0;
-      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      
+      /* 4. 柔和陰影 */
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      
       animation: fadeIn 0.4s ease-out;
     }
 
+    /* ✨ Ready (請取餐) - 綠色霧面玻璃 */
     .ready .order-number{
       color: var(--ready-color);
-      background: #1b261c;
-      border: 3px solid var(--ready-color);
+      /* 帶一點綠色的半透明背景 */
+      background: rgba(76, 175, 80, 0.15);
+      border: 1px solid rgba(76, 175, 80, 0.4); /* 邊框亮一點 */
+      
+      /* 柔和的文字光暈 */
+      text-shadow: 0 0 8px var(--ready-glow);
+      
+      /* 呼吸效果 */
       animation: pulse 2s infinite, fadeIn 0.5s ease-out;
     }
 
+    /* ✨ Preparing (製作中) - 橘色霧面玻璃 */
     .preparing .order-number{
       color: var(--preparing-color);
-      border: 2px solid var(--preparing-color);
+      /* 帶一點橘色的半透明背景 */
+      background: rgba(255, 152, 0, 0.1);
+      border: 1px solid rgba(255, 152, 0, 0.4);
+      
+      text-shadow: 0 0 5px var(--preparing-glow);
     }
 
     @keyframes fadeIn{
-      from { opacity: 0; transform: scale(0.9); }
+      from { opacity: 0; transform: scale(0.95); }
       to { opacity: 1; transform: scale(1); }
     }
 
     @keyframes pulse{
-      0% { box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.4); }
-      70% { box-shadow: 0 0 0 20px rgba(76, 175, 80, 0); }
-      100% { box-shadow: 0 0 0 0 rgba(76, 175, 80, 0); }
+      0% { box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.2); border-color: rgba(76, 175, 80, 0.4); }
+      50% { box-shadow: 0 0 15px rgba(76, 175, 80, 0.15); border-color: rgba(76, 175, 80, 0.7); }
+      100% { box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.2); border-color: rgba(76, 175, 80, 0.4); }
     }
 
     @media (max-width: 900px){
@@ -175,13 +226,10 @@
       .column h2{ font-size: 1.8rem; }
       .order-number{ font-size: 3.8rem; padding: 18px 0; }
     }
-  </style>
+</style>
 </head>
 
 <body>
-  <!-- Debug 區：現場快速判斷語音是否就緒 -->
-  <!-- <div id="tts-debug" style="color:#aaa;font-size:14px;text-align:center;margin-top:8px;"></div> -->
-
   <div id="audio-unlock-overlay">
     <h1 style="margin-bottom: 10px; letter-spacing: 3px;">🍓 一把葫叫號看板</h1>
     <h2 style="margin-bottom: 30px; color: #ff4d4d;">{{ store.name }}</h2>
@@ -219,8 +267,17 @@
     let previousReadyNumbers = new Set();
     let isFirstLoad = true;
     let isSystemStarted = false;
+    let audioContext = null;
 
-    // ✅ 修正行動瀏覽器 100vh 問題（Android / iOS 都有幫助）
+    // 分頁變數
+    let readyPageIndex = 0;
+    let preparingPageIndex = 0;
+
+    // 📢 廣播佇列控制變數
+    let announcementQueue = []; // 待播報的號碼陣列
+    let isAnnouncing = false;   // 是否正在播報中
+
+    // 修正行動瀏覽器 100vh 問題
     function setVhUnit() {
       const vh = window.innerHeight * 0.01;
       document.documentElement.style.setProperty('--vh', `${vh}px`);
@@ -229,7 +286,6 @@
     window.addEventListener('resize', setVhUnit);
     window.addEventListener('orientationchange', () => setTimeout(setVhUnit, 200));
 
-    // ✅ 嘗試進入全螢幕（需要使用者點擊觸發）
     async function requestFullScreen() {
       const el = document.documentElement;
       try {
@@ -239,123 +295,126 @@
     }
 
     // =========================
-    // ✅ TTS（Android/iPad）
+    // ✨ 音效引擎 (改為 Promise 模式)
+    // =========================
+    function playChime() {
+      return new Promise((resolve) => {
+        if (!audioContext) { resolve(); return; }
+        if (audioContext.state === 'suspended') audioContext.resume();
+
+        const now = audioContext.currentTime;
+
+        // 第一聲 "叮" (高音 E5)
+        const osc1 = audioContext.createOscillator();
+        const gain1 = audioContext.createGain();
+        osc1.type = 'sine'; osc1.frequency.setValueAtTime(659.25, now);
+        gain1.gain.setValueAtTime(0.1, now); gain1.gain.exponentialRampToValueAtTime(0.001, now + 1.5);
+        osc1.connect(gain1); gain1.connect(audioContext.destination);
+        osc1.start(now); osc1.stop(now + 1.5);
+
+        // 第二聲 "咚" (低音 C5)
+        const osc2 = audioContext.createOscillator();
+        const gain2 = audioContext.createGain();
+        osc2.type = 'sine'; osc2.frequency.setValueAtTime(523.25, now + 0.6);
+        gain2.gain.setValueAtTime(0.1, now + 0.6); gain2.gain.exponentialRampToValueAtTime(0.001, now + 2.1);
+        osc2.connect(gain2); gain2.connect(audioContext.destination);
+        osc2.start(now + 0.6); osc2.stop(now + 2.1);
+
+        // ✨ 關鍵：等待 2.2 秒讓聲音播完才 resolve
+        setTimeout(resolve, 2200);
+      });
+    }
+
+    // =========================
+    // ✅ TTS 語音 (改為 Promise 模式)
     // =========================
     const synth = window.speechSynthesis;
-    const debugEl = document.getElementById('tts-debug');
-
-    function debug(msg) {
-      if (debugEl) debugEl.innerText = msg;
-    }
-
-    function sleep(ms) {
-      return new Promise(r => setTimeout(r, ms));
-    }
-
-    function getVoicesSafe() {
-      try { return (synth && synth.getVoices) ? (synth.getVoices() || []) : []; }
-      catch(e){ return []; }
-    }
 
     async function primeTTS() {
-      if (!('speechSynthesis' in window)) {
-        debug('❌ speechSynthesis 不支援');
-        return false;
-      }
-
-      /*
-        【測試備註 / 經驗】
-        1) Android Chrome 可能出現 speak error: synthesis-failed（表示底層合成引擎失敗/不可用）[MDN: SpeechSynthesisErrorEvent.error]。
-           但 Samsung Internet 在同一台裝置可能正常（你已驗證）。[web:207]
-
-        2) Chrome 系列常見：一開始 getVoices() 會回空，需等 voiceschanged 才會出現語音清單。[web:219]
-
-        3) speak() 在很多瀏覽器必須在「使用者互動後」觸發才穩定；本頁用按鈕啟動符合這個限制。[web:222]
-
-        4) 為了避免選到「看得到但壞掉」的 voice 造成 synthesis-failed，
-           這份程式刻意不指定 utterance.voice，只設定 utterance.lang，讓系統自行挑選可用 voice。
-      */
-
-      // 觸發載入 voice 列表
+      if (!('speechSynthesis' in window)) return false;
       synth.getVoices();
-
-      // 等 voiceschanged 或逾時（只做提示，實際不硬依賴 voices 數量）
+      
       let resolved = false;
-
-      const waitVoicesChanged = new Promise(resolve => {
-        try {
-          synth.onvoiceschanged = () => {
-            if (resolved) return;
-            resolved = true;
-            debug(`ℹ️ voiceschanged: voices=${getVoicesSafe().length}`);
-            resolve(true);
-          };
-        } catch(e) {
-          resolve(false);
-        }
+      const wait = new Promise(r => { 
+        try { synth.onvoiceschanged = () => { if(!resolved){resolved=true; r(true);} }; } catch(e){r(false);} 
       });
+      const timeout = (async () => { await new Promise(r=>setTimeout(r,1200)); if(resolved)return true; resolved=true; return true; })();
+      await Promise.race([wait, timeout]);
 
-      const timeout = (async () => {
-        await sleep(1200);
-        if (resolved) return true;
-        resolved = true;
-        debug(`ℹ️ timeout: voices=${getVoicesSafe().length}`);
-        try { synth.onvoiceschanged = null; } catch(e){}
-        return true;
-      })();
-
-      await Promise.race([waitVoicesChanged, timeout]);
-
-      // 熱機（很多裝置第一次要先 speak 一句才會開始出聲）
       try {
         synth.cancel();
         const u = new SpeechSynthesisUtterance('系統啟動');
-        u.lang = 'zh-TW';
-        u.rate = 0.95;
-        u.pitch = 1.0;
-        u.volume = 1;
-
-        u.onstart = () => debug(`🔊 TTS start | voices=${getVoicesSafe().length} | voice=auto`);
-        u.onend = () => debug('✅ TTS ready');
-        u.onerror = (e) => debug(`❌ warmup error: ${e.error || 'unknown'}`);
-
+        u.lang = 'zh-TW'; u.volume = 1;
         synth.speak(u);
-      } catch (e) {
-        debug('❌ TTS warmup exception');
-      }
-
+      } catch (e) {}
       return true;
     }
 
     function speak(text) {
-      if (!('speechSynthesis' in window)) return;
+      return new Promise((resolve) => {
+        if (!('speechSynthesis' in window)) { resolve(); return; }
 
-      try {
-        // Android 常見：queue 卡住 => cancel 再 speak
-        synth.cancel();
+        // ✨ 這裡【不能】再呼叫 synth.cancel()，否則會切斷上一句
+        // 我們依賴 Promise 來確保順序
 
         const u = new SpeechSynthesisUtterance(text);
         u.lang = 'zh-TW';
-        u.rate = 0.85;
-        u.pitch = 1.0;
+        u.rate = 0.85; 
         u.volume = 1;
 
-        // 不指定 u.voice（避免 Android/三星選到壞 voice）
-        u.onerror = (e) => debug(`❌ speak error: ${e.error || 'unknown'}`);
+        // 當講完話時，通知 Promise 完成
+        u.onend = () => resolve();
+        
+        // 防呆：如果出錯或太久沒回應，強制完成以免卡死
+        u.onerror = () => resolve();
+        setTimeout(resolve, 5000); // 最多等5秒
 
         synth.speak(u);
-      } catch (e) {
-        debug('❌ speak exception');
+      });
+    }
+
+    // =========================
+    // 📢 全新：排隊播報系統
+    // =========================
+    function addToAnnouncementQueue(newNumbers) {
+      // 1. 把新號碼加入隊列
+      announcementQueue.push(...newNumbers);
+      
+      // 2. 觸發螢幕閃爍 (有新號碼就閃)
+      document.body.classList.remove('flashing');
+      void document.body.offsetWidth; // 強制重繪
+      document.body.classList.add('flashing');
+
+      // 3. 如果目前沒有在播報，就開始處理隊列
+      if (!isAnnouncing) {
+        processQueue();
       }
     }
 
-    function speakOrder(newNumbers) {
-      // 逐筆叫號（避免一次塞太多造成不講）
-      newNumbers.forEach((num, idx) => {
-        setTimeout(() => {
-          speak(`請訂單編號 ${num} 號取餐`);
-        }, idx * 1200);
-      });
+    async function processQueue() {
+      if (announcementQueue.length === 0) {
+        isAnnouncing = false;
+        return;
+      }
+
+      isAnnouncing = true;
+
+      // 1. 先播「叮咚」提示音
+      await playChime();
+
+      // 2. 迴圈播報所有在隊列中的號碼
+      // (使用 while 是為了讓在播報途中新加入的號碼也能接續播報)
+      while (announcementQueue.length > 0) {
+        const num = announcementQueue.shift(); // 取出第一個號碼
+        
+        // 講話：請訂單編號 X 號取餐
+        await speak(`請訂單編號 ${num} 號取餐`);
+        
+        // 稍微停頓 0.5 秒再講下一句，比較自然
+        await new Promise(r => setTimeout(r, 500));
+      }
+
+      isAnnouncing = false;
     }
 
     // =========================
@@ -363,22 +422,22 @@
     // =========================
     async function initSystem() {
       isSystemStarted = true;
-
       requestFullScreen();
-
-      // 隱藏 overlay
+      audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      
       const overlay = document.getElementById('audio-unlock-overlay');
       overlay.style.opacity = '0';
       setTimeout(() => { overlay.style.display = 'none'; }, 500);
 
-      // ✅ TTS 初始化：一定在使用者點擊後做
-      debug('⏳ TTS 初始化中...');
       await primeTTS();
 
       updateBoard();
       setInterval(updateBoard, 4000);
     }
 
+    // =========================
+    // 核心邏輯
+    // =========================
     async function updateBoard() {
       if (!isSystemStarted) return;
 
@@ -387,11 +446,9 @@
         if (!response.ok) return;
 
         const orders = await response.json();
-        const readyList = document.getElementById('ready-list');
-        const preparingList = document.getElementById('preparing-list');
-
-        let readyData = [];
-        let preparingData = [];
+        
+        let allReadyData = [];
+        let allPreparingData = [];
         let currentReadyNumbers = new Set();
 
         const orderArray = Array.isArray(orders) ? orders : (orders.results || []);
@@ -399,29 +456,67 @@
         orderArray.forEach(order => {
           const orderId = `${order.id}`;
           if (order.status === 'completed' || order.status === 'arrived') {
-            readyData.push(orderId);
+            allReadyData.push(orderId);
             currentReadyNumbers.add(orderId);
           } else if (order.status === 'preparing') {
-            preparingData.push(orderId);
+            allPreparingData.push(orderId);
           }
         });
 
-        const finalReady = readyData.slice(0, 8);
-        const finalPreparing = preparingData.slice(0, 8);
-
-        readyList.innerHTML = finalReady.map(num => `<div class="order-number">${num}</div>`).join('');
-        preparingList.innerHTML = finalPreparing.map(num => `<div class="order-number">${num}</div>`).join('');
-
+        // 偵測新號碼並加入播報隊列
         if (!isFirstLoad) {
           const newNumbers = [...currentReadyNumbers].filter(num => !previousReadyNumbers.has(num));
-          if (newNumbers.length > 0) speakOrder(newNumbers);
+          if (newNumbers.length > 0) {
+            // ✨ 改用新的排隊函式
+            addToAnnouncementQueue(newNumbers);
+          }
         }
+
+        // --- 分頁邏輯 ---
+        function processPagination(data, pageIndex, headerSelector, defaultTitle) {
+            const PAGE_SIZE = 8;
+            const totalPages = Math.ceil(data.length / PAGE_SIZE) || 1;
+            
+            // 如果正在播報中，強制「請取餐」顯示第一頁
+            if (isAnnouncing && defaultTitle.includes('Ready')) {
+                pageIndex = 0;
+            } else if (pageIndex >= totalPages) {
+                pageIndex = 0;
+            }
+
+            const batch = data.slice(pageIndex * PAGE_SIZE, (pageIndex + 1) * PAGE_SIZE);
+            const headerEl = document.querySelector(headerSelector);
+            if (headerEl) {
+                headerEl.innerText = totalPages > 1 ? `${defaultTitle} (${pageIndex + 1}/${totalPages})` : defaultTitle;
+            }
+
+            return {
+                batchData: batch,
+                nextIndex: (pageIndex + 1) % totalPages
+            };
+        }
+
+        const readyResult = processPagination(allReadyData, readyPageIndex, '.ready h2', '請取餐 Ready');
+        readyPageIndex = readyResult.nextIndex;
+        renderList('ready-list', readyResult.batchData);
+
+        const prepResult = processPagination(allPreparingData, preparingPageIndex, '.preparing h2', '製作中 Preparing');
+        preparingPageIndex = prepResult.nextIndex;
+        renderList('preparing-list', prepResult.batchData);
 
         previousReadyNumbers = currentReadyNumbers;
         isFirstLoad = false;
+
       } catch (error) {
         console.error('資料同步失敗:', error);
-        debug('❌ API 同步失敗（請看 console）');
+      }
+    }
+
+    function renderList(elementId, numbers) {
+      const container = document.getElementById(elementId);
+      const newHTML = numbers.map(num => `<div class="order-number animate-in">${num}</div>`).join('');
+      if (container.innerHTML !== newHTML) {
+         container.innerHTML = newHTML;
       }
     }
   </script>
