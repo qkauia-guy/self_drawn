@@ -360,16 +360,22 @@
     let alarmAudio = new Audio('https://actions.google.com/sounds/v1/alarms/beep_short.ogg');
     alarmAudio.loop = true;
     alarmAudio.preload = 'auto';
-    
+    let audioErrorHandled = false; // 放在 addEventListener 前面
+
     alarmAudio.addEventListener('error', (e) => {
-        console.error('音訊載入失敗:', e);
-        try {
-            alarmAudio = new Audio('data:audio/wav;base64,UklGRl9vT19XQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YU');
-            alarmAudio.loop = true;
-            alarmAudio.preload = 'auto';
-        } catch (err) {
-            console.error('無法建立備用音訊:', err);
-        }
+    if (audioErrorHandled) return;
+    audioErrorHandled = true;
+
+    console.warn('音訊載入失敗，改用 Base64 內建音效:', e);
+
+    try {
+        alarmAudio = new Audio(dingDongBase64); // 你檔案裡是 data:audio/wav;base64,... [file:4]
+        alarmAudio.loop = true;
+        alarmAudio.preload = 'auto';
+    } catch (err) {
+        console.warn('Base64 音效也初始化失敗，將只用震動/TTS', err);
+        alarmAudio = null;
+    }
     });
 
     let vibrationInterval = null, vibrationTimer = null;
@@ -1077,38 +1083,57 @@
         }
     }
 
+    let audioDisabled = false;
 
-    function playAlarmAndVibrate() {
+    async function playAlarmAndVibrate() {
+    // 先震動（你原本在最後，我也建議先做）
+    triggerStrongVibrate();
+
+    if (audioDisabled) {
+        // 直接語音（避免每次都再試音效）
         try {
-            alarmAudio.currentTime = 0;
-            const playPromise = alarmAudio.play();
-            if (playPromise !== undefined) {
-                playPromise
-                    .then(() => {
-                        console.log('提示音播放成功');
-                        audioUnlocked = true;
-                    })
-                    .catch(error => {
-                        console.error('提示音播放失敗:', error);
-                        if ('speechSynthesis' in window) {
-                            const utterance = new SpeechSynthesisUtterance('叮咚');
-                            utterance.lang = 'zh-TW';
-                            utterance.volume = 1.0;
-                            window.speechSynthesis.speak(utterance);
-                        }
-                    });
-            }
-        } catch (e) {
-            console.error('播放音訊異常:', e);
-            if ('speechSynthesis' in window) {
-                const utterance = new SpeechSynthesisUtterance('叮咚');
-                utterance.lang = 'zh-TW';
-                utterance.volume = 1.0;
-                window.speechSynthesis.speak(utterance);
-            }
+        if ('speechSynthesis' in window) {
+            window.speechSynthesis.cancel();
+            const u = new SpeechSynthesisUtterance('叮咚叮咚，餐點好了');
+            u.lang = 'zh-TW';
+            u.volume = 1.0;
+            window.speechSynthesis.speak(u);
         }
-        
-        triggerStrongVibrate();
+        } catch (_) {}
+        return;
+    }
+
+    // 沒音訊物件就直接走語音
+    if (!alarmAudio) {
+        audioDisabled = true;
+        return;
+    }
+
+    // 嘗試播放（成功就結束；失敗就降級到語音並停用後續重試）
+    try {
+        alarmAudio.currentTime = 0;
+        alarmAudio.loop = true;
+
+        const p = alarmAudio.play();
+        if (p !== undefined) await p;
+
+        audioUnlocked = true; // 你原本就有這個變數 [file:4]
+        return;
+    } catch (err) {
+        console.warn('提示音播放失敗，改用語音/震動:', err);
+        audioDisabled = true;
+    }
+
+    // 最後備援：語音
+    try {
+        if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+        const u = new SpeechSynthesisUtterance('叮咚叮咚，餐點好了');
+        u.lang = 'zh-TW';
+        u.volume = 1.0;
+        window.speechSynthesis.speak(u);
+        }
+    } catch (_) {}
     }
     
     function triggerStrongVibrate() {
