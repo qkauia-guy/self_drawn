@@ -856,6 +856,18 @@
     // 🛑 防止語音物件被回收
     const utteranceStorage = [];
 
+    function enterFullScreen() {
+        let elem = document.documentElement; // 抓取整個網頁
+        if (elem.requestFullscreen) {
+            elem.requestFullscreen().catch(err => {
+                console.log(`Error attempting to enable full-screen mode: ${err.message} (${err.name})`);
+            });
+        } else if (elem.webkitRequestFullscreen) { /* Safari & Chrome */
+            elem.webkitRequestFullscreen();
+        } else if (elem.msRequestFullscreen) { /* IE11 */
+            elem.msRequestFullscreen();
+        }
+    }
     // ==========================================
     // 3. 初始化流程
     // ==========================================
@@ -904,6 +916,8 @@
     async function unlockAudio() {
         const initSelector = document.getElementById('initStoreSelector');
         if (!initSelector || !initSelector.value) return Swal.fire("請先選擇分店");
+
+        enterFullScreen();
 
         currentStore = initSelector.value;
         localStorage.setItem('selected_store', currentStore);
