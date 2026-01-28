@@ -441,11 +441,21 @@
     };
 
     function fetchOrderAndSwitch(oid) {
+        // 使用 t=Date.now() 防止瀏覽器快取舊狀態
         fetch(`/api/orders/${oid}/?t=${Date.now()}`)
             .then(res => {
                 if (!res.ok) {
-                    if (res.status === 403) {
-                        Swal.fire({ icon: 'warning', title: '無法查詢', text: '訂單編號錯誤' });
+                    // 403: 無權限 (手機號碼不對), 404: 訂單不存在
+                    if (res.status === 403 || res.status === 404) {
+                        Swal.fire({ 
+                            icon: 'warning', 
+                            title: '無法查詢', 
+                            text: '訂單連結無效或已過期' 
+                        }).then(() => {
+                            // 如果查不到，自動清除網址參數，回首頁
+                            window.history.replaceState({}, document.title, window.location.pathname);
+                            window.location.reload();
+                        });
                         return null;
                     }
                     throw new Error(`HTTP ${res.status}`);
@@ -454,12 +464,18 @@
             })
             .then(order => {
                 if (order) {
+                    // 成功撈到資料！
+                    // 傳入 order 物件，switchToStatusPage 會自動優先顯示 daily_serial
                     switchToStatusPage(oid, order);
                 }
             })
             .catch(err => {
                 console.error('查詢訂單失敗:', err);
-                Swal.fire({ icon: 'error', title: '查詢失敗', text: '無法載入訂單' });
+                Swal.fire({ 
+                    icon: 'error', 
+                    title: '查詢失敗', 
+                    text: '無法載入訂單資料，請稍後再試' 
+                });
             });
     }
 
@@ -875,21 +891,40 @@
     }
 
     function switchToStatusPage(oid, orderData = null) {
+        // 1. 切換畫面：隱藏點餐表單，顯示狀態頁
         document.getElementById('orderForm').classList.add('d-none');
         document.getElementById('statusPage').classList.remove('d-none');
-        document.getElementById('display_order_id').innerText = oid;
         
+        const displayEl = document.getElementById('display_order_id');
+
+        // 2. ✨✨✨ 關鍵邏輯：決定顯示號碼 ✨✨✨
+        // 如果後端回傳了 daily_serial (流水號)，優先顯示流水號；否則顯示資料庫 ID
+        const displayId = (orderData && orderData.daily_serial) ? orderData.daily_serial : oid;
+        displayEl.innerText = displayId;
+        
+        // 3. ✨✨✨ 關鍵邏輯：保存真實 ID ✨✨✨
+        // 把真實資料庫 ID (oid) 藏在 dataset 屬性裡
+        // 這樣即使畫面上顯示 "1號"，後續程式碼也能透過 dataset.realId 抓到 "5002" 來發送 API
+        displayEl.dataset.realId = oid; 
+        
+        // 4. 開始輪詢狀態 (必須使用真實 ID)
         startPolling(oid);
         
+        // 5. 更新詳細資訊
         if (orderData) {
             document.getElementById('display_phone').innerText = orderData.phone_tail || '';
             document.getElementById('display_final_total').innerText = orderData.total || 0;
+            
             const pMethodMap = {'cash': '現金', 'linepay': 'LINE Pay'};
             document.getElementById('display_payment').innerText = pMethodMap[orderData.payment_method] || orderData.payment_method || '未指定';
-            document.getElementById('created_time').innerText = new Date().toLocaleTimeString();
+            
+            // 嘗試使用訂單建立時間，如果沒有則顯示當下時間
+            const timeStr = orderData.created_at ? new Date(orderData.created_at).toLocaleTimeString() : new Date().toLocaleTimeString();
+            document.getElementById('created_time').innerText = timeStr;
+            
             renderOrderDetailList(orderData.items);
             
-            // ✅ 修改處 4: 在切換頁面且有資料時，也同步全域變數
+            // 6. 更新全域變數 (修復驗證 Bug)
             cachedPhoneTail = orderData.phone_tail;
         }
     }
@@ -927,6 +962,14 @@
     function updateStatusUI(order) {
         // 1. 重要：將 API 回傳的正確號碼存入全域變數 (修復驗證 Bug)
         cachedPhoneTail = order.phone_tail;
+
+        // ✨✨✨ 關鍵新增：決定顯示號碼 (優先顯示流水號) ✨✨✨
+        const displayId = order.daily_serial || order.id;
+
+        // 更新大圓圈顯示，並更新 dataset 的真實 ID
+        const displayEl = document.getElementById('display_order_id');
+        displayEl.innerText = displayId;
+        displayEl.dataset.realId = order.id; 
 
         const box = document.getElementById('statusBox');
         const pickupInfo = document.getElementById('pickupInfo');
@@ -984,7 +1027,9 @@
             box.innerHTML = "🥹讓您久等了！餐點已完成！麻煩請至窗口取餐";
             box.className = "status-box st-completed";
             pickupInfo.classList.remove('d-none');
-            document.getElementById('info_id').innerText = order.id;
+            
+            // ✨✨✨ 修改這裡：顯示流水號 (例如 1號) ✨✨✨
+            document.getElementById('info_id').innerText = displayId;
 
             arrivedBtn.classList.remove('d-none');
             finalBtn.classList.add('d-none');
@@ -1132,12 +1177,22 @@
     function stopAlarmAndNotify() {
         stopAllAlerts();
         
-        // ✅ 修改處 6: 直接從變數讀取正確的號碼，不抓 DOM 避免 UI 延遲問題
+        // 1. 取得手機末碼 (從全域變數，確保精準)
         const phoneTail = cachedPhoneTail; 
-        const oid = document.getElementById('display_order_id').innerText;
+        
+        // ✨✨✨ 關鍵修正：取得真實資料庫 ID (oid) ✨✨✨
+        // 優先從 dataset 抓 (由 switchToStatusPage 寫入)
+        let oid = document.getElementById('display_order_id').dataset.realId;
+        
+        // 如果 dataset 沒資料 (例如直接 F5 刷新頁面)，則從 URL 參數抓
+        if (!oid) {
+            const urlParams = new URLSearchParams(window.location.search);
+            oid = urlParams.get('oid');
+        }
         
         console.log("驗證資料:", { oid, phoneTail });
 
+        // 2. 驗證資料完整性
         if (!phoneTail || phoneTail.length !== 4) {
             Swal.fire({
                 icon: 'error',
@@ -1147,11 +1202,23 @@
             });
             return;
         }
+
+        if (!oid) {
+            Swal.fire({
+                icon: 'error',
+                title: '系統錯誤',
+                text: '無法識別訂單編號 (ID 遺失)，請重新掃描 QRCode',
+                confirmButtonColor: '#ff4d4d'
+            });
+            return;
+        }
         
+        // 3. UI 鎖定 (防止重複點擊)
         const btn = document.getElementById('arrivedBtn');
         btn.disabled = true;
         btn.innerText = "處理中...";
 
+        // 4. 發送 API 請求
         fetch(`/api/orders/${oid}/`, {
             method: 'PATCH',
             headers: { 
@@ -1172,14 +1239,17 @@
             return res.json();
         })
         .then(() => {
+            // 5. 成功狀態更新
             btn.className = "btn btn-secondary w-100 py-3 disabled mb-2";
             btn.innerText = "已通知 (等待店員)";
             document.getElementById('finalBtn').classList.remove('d-none');
+            
             const statusBox = document.getElementById('statusBox');
             statusBox.innerHTML = '🔔 已通知店家您在櫃檯';
             statusBox.className = "status-box bg-info text-white shadow-sm";
         })
         .catch(err => {
+            // 6. 失敗處理 (恢復按鈕)
             console.error('通知失敗:', err);
             btn.disabled = false;
             btn.innerText = "已到櫃檯(通知領取)";
@@ -1204,9 +1274,16 @@
             cancelButtonText: '取消'
         }).then((result) => {
             if (result.isConfirmed) {
-                const oid = document.getElementById('display_order_id').innerText;
+                // 🔥 關鍵修正：這裡不能抓 innerText (因為那是流水號)，要抓 dataset.realId (真實 ID)
+                let oid = document.getElementById('display_order_id').dataset.realId;
                 
-                // ✅ 修改處 7: 這裡也改用變數讀取
+                // 備用方案：如果 dataset 沒資料 (例如使用者按了 F5 刷新)，嘗試從 URL 抓
+                if (!oid) {
+                    const urlParams = new URLSearchParams(window.location.search);
+                    oid = urlParams.get('oid');
+                }
+                
+                // ✅ 從全域變數讀取正確的手機碼
                 const phoneTail = cachedPhoneTail;
                 
                 if (!phoneTail || phoneTail.length !== 4) {
@@ -1214,6 +1291,16 @@
                         icon: 'error',
                         title: '無法完成',
                         text: '缺少手機後4碼資訊',
+                        confirmButtonColor: '#ff4d4d'
+                    });
+                    return;
+                }
+
+                if (!oid) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: '系統錯誤',
+                        text: '找不到訂單 ID，請重新掃描 QRCode',
                         confirmButtonColor: '#ff4d4d'
                     });
                     return;

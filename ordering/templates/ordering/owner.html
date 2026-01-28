@@ -2,6 +2,11 @@
 <html lang="zh-Hant">
 <head>
   <meta charset="UTF-8">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#d63031">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="一把葫管理">
   {% load static %}
   <title>一把葫管理後台 - 即時訂單</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
@@ -1237,47 +1242,40 @@
     // 6. 指令解析與執行 (含展開/收合功能)
     // ==========================================
     function processVoiceCommand(text) {
+        // 防止短時間內重複執行相同指令 (Debounce)
         if (text === lastFinalText && (Date.now() - lastFinalAt) < 1000) return;
         lastFinalText = text;
         lastFinalAt = Date.now();
 
-        console.log(`🤖 指令: "${text}"`); 
-        const cleanText = text.replace(/[^\u4e00-\u9fa5a-zA-Z0-9]/g, ""); 
+        console.log(`🤖 原始指令: "${text}"`);
+        const cleanText = text.replace(/[^\u4e00-\u9fa5a-zA-Z0-9]/g, "");
 
-        // ==================================================
-        // ★★★ 第一層：全域操作 (不需要訂單號碼) ★★★
-        // ==================================================
+        // --- 第一層：全域操作 (不需要訂單號碼) ---
         
-        // 1. 【全部收合/關閉】
+        // 1. 【全部收合】
         if (cleanText.includes("全部") && (cleanText.includes("收合") || cleanText.includes("收起來") || cleanText.includes("關閉") || cleanText.includes("縮"))) {
-            console.log(`✅ 觸發: 全部收合`);
             speak("已收合所有訂單");
             collapseAllOrders();
             return;
         }
 
-        // 2. 【全部展開/打開】
+        // 2. 【全部展開】
         if (cleanText.includes("全部") && (cleanText.includes("展開") || cleanText.includes("打開") || cleanText.includes("顯示"))) {
-            console.log(`✅ 觸發: 全部展開`);
             speak("展開所有訂單");
             expandAllOrders();
             return;
         }
 
-        // 3. 【新增：控制製作清單 (戰情板)】(★ 移到這裡才對！)
+        // 3. 【看板操作】
         if (cleanText.includes("看板") || cleanText.includes("清單") || cleanText.includes("廚房")) {
             const kb = document.getElementById('kitchenBoard');
-            
-            if (cleanText.includes("打開") || cleanText.includes("展開") || cleanText.includes("顯示") || cleanText.includes("叫出")) {
-                console.log("✅ 觸發: 打開製作清單");
-                if (kb) kb.classList.remove('collapsed'); 
+            if (cleanText.includes("打開") || cleanText.includes("展開") || cleanText.includes("顯示")) {
+                if (kb) kb.classList.remove('collapsed');
                 speak("製作清單已展開");
                 return;
             }
-            
-            if (cleanText.includes("關閉") || cleanText.includes("收合") || cleanText.includes("收起") || cleanText.includes("隱藏")) {
-                console.log("✅ 觸發: 收合製作清單");
-                if (kb) kb.classList.add('collapsed'); 
+            if (cleanText.includes("關閉") || cleanText.includes("收合") || cleanText.includes("隱藏")) {
+                if (kb) kb.classList.add('collapsed');
                 speak("已收起");
                 return;
             }
@@ -1285,67 +1283,100 @@
 
         // 4. 【切換分頁】
         if (cleanText.includes("切換") || cleanText.includes("顯示") || cleanText.includes("看")) {
-            let targetFilter = null;
-            let targetName = "";
-            if (cleanText.includes("全部")) { targetFilter = 'all'; targetName = "全部訂單"; }
-            else if (cleanText.includes("清單")) { targetFilter = 'pending'; targetName = "新訂單"; }
-            else if (cleanText.includes("成立")) { targetFilter = 'confirmed'; targetName = "成立訂單"; }
-            else if (cleanText.includes("製作")) { targetFilter = 'preparing'; targetName = "製作中訂單"; }
-            else if (cleanText.includes("位置")) { targetFilter = 'uncollected'; targetName = "未取餐訂單"; }
-            else if (cleanText.includes("完成")) { targetFilter = 'final'; targetName = "已完成訂單"; }
-            else if (cleanText.includes("取消")) { targetFilter = 'cancelled'; targetName = "已取消訂單"; }
-
-            if (targetFilter) {
-                speak(`切換到 ${targetName}`);
-                setFilter(targetFilter);
-                return;
+            const map = {
+                "全部": "all", "清單": "pending", "新單": "pending", 
+                "成立": "confirmed", "製作": "preparing", 
+                "位置": "uncollected", "未取": "uncollected", 
+                "完成": "final", "取消": "cancelled"
+            };
+            for (const [key, val] of Object.entries(map)) {
+                if (cleanText.includes(key)) {
+                    speak(`切換到 ${key}`);
+                    setFilter(val);
+                    return;
+                }
             }
         }
 
-        // ==================================================
-        // ★★★ 第二層：針對「特定號碼」操作 (必須有數字) ★★★
-        // ==================================================
-        
-        let orderId = null;
+        // --- 第二層：針對「特定號碼」操作 (必須有數字) ---
+
+        // 1. 解析語音中的數字
+        let spokenNum = null;
         const numMatch = cleanText.match(/(\d+)/);
-        if (numMatch) orderId = parseInt(numMatch[1]);
+        if (numMatch) spokenNum = parseInt(numMatch[1]);
         else {
             const zhNum = cleanText.match(/[零一二兩三四五六七八九十]+/);
-            if (zhNum) orderId = parseChineseNumber(zhNum[0]);
+            if (zhNum) spokenNum = parseChineseNumber(zhNum[0]);
         }
 
-        // ★ 這裡會擋下沒有數字的指令，所以「看板操作」不能放這下面
-        if (!orderId) return;
+        if (!spokenNum) return; // 沒聽到數字就結束
 
-        console.log(`🔢 訂單號: ${orderId}`);
+        console.log(`🔢 語音識別數字: ${spokenNum}`);
+
+        // 🔥🔥🔥 關鍵修正開始：將「流水號」轉換為「真實 ID」 🔥🔥🔥
+        let realId = null;
+        
+        // 在快取中尋找 daily_serial 等於 語音數字 的訂單
+        const targetOrder = rawOrdersCache.find(o => o.daily_serial === spokenNum);
+
+        if (targetOrder) {
+            realId = targetOrder.id; // 找到了！取出真實 ID (例如 5002)
+            console.log(`✅ 轉換成功: 流水號 #${spokenNum} -> 真實 ID #${realId}`);
+        } else {
+            // 如果找不到流水號，嘗試直接找 ID (容錯機制)
+            const fallbackOrder = rawOrdersCache.find(o => o.id === spokenNum);
+            if (fallbackOrder) {
+                realId = spokenNum;
+                console.log(`⚠️ 找不到流水號，但匹配到真實 ID #${realId}`);
+            } else {
+                console.warn(`❌ 找不到 #${spokenNum} 的訂單`);
+                // 這裡可以選擇是否要 speak("找不到訂單")
+                return;
+            }
+        }
+        // 🔥🔥🔥 關鍵修正結束 🔥🔥🔥
+
+        // --- 第三層：執行動作 (使用 realId) ---
 
         // 【單獨收合】
-        if (cleanText.includes("收合") || cleanText.includes("關閉") || cleanText.includes("縮") || cleanText.includes("關起來")) {
-            console.log(`✅ 觸發: 收合 ${orderId}號`);
-            collapseSingleOrder(orderId);
+        if (cleanText.includes("收合") || cleanText.includes("關閉")) {
+            collapseSingleOrder(realId);
         }
 
-        // 【單獨展開】
+        // 【單獨展開 / 搜尋】
         else if (cleanText.includes("展開") || cleanText.includes("打開") || cleanText.includes("搜尋") || cleanText.includes("找")) {
-            speak(`展開 ${orderId}號`);
-            searchAndExpand(orderId);
+            speak(`展開 ${spokenNum}號`); // 語音回饋還是唸流水號比較自然
+            
+            // 這裡我們搜尋流水號，讓畫面濾出該訂單
+            searchQuery = spokenNum.toString();
+            document.getElementById('searchInput').value = searchQuery;
+            renderOrders();
+            
+            // 然後展開它的明細
+            setTimeout(() => {
+                const detail = document.getElementById(`detail-${realId}`);
+                if (detail) {
+                    detail.classList.remove('hide-detail');
+                    detail.parentElement.classList.add('animate__animated', 'animate__pulse');
+                }
+            }, 100);
         }
 
-        // 【狀態操作】
-        else if (cleanText.includes("成立") || cleanText.includes("收錢") || cleanText.includes("付款")) {
-            speak(`${orderId} 已付`); // 改短一點加速
-            updateStatus(orderId, 'confirmed');
+        // 【狀態操作 - 必須傳入 realId】
+        else if (cleanText.includes("成立") || cleanText.includes("收錢")) {
+            speak(`${spokenNum}號 已付`);
+            updateStatus(realId, 'confirmed');
         }
         else if (cleanText.includes("製作") || cleanText.includes("做")) {
-            speak(`${orderId} 製作中`); // 改短一點加速
-            updateStatus(orderId, 'preparing');
+            speak(`${spokenNum}號 製作中`);
+            updateStatus(realId, 'preparing');
         }
         else if (cleanText.includes("完成") || cleanText.includes("好了") || cleanText.includes("通知")) {
-            speak(`${orderId} 完成`); // 改短一點加速
-            updateStatus(orderId, 'completed', true);
+            speak(`${spokenNum}號 完成`);
+            updateStatus(realId, 'completed', true); // true 代表發送通知
         }
         else if (cleanText.includes("謝謝") || cleanText.includes("交付") || cleanText.includes("結案")) {
-            updateStatus(orderId, 'final');
+            updateStatus(realId, 'final');
         }
     }
 
@@ -1618,8 +1649,19 @@
             body: JSON.stringify({ status: status })
         }).then(res => { 
             if(res.ok) { 
+                // 1. 重新載入介面
                 loadOrders(); 
-                if(status==='final') speak(`${id}號，訂單已完成`);
+                
+                // 2. 語音播報 (修正為唸流水號)
+                if(status === 'final') {
+                    // 從全域變數 rawOrdersCache 中找到這張單
+                    const targetOrder = rawOrdersCache.find(o => o.id === id);
+                    
+                    // 優先使用 daily_serial (流水號)，如果沒有才用 id
+                    const numToSpeak = (targetOrder && targetOrder.daily_serial) ? targetOrder.daily_serial : id;
+                    
+                    speak(`${numToSpeak}號，訂單已完成`);
+                }
             } 
         });
     }
@@ -1674,16 +1716,16 @@
                 // 1. 語音通知
                 orders.forEach(order => {
                     if (order.status === 'pending' && !alertedNewOrder.has(order.id)) {
-                        if (!isFirstLoad) speak(`新訂單 ${order.id}號`);
+                        if (!isFirstLoad) speak(`新訂單 ${order.daily_serial || order.id}號`);
                         alertedNewOrder.add(order.id);
                     }
                     if (order.status === 'arrived' && !alertedArrived.has(order.id)) {
                         playBell();
-                        setTimeout(() => speak(`${order.id}號 客人已經到櫃檯摟`), 1000);
+                        setTimeout(() => speak(`${order.daily_serial || order.id}號 客人已經到櫃檯摟`), 1000);
                         alertedArrived.add(order.id);
                     }
                     if (order.status === 'confirmed' && order.payment_method === 'linepay' && !alertedLinePayPaid.has(order.id)) {
-                        speak(`${order.id}號 線上付款成功`);
+                        speak(`${order.daily_serial || order.id}號 線上付款成功`);
                         alertedLinePayPaid.add(order.id);
                     }
                 });
@@ -1738,15 +1780,16 @@
     function renderOrders() {
         let filtered = rawOrdersCache.slice(); 
 
-        // 搜尋
+        // 1. 修改搜尋邏輯：支援搜尋 ID、流水號、手機末碼
         if (searchQuery) {
             filtered = filtered.filter(o => 
                 o.id.toString().includes(searchQuery) || 
+                (o.daily_serial && o.daily_serial.toString().includes(searchQuery)) || // ✨ 新增：搜尋流水號
                 (o.phone_tail && o.phone_tail.toString().includes(searchQuery))
             );
         }
 
-        // 篩選
+        // 2. 篩選 (保持不變)
         if (currentFilter !== 'all') {
             switch (currentFilter) {
                 case 'pending': filtered = filtered.filter(o => o.status === 'pending'); break;
@@ -1758,7 +1801,7 @@
             }
         }
 
-        // 排序
+        // 3. 排序 (保持不變，未結案在最上面，依 ID 倒序)
         filtered.sort((a, b) => {
             const isAClosed = ['final', 'cancelled'].includes(a.status);
             const isBClosed = ['final', 'cancelled'].includes(b.status);
@@ -1767,7 +1810,7 @@
             return b.id - a.id;
         });
 
-        // 分頁
+        // 4. 分頁計算
         const totalItems = filtered.length;
         const totalPages = Math.ceil(totalItems / itemsPerPage) || 1;
         if (currentPage > totalPages) currentPage = 1;
@@ -1775,13 +1818,15 @@
         const pageItems = filtered.slice(startIndex, startIndex + itemsPerPage);
 
         const list = document.getElementById('orderList');
+        
+        // 5. 無資料顯示
         if (pageItems.length === 0) {
             list.innerHTML = `<div class="text-center mt-5 text-muted"><h4>📭</h4><p>此分類下沒有訂單</p></div>`;
             updatePaginationUI(0, 0);
             return;
         }
 
-        // 記憶展開狀態
+        // 6. 記憶展開狀態 (避免重新渲染時跳掉)
         const openedIds = [];
         document.querySelectorAll('.detail-content:not(.hide-detail)').forEach(el => {
             openedIds.push(parseInt(el.id.replace('detail-', '')));
@@ -1790,15 +1835,17 @@
         let html = '';
         pageItems.forEach(order => {
             let shouldExpand = false;
-            // 預設全開的分頁
+            
+            // 設定自動展開的邏輯
             const autoExpandFilters = ['pending', 'confirmed', 'preparing', 'uncollected'];
             if (autoExpandFilters.includes(currentFilter)) {
                 shouldExpand = true;
             } else if (currentFilter === 'all' || searchQuery !== '') {
-                 // 在全部或搜尋時，只展開進行中
+                 // 在全部或搜尋模式下，只展開進行中的訂單
                  const activeStatuses = ['pending', 'confirmed', 'preparing', 'completed', 'arrived'];
                  if (activeStatuses.includes(order.status)) shouldExpand = true;
             }
+            // 如果原本就是打開的，保持打開
             if (openedIds.includes(order.id)) shouldExpand = true;
 
             let detailClass = shouldExpand ? 'detail-content' : 'detail-content hide-detail';
@@ -1806,6 +1853,7 @@
             
             const isLinePay = order.payment_method === 'linepay';
             const payTag = isLinePay ? `<span class="pay-tag-line">LINE</span>` : `<span class="pay-tag-cash">CASH</span>`;
+            
             const statusTagClass = { 
                 pending: 'tag-pending', confirmed: 'tag-confirmed', preparing: 'tag-preparing', 
                 completed: 'tag-completed', arrived: 'tag-arrived', final: 'tag-final', cancelled: 'tag-cancelled' 
@@ -1813,12 +1861,15 @@
 
             let actionBtn = getActionBtnHtml(order);
 
+            // ✨ HTML 生成：顯示 daily_serial
             html += `
                 <div class="card order-card status-${order.status}" id="card-${order.id}">
                     <div class="card-header-clickable" onclick="toggleDetail(${order.id})">
                         <div class="order-head-left">
                             <span class="order-pill pill-phone">${order.phone_tail || '現場'}</span>
-                            <span class="order-pill pill-id">#${order.id}</span>
+                            
+                            <span class="order-pill pill-id">#${order.daily_serial || order.id}</span>
+                            
                             ${payTag}
                             <span class="status-tag ${statusTagClass}">
                                 ${getStatusText(order.status)}${order.status === 'arrived' ? ' 🚨' : ''}
@@ -1843,6 +1894,7 @@
                 </div>
             `;
         });
+        
         list.innerHTML = html;
         updatePaginationUI(totalPages, totalItems);
     }

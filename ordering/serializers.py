@@ -27,7 +27,7 @@ class ProductSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
 
-# --- 訂單 Serializer (修正重點：移除 create 方法) ---
+# --- 訂單 Serializer (修正重點：加入 daily_serial) ---
 class OrderSerializer(serializers.ModelSerializer):
     id = serializers.ReadOnlyField()
     # write_only=True 表示前端寫入時需要，但後端回傳時不顯示
@@ -37,6 +37,7 @@ class OrderSerializer(serializers.ModelSerializer):
         model = Order
         fields = [
             "id",
+            "daily_serial",  # ✨ 新增：回傳當日流水號 (1, 2, 3...)
             "phone_tail",
             "items",
             "subtotal",
@@ -51,6 +52,7 @@ class OrderSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = [
             "id",
+            "daily_serial",  # ✨ 新增：此欄位由後端自動產生，前端不可修改
             "created_at",
             "linepay_transaction_id",
             "linepay_refunded",

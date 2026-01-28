@@ -1,5 +1,7 @@
 from django.db import models
+import datetime
 from django.utils import timezone
+from django.db.models import Max
 
 
 # ==========================================
@@ -140,6 +142,9 @@ class Order(models.Model):
     subtotal = models.PositiveIntegerField(default=0, verbose_name="小計")
     total = models.PositiveIntegerField(default=0, verbose_name="總額")
 
+    # ✨ 新增：當日流水號 (1, 2, 3...)
+    daily_serial = models.PositiveIntegerField(default=0, verbose_name="當日流水號")
+
     # LINE Pay 相關欄位
     linepay_transaction_id = models.CharField(
         max_length=100, blank=True, null=True, verbose_name="LINE Pay 交易號"
@@ -163,9 +168,15 @@ class Order(models.Model):
         verbose_name = "訂單"
         verbose_name_plural = "訂單管理"
         ordering = ["-created_at"]
+        # ✨ 新增索引：加快查詢「某分店+某天」的訂單速度
+        indexes = [
+            models.Index(fields=["store", "created_at"]),
+        ]
 
     def __str__(self):
-        return f"[{self.store.name}] #{self.id} ({self.get_status_display()})"
+        # ✨ 修改顯示：優先顯示流水號，括號內才是系統 ID
+        # 例如：[大津瀑布] #5 (ID:1023)
+        return f"[{self.store.name}] #{self.daily_serial} (ID:{self.id})"
 
     def update_total_from_json(self):
         """
@@ -188,14 +199,36 @@ class Order(models.Model):
     def save(self, *args, **kwargs):
         """
         覆寫 save 方法：
-        1. 自動計算總金額 (確保資料一致性)。
-        2. 自動填寫完成時間。
-        注意：這裡已移除所有「庫存還原」邏輯，避免與 ViewSet 衝突。
+        1. 自動計算總金額。
+        2. 若是新訂單，自動產生當日流水號。
+        3. 自動填寫完成時間。
         """
         # 1. 計算金額
         self.update_total_from_json()
 
-        # 2. 若狀態變為完成/結案，且沒有時間戳記，則自動填入
+        # 2. ✨ 自動產生流水號 (僅在新建立時執行)
+        if not self.pk:
+            # 取得當下時間 (Aware Time)
+            now = timezone.now()
+            # 轉換為當地日期 (處理時區問題，確保半夜12點準時重置)
+            local_today = timezone.localdate(now)
+            # 取得該日期的起始時間 (00:00:00)
+            today_start = timezone.make_aware(
+                datetime.datetime.combine(local_today, datetime.time.min)
+            )
+
+            # 查詢該分店、今天之內最大的 daily_serial
+            # 使用 aggregate Max 比 count 更安全，即使中間有刪除訂單，號碼也不會重複
+            max_serial = Order.objects.filter(
+                store=self.store, created_at__gte=today_start
+            ).aggregate(largest=Max("daily_serial"))["largest"]
+
+            if max_serial is not None:
+                self.daily_serial = max_serial + 1
+            else:
+                self.daily_serial = 1
+
+        # 3. 若狀態變為完成/結案，且沒有時間戳記，則自動填入
         if self.status in ["completed", "final"] and not self.completed_at:
             self.completed_at = timezone.now()
 

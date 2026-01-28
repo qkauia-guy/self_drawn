@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.utils.html import format_html
 from django.db import models
-from .models import Product, Order, Store, Category  # ✅ 確保引入 Category
+from .models import Product, Order, Store, Category
 from django_json_widget.widgets import JSONEditorWidget
 
 
@@ -21,13 +21,12 @@ class CategoryAdmin(admin.ModelAdmin):
     """
 
     list_display = ("name", "slug", "store", "sort_order", "product_count", "is_active")
-    list_editable = ("sort_order", "is_active")  # 讓您直接在列表改順序
+    list_editable = ("sort_order", "is_active")
     list_filter = ("store", "is_active")
     search_fields = ("name", "slug")
-    ordering = ("store", "sort_order")  # 預設依照分店與設定的順序排列
+    ordering = ("store", "sort_order")
 
     def product_count(self, obj):
-        # 顯示該分類下有多少商品
         count = obj.products.count()
         return f"{count} 項商品"
 
@@ -41,11 +40,10 @@ class ProductAdmin(admin.ModelAdmin):
     特色：加入 select_related 優化資料庫查詢，並支援用分類篩選。
     """
 
-    # 使用 select_related 預先抓取關聯資料，避免 N+1 查詢問題，提升後台速度
     list_select_related = ("category", "store")
 
     list_display = (
-        "category",  # 這裡現在會顯示 Category 物件名稱
+        "category",
         "name",
         "store",
         "price",
@@ -55,19 +53,10 @@ class ProductAdmin(admin.ModelAdmin):
         "display_inventory_status",
     )
 
-    # 點擊商品名稱進入編輯
     list_display_links = ("name",)
-
-    # 在列表頁直接修改這些欄位
     list_editable = ("category", "price", "stock", "is_active", "flavor_options")
-
-    # 篩選器
     list_filter = ("store", "category", "is_active")
-
-    # 搜尋欄位 (支援搜尋商品名與分類名)
     search_fields = ("name", "category__name")
-
-    # 預設排序
     ordering = ("category__sort_order", "id")
 
     def display_inventory_status(self, obj):
@@ -88,9 +77,9 @@ class ProductAdmin(admin.ModelAdmin):
 
 @admin.register(Order)
 class OrderAdmin(admin.ModelAdmin):
-    # (保持您原本優秀的設定)
     list_display = (
         "display_id",
+        "daily_serial",
         "store",
         "phone_tail",
         "payment_method",
@@ -105,8 +94,8 @@ class OrderAdmin(admin.ModelAdmin):
     list_display_links = ("display_id",)
     list_editable = ("status",)
 
-    # 🔥 關鍵新增：搜尋欄位
-    search_fields = ("id", "phone_tail", "linepay_transaction_id")
+    # 🔥 關鍵新增：搜尋欄位 (已加入 daily_serial)
+    search_fields = ("id", "daily_serial", "phone_tail", "linepay_transaction_id")
 
     list_filter = ("store", "status", "payment_method", "created_at")
     ordering = ("-id",)
@@ -116,7 +105,16 @@ class OrderAdmin(admin.ModelAdmin):
     fieldsets = (
         (
             "基本資訊",
-            {"fields": ("store", "status", "phone_tail", "payment_method", "total")},
+            {
+                "fields": (
+                    "store",
+                    "daily_serial",
+                    "status",
+                    "phone_tail",
+                    "payment_method",
+                    "total",
+                )
+            },
         ),
         (
             "訂單明細 (JSON 編輯器)",
@@ -143,6 +141,7 @@ class OrderAdmin(admin.ModelAdmin):
     )
 
     readonly_fields = (
+        "daily_serial",  # ✨ 流水號設為唯讀，避免手動改亂掉
         "created_at",
         "completed_at",
         "linepay_transaction_id",
@@ -156,20 +155,19 @@ class OrderAdmin(admin.ModelAdmin):
             '<span style="font-size: 14px; font-weight: bold;">#{}</span>', obj.id
         )
 
-    display_id.short_description = "單號"
+    display_id.short_description = "系統ID"
 
     def display_status_badge(self, obj):
         colors = {
-            "pending": "#ff4d4d",  # 紅 (確認中)
-            "confirmed": "#007bff",  # 藍 (已成立)
-            "preparing": "#f39c12",  # 橘 (製作中)
-            "completed": "#2ecc71",  # 綠 (完成-發送通知)
-            "arrived": "#d63031",  # 深紅 (客人在櫃檯)
-            "final": "#636e72",  # 灰 (結案)
-            "cancelled": "#2d3436",  # 黑 (取消)
-            "archived": "#b2bec3",  # 淡灰 (歸檔)
+            "pending": "#ff4d4d",
+            "confirmed": "#007bff",
+            "preparing": "#f39c12",
+            "completed": "#2ecc71",
+            "arrived": "#d63031",
+            "final": "#636e72",
+            "cancelled": "#2d3436",
+            "archived": "#b2bec3",
         }
-        # 兼容原本的 CHOICES 顯示
         status_dict = dict(obj.STATUS_CHOICES) if hasattr(obj, "STATUS_CHOICES") else {}
         status_text = status_dict.get(obj.status, obj.status)
 
@@ -261,7 +259,7 @@ class OrderAdmin(admin.ModelAdmin):
             placeholder="（無）",
         )
 
-    display_linepay_transaction_copy.short_description = "原交易號(可複製)"
+    display_linepay_transaction_copy.short_description = "原交易號"
 
     def display_linepay_refund_transaction_copy(self, obj):
         if obj.payment_method != "linepay":
@@ -272,4 +270,4 @@ class OrderAdmin(admin.ModelAdmin):
             placeholder="（未退款）",
         )
 
-    display_linepay_refund_transaction_copy.short_description = "退款交易號(可複製)"
+    display_linepay_refund_transaction_copy.short_description = "退款交易號"

@@ -126,13 +126,10 @@ const urlParams = new URLSearchParams(window.location.search);
 const currentStore = urlParams.get('store') || 'dajin';
 
 // 輔助函式：產生展開的細項 HTML
-// itemId: 唯一識別碼 (避免今日跟本月衝突)
-// detailsObj: 細項資料物件 { "品項名": {qty, rev} }
-// themeColor: 顏色樣式 (今日用 danger, 本月用 secondary)
 function generateDetailsHtml(itemId, detailsObj, themeColor) {
+    // 將細項轉為陣列並排序 (銷量高 -> 低)
     const sortedDetails = Object.entries(detailsObj || {}).sort((a, b) => b[1].qty - a[1].qty);
     const borderClass = `border-${themeColor}`;
-    const textClass = `text-${themeColor}`; // 標題顏色
 
     if (sortedDetails.length === 0) {
         return `
@@ -162,7 +159,31 @@ function generateDetailsHtml(itemId, detailsObj, themeColor) {
     </tr>`;
 }
 
+// 輔助函式：產生分類的主列 HTML
+function generateCategoryRowHtml(slug, data, type, themeColor) {
+    const collapseId = `collapse-${type}-${slug}`;
+    const badgeClass = `bg-${themeColor}`;
+    const textClass = `text-${themeColor}`;
+    
+    // 如果該分類總業績為 0，顯示稍微淡一點 (選擇性)
+    const opacityClass = data.qty === 0 ? 'opacity-75' : '';
+
+    return `
+        <tr style="cursor: pointer;" class="${opacityClass}" data-bs-toggle="collapse" data-bs-target="#${collapseId}" aria-expanded="false">
+            <td class="ps-4">
+                <div class="fw-bold text-dark">${data.name} <span class="${textClass} small">▾</span></div>
+            </td>
+            <td class="text-end pe-4">
+                <span class="badge ${badgeClass} rounded-pill qty-badge">${data.qty} 份</span>
+                <div class="item-rev">$${data.rev.toLocaleString()}</div>
+            </td>
+        </tr>
+        ${generateDetailsHtml(collapseId, data.details, themeColor)}
+    `;
+}
+
 function fetchStats() {
+    // 加入時間戳記防止快取
     fetch(`/api/orders/dashboard_stats/?store=${currentStore}&t=${new Date().getTime()}`)
     .then(res => {
         if (res.status === 401 || res.status === 403) { window.location.href = '/admin/login/'; return; }
@@ -171,7 +192,7 @@ function fetchStats() {
     .then(data => {
         if (!data) return;
 
-        // 更新頂部數據
+        // 1. 更新頂部總覽數據
         document.getElementById('current_store_name').innerText = data.store_name || '未知分店';
         document.getElementById('day_rev').innerText = '$' + (data.today.revenue || 0).toLocaleString();
         document.getElementById('day_count').innerText = data.today.orders || 0;
@@ -179,65 +200,35 @@ function fetchStats() {
         document.getElementById('month_count').innerText = data.monthly.orders || 0;
         document.getElementById('update_time').innerText = data.update_time;
 
-        const itemsConfig = [
-            { name: '🥛 飲品系列', key: 'drink' },
-            { name: '🍡 Q軟麻糬系列', key: 'mochi' },
-            { name: '🍓 元寶草莓大福', key: 'ichikomochi' },
-            { name: '🍰 草莓甜點', key: 'dessert' }
-        ];
-        
+        // 2. 動態生成【今日】列表
+        // 直接遍歷 API 回傳的 items 物件 (key=slug, value=資料物件)
         let todayHtml = '';
-        let monthHtml = '';
+        const todayItems = data.today.items || {};
         
-        itemsConfig.forEach((item) => {
-            // 取得資料，若無則給預設值
-            const todayItem = (data.today.items && data.today.items[item.key]) || { qty: 0, rev: 0, details: {} };
-            const monthItem = (data.monthly.items && data.monthly.items[item.key]) || { qty: 0, rev: 0, details: {} };
-            
-            // --- 1. 產生【今日】區塊 ---
-            const todayId = `collapse-today-${item.key}`;
-            const todayDetailsHtml = generateDetailsHtml(todayId, todayItem.details, 'danger'); // 紅色主題
-
-            todayHtml += `
-            <tr style="cursor: pointer;" data-bs-toggle="collapse" data-bs-target="#${todayId}" aria-expanded="false">
-                <td class="ps-4">
-                    <div class="fw-bold text-dark">${item.name} <span class="text-danger small">▾</span></div>
-                </td>
-                <td class="text-end pe-4">
-                    <span class="badge bg-danger rounded-pill qty-badge">${todayItem.qty} 份</span>
-                    <div class="item-rev">$${todayItem.rev.toLocaleString()}</div>
-                </td>
-            </tr>
-            ${todayDetailsHtml}
-            `;
-
-            // --- 2. 產生【本月】區塊 (現在也支援展開了) ---
-            const monthId = `collapse-month-${item.key}`;
-            // 假設 monthItem.details 存在。如果 API 沒回傳 details，列表會顯示 "尚無銷售紀錄"
-            const monthDetailsHtml = generateDetailsHtml(monthId, monthItem.details, 'secondary'); // 灰色主題
-
-            monthHtml += `
-            <tr style="cursor: pointer;" data-bs-toggle="collapse" data-bs-target="#${monthId}" aria-expanded="false">
-                <td class="ps-4">
-                    <div class="fw-bold text-dark">${item.name} <span class="text-secondary small">▾</span></div>
-                </td>
-                <td class="text-end pe-4">
-                    <span class="badge bg-secondary rounded-pill qty-badge">${monthItem.qty} 份</span>
-                    <div class="item-rev">$${monthItem.rev.toLocaleString()}</div>
-                </td>
-            </tr>
-            ${monthDetailsHtml}
-            `;
+        // 使用 Object.entries 將物件轉為陣列以便操作
+        // 雖然物件沒有順序，但後端建立字典時通常是依照查詢順序加入的 (Python 3.7+ 保留插入順序)
+        // 如果需要更嚴謹的排序，可以在這裡 sort
+        Object.entries(todayItems).forEach(([slug, itemData]) => {
+            todayHtml += generateCategoryRowHtml(slug, itemData, 'today', 'danger');
         });
+        document.getElementById('today_table_body').innerHTML = todayHtml || '<tr><td colspan="2" class="text-center py-4">尚無資料</td></tr>';
 
-        document.getElementById('today_table_body').innerHTML = todayHtml;
-        document.getElementById('month_table_body').innerHTML = monthHtml;
+        // 3. 動態生成【本月】列表
+        let monthHtml = '';
+        const monthItems = data.monthly.items || {};
+        
+        Object.entries(monthItems).forEach(([slug, itemData]) => {
+            monthHtml += generateCategoryRowHtml(slug, itemData, 'month', 'secondary');
+        });
+        document.getElementById('month_table_body').innerHTML = monthHtml || '<tr><td colspan="2" class="text-center py-4">尚無資料</td></tr>';
     })
     .catch(err => {
         console.error("載入失敗:", err);
+        // 可以加個 SweetAlert 提示
     });
 }
 
+// 啟動載入
 fetchStats();
 </script>
 

@@ -454,7 +454,9 @@
         const orderArray = Array.isArray(orders) ? orders : (orders.results || []);
 
         orderArray.forEach(order => {
-          const orderId = `${order.id}`;
+          // ✨✨✨ 修改處：優先顯示流水號 (例如 1, 2)，確保語音和畫面一致 ✨✨✨
+          const orderId = (order.daily_serial || order.id).toString();
+
           if (order.status === 'completed' || order.status === 'arrived') {
             allReadyData.push(orderId);
             currentReadyNumbers.add(orderId);
@@ -467,17 +469,17 @@
         if (!isFirstLoad) {
           const newNumbers = [...currentReadyNumbers].filter(num => !previousReadyNumbers.has(num));
           if (newNumbers.length > 0) {
-            // ✨ 改用新的排隊函式
+            // 加入播報隊列
             addToAnnouncementQueue(newNumbers);
           }
         }
 
-        // --- 分頁邏輯 ---
+        // --- 分頁邏輯 (保持不變) ---
         function processPagination(data, pageIndex, headerSelector, defaultTitle) {
             const PAGE_SIZE = 8;
             const totalPages = Math.ceil(data.length / PAGE_SIZE) || 1;
             
-            // 如果正在播報中，強制「請取餐」顯示第一頁
+            // 如果正在播報中，強制「請取餐」顯示第一頁，讓剛叫號的客人能看到
             if (isAnnouncing && defaultTitle.includes('Ready')) {
                 pageIndex = 0;
             } else if (pageIndex >= totalPages) {

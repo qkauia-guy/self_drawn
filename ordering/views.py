@@ -400,6 +400,7 @@ class OrderViewSet(viewsets.ModelViewSet):
                         return Response(
                             {
                                 "id": order.id,
+                                "daily_serial": order.daily_serial,
                                 "status": "pending",
                                 "total": order.total,
                                 "payment_method": "linepay",
