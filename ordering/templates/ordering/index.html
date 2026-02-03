@@ -486,7 +486,7 @@
                 const list = document.getElementById('productList');
                 list.innerHTML = '';
 
-                // 1. 資料分組邏輯 (維持不變)
+                // 1. 資料分組
                 const groups = {};
                 data.forEach(p => {
                     const catSlug = p.category; 
@@ -502,31 +502,38 @@
                 });
                 const sortedCategories = Object.values(groups).sort((a, b) => a.order - b.order);
 
-                // 🔥 2. 關鍵修改：過濾掉全售完的分類 🔥
-                // 如果分類裡的商品全部都 (stock<=0 或 !active)，這個分類就不會進入 visibleCategories
+                // 2. 過濾掉「完全沒庫存」的分類 (隱藏空分類)
                 const visibleCategories = sortedCategories.filter(cat => {
                     return cat.products.some(p => p.stock > 0 && p.is_active);
                 });
+
+                // 🔥 3. (新功能) 對分類內的商品排序：有庫存置頂，售完沉底
+                visibleCategories.forEach(cat => {
+                    cat.products.sort((a, b) => {
+                        const aSoldOut = a.stock <= 0 || !a.is_active;
+                        const bSoldOut = b.stock <= 0 || !b.is_active;
+
+                        // 狀態相同維持原順序，狀態不同則 "售完者" 往後排
+                        return (aSoldOut === bSoldOut) ? 0 : (aSoldOut ? 1 : -1);
+                    });
+                });
                 
-                // 如果今天全部賣光光，顯示一個提示
+                // 如果全部賣光
                 if (visibleCategories.length === 0) {
-                    list.innerHTML = `<div class="text-center py-5 text-muted">
-                        <h3>❌</h3>
-                        <p>今日商品已全數售完，明日請早！</p>
-                    </div>`;
+                    list.innerHTML = `<div class="text-center py-5 text-muted"><h3>❌</h3><p>今日商品已全數售完，明日請早！</p></div>`;
                     updateTotal();
                     return;
                 }
 
+                // 4. 開始渲染 HTML
                 const accordionId = "productAccordion";
                 let accordionHTML = `<div class="accordion accordion-flush" id="${accordionId}">`;
 
-                // 🔥 3. 使用 visibleCategories 進行渲染
                 visibleCategories.forEach((cat, index) => {
                     const catSlug = cat.slug;
                     const catLabel = cat.name;
-                    const filteredProducts = cat.products;
-                    const isFirst = index === 0; // 這樣第一個有貨的分類會自動展開
+                    const filteredProducts = cat.products; // 這裡已經是排好序的了
+                    const isFirst = index === 0; 
                     const collapseId = `collapse_${catSlug}`;
                     const headerId = `heading_${catSlug}`;
 
@@ -543,14 +550,10 @@
                             <div class="accordion-body p-0 pt-2 ms-3">`;
 
                     filteredProducts.forEach(p => {
-                        // 這裡可以維持原樣：雖然分類是有貨的，但裡面可能還是有「部分」商品售完
-                        // 那些售完的商品還是會顯示(反灰)，這是正確的 UX (讓客人知道有賣這個，只是現在沒了)
                         const isSoldOut = p.stock <= 0 || !p.is_active;
-                        
                         const statusLabel = isSoldOut ? 
                             `<span class="badge bg-secondary">今日售完</span>` : 
                             `<small class="text-muted">剩餘庫存: ${p.stock}</small>`;
-                        
                         const descHTML = p.description ? `<div class="small text-muted mb-1" style="font-size: 0.8rem;">${p.description}</div>` : '';
 
                         let actionButtonsHtml = '';
@@ -585,7 +588,7 @@
                 accordionHTML += `</div>`;
                 list.innerHTML = accordionHTML;
 
-                // --- 後續還原邏輯與原本相同 ---
+                // 5. 初始化與還原購物車
                 setTimeout(() => {
                     list.querySelectorAll('.accordion-collapse').forEach(el => {
                         if (!bootstrap.Collapse.getInstance(el)) new bootstrap.Collapse(el, { toggle: false });
@@ -593,7 +596,6 @@
                     bindAccordionAutoScroll();
                 }, 80);
 
-                // 還原購物車 (使用優化版邏輯)
                 if (savedCart && typeof savedCart === 'object') {
                     for (const [pid, qty] of Object.entries(savedCart)) {
                         const input = document.getElementById(`qty_${pid}`);
