@@ -6,6 +6,8 @@ import base64
 import requests
 import pytz
 import os
+import logging
+
 
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
@@ -27,6 +29,7 @@ from .forms import ProductForm
 from .serializers import ProductSerializer, OrderSerializer
 
 
+logger = logging.getLogger(__name__)
 # ==========================================
 # 1. LINE Pay 設定
 # ==========================================
@@ -36,7 +39,8 @@ LINE_PAY_SANDBOX = os.environ.get("LINE_PAY_SANDBOX", "True") == "True"
 
 if LINE_PAY_CHANNEL_ID or LINE_PAY_CHANNEL_SECRET:
     if not LINE_PAY_CHANNEL_ID or not LINE_PAY_CHANNEL_SECRET:
-        print("⚠️ 警告: 偵測到 LINE Pay 設定，但缺少 ID 或 Secret。")
+        logger.warning("⚠️ LINE Pay 設定不完整: 缺少 Channel ID 或 Secret")
+
 
 LINE_PAY_API_URL = (
     "https://sandbox-api-pay.line.me" if LINE_PAY_SANDBOX else "https://api-pay.line.me"
@@ -160,14 +164,10 @@ class ProductViewSet(viewsets.ReadOnlyModelViewSet):
 
 class OrderViewSet(viewsets.ModelViewSet):
     serializer_class = OrderSerializer
-
     throttle_classes = []
 
     def get_queryset(self):
-        # 1. 取得基本 QuerySet
         qs = Order.objects.all()
-
-        # 2. 分店過濾 (必須)
         store_slug = self.request.query_params.get("store")
         if store_slug:
             qs = qs.filter(store__slug=store_slug)
@@ -175,16 +175,12 @@ class OrderViewSet(viewsets.ModelViewSet):
         from django.db.models import Q
 
         active_statuses = ["pending", "confirmed", "preparing", "completed", "arrived"]
-
         now = timezone.now()
         today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
 
         # 過濾邏輯：(建立時間是今天) OR (狀態是未結案)
         qs = qs.filter(Q(created_at__gte=today_start) | Q(status__in=active_statuses))
-
-        # 雙重保險：絕對不顯示已歸檔的單 (雖然上面邏輯應該已經排除了)
         qs = qs.exclude(status="archived")
-
         return qs.order_by("-id")
 
     def get_permissions(self):
@@ -211,7 +207,6 @@ class OrderViewSet(viewsets.ModelViewSet):
 
         # --- [管理員修改內容] ---
         if request.user.is_authenticated and "items" in request.data:
-            # 限制狀態
             if instance.status not in ["pending", "confirmed"]:
                 return Response({"error": "只能修改未完成的訂單"}, status=400)
 
@@ -224,7 +219,7 @@ class OrderViewSet(viewsets.ModelViewSet):
                     # 1. 先「全額還原」舊訂單的庫存
                     self._restore_stock(instance)
 
-                    # 2. 重新計算新訂單內容 (扣庫存 + 建立快照)
+                    # 2. 重新計算新訂單內容
                     updated_items_snapshot = []
                     new_total = 0
 
@@ -238,21 +233,16 @@ class OrderViewSet(viewsets.ModelViewSet):
                         if qty <= 0:
                             continue
 
-                        # 鎖定並讀取商品 (確保庫存檢查時沒人插隊)
                         product = Product.objects.select_for_update().get(id=product_id)
 
-                        # 檢查庫存
-                        # 注意：因為步驟 1 已經把舊庫存還原了，所以這裡是檢查「總可用量」
                         if product.stock < qty:
                             raise ValueError(
                                 f"{product.name} 庫存不足 (剩餘 {product.stock})"
                             )
 
-                        # 扣庫存
                         product.stock -= qty
                         product.save()
 
-                        # 建立快照
                         item_copy = {
                             "id": product.id,
                             "name": product.name,
@@ -268,11 +258,8 @@ class OrderViewSet(viewsets.ModelViewSet):
                         updated_items_snapshot.append(item_copy)
                         new_total += item_copy["price"] * qty
 
-                    # 3. 更新訂單
                     instance.items = updated_items_snapshot
                     instance.total = new_total
-                    # 注意：不需手動算 subtotal，Order.save() 會處理 (如果 model 有保留 update_total_from_json)
-                    # 但為了保險，這裡可以直接寫入
                     instance.subtotal = new_total
                     instance.save()
 
@@ -284,38 +271,29 @@ class OrderViewSet(viewsets.ModelViewSet):
             except ValueError as e:
                 return Response({"error": str(e)}, status=400)
             except Exception as e:
-                print(f"Edit Order Error: {e}")
+                # 使用 logger 記錄錯誤堆疊
+                logger.error(f"修改訂單發生錯誤: {e}", exc_info=True)
                 return Response({"error": "修改失敗，請稍後再試"}, status=500)
 
-        # ... (原本的狀態更新邏輯保持不變) ...
         return super().partial_update(request, *args, **kwargs)
 
-    # 在 OrderViewSet 類別內，替換原本的 _restore_stock
     def _restore_stock(self, order: Order):
-        """
-        還原庫存 (原子操作版)
-        修正：移除 json.loads，因為 JSONField 自動轉為 list
-        """
-        # 1. 取得訂單內容 (Django JSONField 自動轉為 List)
+        """還原庫存 (原子操作版)"""
         items = order.items
-
-        # 防呆：確保是列表
         if not items or not isinstance(items, list):
             return
 
-        print(f"🔄 [庫存還原] 訂單 #{order.id}，項目數: {len(items)}")
+        # 記錄還原操作
+        logger.info(f"🔄 [庫存還原] 訂單 #{order.id}，項目數: {len(items)}")
 
-        # 2. 遍歷並還原
         for item in items:
             product_id = item.get("id")
-            # 兼容 quantity 或 qty
             try:
                 qty = int(item.get("quantity") or item.get("qty") or 0)
             except (ValueError, TypeError):
                 qty = 0
 
             if product_id and qty > 0:
-                # 使用 F() 表達式進行原子更新 (避免 Race Condition)
                 Product.objects.filter(id=product_id).update(stock=F("stock") + qty)
 
     def create(self, request, *args, **kwargs):
@@ -338,21 +316,18 @@ class OrderViewSet(viewsets.ModelViewSet):
                     if qty <= 0:
                         continue
 
-                    # 🔥 關鍵修復：原子鎖定扣庫存
-                    # 只有當 stock >= qty 時才會扣除，且直接在 DB 運算
+                    # 原子鎖定扣庫存
                     rows_affected = Product.objects.filter(
                         id=product_id, is_active=True, stock__gte=qty
                     ).update(stock=F("stock") - qty)
 
                     if rows_affected == 0:
-                        # 為了顯示具體錯誤，再查一次商品名稱
                         p = Product.objects.filter(id=product_id).first()
                         if p:
                             raise ValueError(f"{p.name} 庫存不足 (剩餘 {p.stock})")
                         else:
                             raise ValueError("商品不存在或已下架")
 
-                    # 取得最新資訊做快照
                     product = Product.objects.get(id=product_id)
                     item_copy = item.copy()
                     item_copy.update(
@@ -369,7 +344,6 @@ class OrderViewSet(viewsets.ModelViewSet):
                     )
                     updated_items.append(item_copy)
 
-                # 建立訂單
                 data_copy = request.data.copy()
                 data_copy["status"] = "pending"
                 data_copy["items"] = updated_items
@@ -382,7 +356,6 @@ class OrderViewSet(viewsets.ModelViewSet):
 
                 order = serializer.save(store=store)
 
-                # LINE Pay
                 if payment_method == "linepay":
                     line_handler = LinePayHandler()
                     MY_DOMAIN = "yibahu-order.it.com"  # 請確認您的網址
@@ -417,32 +390,49 @@ class OrderViewSet(viewsets.ModelViewSet):
                 return Response(serializer.data, status=201)
 
         except Exception as e:
+            logger.error(f"建立訂單失敗: {e}", exc_info=True)
             return Response({"error": str(e)}, status=400)
 
     @action(detail=False, methods=["get"])
     def line_confirm(self, request):
+        """LINE Pay 確認付款回調 (Confirm API)"""
         transaction_id = request.GET.get("transactionId")
         order_id = request.GET.get("oid")
 
         if not order_id:
+            logger.warning("LINE Confirm 回調缺少 'oid' 參數")
             return redirect("/")
 
         try:
             with transaction.atomic():
+                # 鎖定訂單
                 order = Order.objects.select_for_update().get(id=order_id)
                 store_slug = order.store.slug
 
+                # 若已確認過，直接導向成功頁面
                 if order.status == "confirmed":
                     return redirect(f"/{store_slug}/?oid={order.id}")
 
                 if not transaction_id:
+                    logger.warning(
+                        f"訂單 #{order_id} 缺少 Transaction ID，將執行取消..."
+                    )
+                    # 缺少交易 ID 視為失敗，還原庫存
+                    self._restore_stock(order)
+                    order.status = "cancelled"
+                    order.save()
                     return redirect(
                         f"/{store_slug}/?error=missing_transaction&oid={order.id}"
                     )
 
+                # 呼叫 LINE Pay 確認 API
                 line_handler = LinePayHandler()
                 result = line_handler.confirm_payment(transaction_id, order.total)
-                print(f"DEBUG: LINE Pay 回傳內容: {result}")
+
+                # 記錄回傳結果
+                logger.info(
+                    f"LINE Pay Confirm 結果 (訂單 #{order.id}): Code={result.get('returnCode')} Msg={result.get('returnMessage')}"
+                )
 
                 if result and result.get("returnCode") == "0000":
                     order.status = "confirmed"
@@ -451,18 +441,25 @@ class OrderViewSet(viewsets.ModelViewSet):
                     order.save()
                     return redirect(f"/{store_slug}/?oid={order.id}")
 
+                # 付款失敗處理
+                logger.error(f"LINE Pay 付款失敗 (訂單 #{order.id}): {result}")
                 self._restore_stock(order)
                 order.status = "cancelled"
                 order.save()
                 return redirect(f"/{store_slug}/?error=payment_failed&oid={order.id}")
 
         except Exception as e:
+            logger.error(
+                f"LINE Confirm 伺服器錯誤 (訂單 {order_id}): {e}", exc_info=True
+            )
             return redirect(f"/?error=server_error")
 
     @action(detail=False, methods=["get"])
     def line_cancel(self, request):
+        """LINE Pay 使用者取消回調 (User Cancel URL)"""
         order_id = request.GET.get("oid")
         if not order_id:
+            logger.warning("LINE Cancel 回調缺少 'oid' 參數")
             return redirect("/")
 
         try:
@@ -471,38 +468,103 @@ class OrderViewSet(viewsets.ModelViewSet):
                 store_slug = order.store.slug
 
                 if order.status == "confirmed":
+                    logger.info(
+                        f"LINE Cancel 回調: 訂單 #{order.id} 實際上已付款成功，導向成功頁面。"
+                    )
                     return redirect(f"/{store_slug}/?oid={order.id}")
 
                 if order.status == "pending":
+                    logger.info(f"LINE Cancel 回調: 取消未付款訂單 #{order.id}")
                     self._restore_stock(order)
                     order.status = "cancelled"
                     order.save()
 
                 return redirect(f"/{store_slug}/?error=cancelled&oid={order.id}")
-        except Exception:
+
+        except Order.DoesNotExist:
+            logger.warning(f"LINE Cancel 回調: 找不到訂單 ID {order_id}")
+            return redirect("/")
+
+        except Exception as e:
+            logger.error(
+                f"LINE Cancel 回調發生錯誤 (訂單 {order_id}): {str(e)}",
+                exc_info=True,
+            )
             return redirect(f"/?error=cancel_failed")
 
     @action(detail=True, methods=["post"], url_path="cancel")
     def cancel(self, request, pk=None):
+        """使用者主動取消訂單 (含 LINE Pay 自動退款)"""
         try:
             with transaction.atomic():
+                # 1. 鎖定訂單
                 order = Order.objects.select_for_update().get(id=pk)
 
-                # 🔥 關鍵修復：雙重檢查狀態
-                if order.status in ["cancelled", "archived"]:
+                # 2. 檢查狀態
+                if order.status not in ["pending", "confirmed"]:
+                    logger.warning(
+                        f"使用者取消失敗: 訂單 #{order.id} 狀態為 '{order.status}'，不可取消"
+                    )
                     return Response(
-                        {"status": "success", "detail": "already cancelled"}
+                        {"error": "此訂單狀態無法取消，請聯繫店家"}, status=400
                     )
 
+                # 3. 處理 LINE Pay 退款
+                if order.payment_method == "linepay" and order.status == "confirmed":
+                    if not order.linepay_transaction_id:
+                        logger.error(
+                            f"退款失敗: 訂單 #{order.id} (LINE Pay) 已確認但無交易編號"
+                        )
+                        return Response(
+                            {"error": "找不到交易編號，無法自動退款，請聯繫客服"},
+                            status=400,
+                        )
+
+                    logger.info(
+                        f"🔄 執行 LINE Pay 退款: 訂單 #{order.id}, TID: {order.linepay_transaction_id}"
+                    )
+
+                    line_handler = LinePayHandler()
+                    result = line_handler.refund_payment(order.linepay_transaction_id)
+
+                    # 檢查 LINE Pay 結果
+                    if result.get("returnCode") != "0000":
+                        error_msg = result.get("returnMessage", "未知錯誤")
+                        error_code = result.get("returnCode", "N/A")
+
+                        logger.error(
+                            f"❌ LINE Pay 退款 API 失敗: 訂單 #{order.id}, Code: {error_code}, Msg: {error_msg}"
+                        )
+
+                        return Response(
+                            {"error": f"退款失敗: {error_msg}，請聯繫客服處理"},
+                            status=400,
+                        )
+
+                    logger.info(f"✅ LINE Pay 退款成功: 訂單 #{order.id}")
+
+                # 4. 還原庫存
                 self._restore_stock(order)
+
+                # 5. 更新狀態
                 order.status = "cancelled"
                 order.save()
 
-            return Response({"status": "success", "detail": "cancelled"})
+                logger.info(f"訂單 #{order.id} 已由使用者成功取消")
+
+            return Response({"status": "success", "detail": "訂單已取消並完成退款"})
+
         except Order.DoesNotExist:
-            return Response({"error": "order not found"}, status=404)
+            logger.warning(f"取消請求失敗: 找不到訂單 ID {pk}")
+            return Response({"error": "找不到該訂單"}, status=404)
+
         except Exception as e:
-            return Response({"error": str(e)}, status=500)
+            # 捕捉所有未預期錯誤，exc_info=True 記錄 Traceback
+            logger.error(
+                f"❌ 處理訂單 #{pk} 取消時發生系統錯誤: {str(e)}",
+                exc_info=True,
+            )
+            return Response({"error": "系統發生錯誤，請稍後再試"}, status=500)
 
     @action(detail=False, methods=["get"])
     def latest(self, request):
@@ -514,9 +576,9 @@ class OrderViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(orders, many=True)
         return Response(serializer.data)
 
-    # ✅ 修正重點 2: 儀表板改為動態讀取 Category
     @action(detail=False, methods=["get"])
     def dashboard_stats(self, request):
+        # (這裡維持原本的報表邏輯，因為沒有涉及交易安全性，僅作讀取)
         store_slug = request.query_params.get("store")
         if not store_slug:
             return Response({"error": "請提供 store 參數"}, status=400)
@@ -530,13 +592,10 @@ class OrderViewSet(viewsets.ModelViewSet):
         month_start = now_tw.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
 
         def calculate_metrics(queryset):
-            # ✅ 修改 1: 這裡加入了 "archived"，確保歸檔後的業績依然被計算
             final_qs = queryset.filter(status__in=["completed", "final", "archived"])
-
             total_rev = final_qs.aggregate(Sum("total"))["total__sum"] or 0
             total_count = final_qs.count()
 
-            # 1. 初始化統計容器 (加入 details)
             items_stats = {}
             for cat in categories:
                 items_stats[cat.slug] = {
@@ -545,7 +604,6 @@ class OrderViewSet(viewsets.ModelViewSet):
                     "name": cat.name,
                     "details": {},
                 }
-            # 處理未分類或已刪除分類的情況
             items_stats["uncategorized"] = {
                 "qty": 0,
                 "rev": 0,
@@ -557,21 +615,16 @@ class OrderViewSet(viewsets.ModelViewSet):
                 for item in order.items or []:
                     cat_slug = item.get("category", "uncategorized")
                     p_name = item.get("name", "未知商品")
-
                     qty = int(item.get("quantity") or item.get("qty", 0))
                     price = int(item.get("price", 0))
                     subtotal = price * qty
 
-                    # 確保分類存在 (防呆)
                     target_stats = items_stats.get(
                         cat_slug, items_stats["uncategorized"]
                     )
-
-                    # A. 更新分類總數
                     target_stats["qty"] += qty
                     target_stats["rev"] += subtotal
 
-                    # B. 更新該商品細項 (Details)
                     details = target_stats["details"]
                     if p_name not in details:
                         details[p_name] = {"qty": 0, "rev": 0}
@@ -581,12 +634,7 @@ class OrderViewSet(viewsets.ModelViewSet):
 
             return total_rev, total_count, items_stats
 
-        # ✅ 修改 2: 這裡改用 Order.objects 直接查詢
-        # 因為 self.get_queryset() 已經過濾掉 archived (為了前台隱藏)，
-        # 所以報表必須繞過 get_queryset 才能統計到已歸檔的資料。
         base_qs = Order.objects.filter(store=store)
-
-        # 計算今日與本月
         d_rev, d_count, d_items = calculate_metrics(
             base_qs.filter(created_at__gte=today_start)
         )
